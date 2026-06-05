@@ -1,1 +1,93 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Pay Online | PLEASE Services</title><meta name="description" content="Secure online payments for PLEASE Services deposits and approved invoices."><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css"></head><body><header class="site-header"><div class="container nav"><a href="index.html"><img src="images/please-logo.png" alt="PLEASE Services" class="brand-logo"></a><nav class="nav-links open"><a href="index.html">Home</a><a href="index.html#services">Services</a><a href="modules/agenda/agenda.html">Book</a></nav></div></header><main class="section soft"><div class="container payment-box"><div><p class="eyebrow dark">Secure Stripe Checkout</p><h1 style="color:#111827;font-size:clamp(38px,5vw,64px)">Pay PLEASE Services Online</h1><p>Use this page only after your service, deposit or invoice amount has been confirmed by PLEASE.</p><ul class="payment-list"><li>Stripe-hosted secure checkout</li><li>Deposits, custom services or invoice balances</li><li>Replace the placeholder links below with real Stripe Payment Links</li></ul><p><strong>Setup note:</strong> edit this file and replace <code>STRIPE_PAYMENT_LINK_...</code> with the real links from the PLEASE Stripe dashboard.</p></div><div class="payment-actions"><a class="btn primary" href="STRIPE_PAYMENT_LINK_50_DEPOSIT">Pay $50 Deposit</a><a class="btn primary" href="STRIPE_PAYMENT_LINK_100_DEPOSIT">Pay $100 Deposit</a><a class="btn primary" href="STRIPE_PAYMENT_LINK_CUSTOM_INVOICE">Pay Approved Invoice</a><a class="btn secondary" href="mailto:info@pleaseservice.ca?subject=Payment question">Ask About My Payment</a><a class="btn secondary" href="index.html">Back to Website</a></div></div></main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Pay Online | PLEASE Services</title>
+  <meta
+    name="description"
+    content="Secure online payments for PLEASE Services deposits and approved invoices."
+  />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@700;800;900&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body class="payment-page">
+
+  <header class="site-header">
+    <div class="container nav" style="justify-content:center;">
+      <a href="index.html" aria-label="Back to PLEASE Services home">
+        <img
+          src="images/please-logo.png"
+          alt="PLEASE Services"
+          class="brand-logo"
+        />
+      </a>
+    </div>
+  </header>
+
+  <main class="section soft">
+    <div class="container payment-box">
+
+      <section>
+        <p class="eyebrow dark">Secure Stripe Checkout</p>
+
+        <h1 style="color:#111827;font-size:clamp(38px,5vw,64px);">
+          Pay PLEASE Services Online
+        </h1>
+
+        <p>
+          Use this page only after your service, deposit, or invoice amount has
+          been confirmed by PLEASE.
+        </p>
+
+        <ul class="payment-list">
+          <li>Stripe-hosted secure checkout</li>
+          <li>Deposits, custom services, or invoice balances</li>
+          <li>Secure payment links connected to PLEASE Services</li>
+        </ul>
+
+        <p>
+          If you are not sure which option to select, please contact PLEASE
+          before making a payment.
+        </p>
+      </section>
+
+      <section class="payment-actions" aria-label="Online payment options">
+        <a class="btn primary" href="STRIPE_PAYMENT_LINK_50_DEPOSIT">
+          Pay $50 Deposit
+        </a>
+
+        <a class="btn primary" href="STRIPE_PAYMENT_LINK_100_DEPOSIT">
+          Pay $100 Deposit
+        </a>
+
+        <a class="btn primary" href="STRIPE_PAYMENT_LINK_CUSTOM_INVOICE">
+          Pay Approved Invoice
+        </a>
+
+        <a
+          class="btn secondary"
+          href="mailto:info@pleaseservice.ca?subject=Payment question"
+        >
+          Ask About My Payment
+        </a>
+
+        <a class="btn secondary" href="index.html">
+          Back to Website
+        </a>
+      </section>
+
+    </div>
+  </main>
+
+</body>
+</html>
