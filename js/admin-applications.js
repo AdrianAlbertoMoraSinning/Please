@@ -242,7 +242,7 @@
 
   async function init() {
     try {
-      await ensureAdminSession(); loading.remove(); app.hidden=false; await loadApplications();
+      await ensureAdminSession(); loading.hidden=true; loading.remove(); app.hidden=false; await loadApplications();
       const idFromUrl = new URLSearchParams(window.location.search).get('application');
       if (idFromUrl) { const match=allApplications.find(row=>row.id===idFromUrl); if (match) await openApplication(match); }
     } catch (error) { if (!location.href.includes('admin-login')) loading.textContent = error?.message || 'Unable to load secure administration portal.'; }

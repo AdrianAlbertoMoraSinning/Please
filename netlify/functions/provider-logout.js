@@ -1,0 +1,1 @@
+const lib=require('./_provider-lib');exports.handler=async event=>{if(event.httpMethod!=='POST')return lib.json(405,{error:'Method not allowed'});try{const a=await lib.requireProvider(event);await lib.revokeSession(a);}catch(_){}return lib.json(200,{ok:true},{'Set-Cookie':lib.clearCookie()});};

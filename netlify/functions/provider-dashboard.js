@@ -1,0 +1,9 @@
+const lib=require('./_provider-lib');
+exports.handler=async event=>{if(event.httpMethod!=='GET')return lib.json(405,{error:'Method not allowed'});try{const a=await lib.requireProvider(event),pid=a.provider.id,q=encodeURIComponent(pid);const [providers,ps,services,av,ex,assign]=await Promise.all([
+ lib.sbJson(`/rest/v1/providers?select=id,reference,display_name,company_name,public_title,short_bio,technical_description,service_area,licensed_certified,insured,status,public_visible,slug&id=eq.${q}&limit=1`),
+ lib.sbJson(`/rest/v1/provider_services?select=service_id,active,provider_notes&provider_id=eq.${q}`),
+ lib.sbJson('/rest/v1/services?select=id,name,short_description,active&active=eq.true&order=sort_order.asc'),
+ lib.sbJson(`/rest/v1/provider_availability?select=id,weekday,start_time,end_time,active&provider_id=eq.${q}&active=eq.true&order=weekday.asc,start_time.asc`),
+ lib.sbJson(`/rest/v1/provider_availability_exceptions?select=id,exception_date,start_time,end_time,exception_type,reason,created_at&provider_id=eq.${q}&order=exception_date.asc,start_time.asc`),
+ lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,scheduled_start,scheduled_end,status,assignment_message,provider_response_note,assigned_at,responded_at,updated_at,jobs(id,reference,service_name,work_address,work_description,estimated_duration_minutes,status,created_at)&provider_id=eq.${q}&order=scheduled_start.desc`)
+ ]);const p=providers?.[0]||null;const assignedIds=new Set((ps||[]).filter(x=>x.active).map(x=>x.service_id));return lib.json(200,{provider:p,services:(services||[]).filter(s=>assignedIds.has(s.id)),availability:av||[],exceptions:ex||[],assignments:assign||[],user:{email:a.user.email,display_name:a.user.display_name}});}catch(e){console.error('provider-dashboard',e);return lib.json(e.status||500,{error:e.status===401?'Unauthorized':'Unable to load provider portal.'});}};

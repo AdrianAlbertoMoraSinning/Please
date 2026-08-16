@@ -10,6 +10,8 @@ Current build includes:
 - Provider draft, service assignment, weekly availability, custom provider credentials and activation workflow.
 - Optional public professional landing pages while keeping all customer contact through PLEASE.
 
+- Provider Portal with custom authentication, availability management, assignment confirmation/decline and service history.
+
 ## Restricted portals
 - `admin-login.html` — PLEASE staff (`PLEASE_ADMIN`).
 - `developer-login.html` — developer provisioning (`DEVELOPER_ADMIN`).
@@ -17,3 +19,10 @@ Current build includes:
 Both use the custom portal authentication/session architecture; neither login depends on Supabase Auth.
 
 See `STEP3_1_CUSTOM_ADMIN_AUTH.md` and `STEP4_DEVELOPER_PORTAL.md`.
+
+## Provider access
+
+- `provider-login.html` — activated service providers.
+- Provider access uses custom hashed credentials and separate secure sessions; it does not use Supabase Auth.
+
+See `STEP5_PROVIDER_PORTAL.md`.

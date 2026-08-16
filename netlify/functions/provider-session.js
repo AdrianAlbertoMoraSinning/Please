@@ -1,0 +1,1 @@
+const lib=require('./_provider-lib');exports.handler=async event=>{try{const a=await lib.requireProvider(event);return lib.json(200,{ok:true,user:{email:a.user.email,display_name:a.user.display_name},provider:a.provider});}catch(e){return lib.json(e.status||401,{error:'Unauthorized'});}};
