@@ -1,0 +1,43 @@
+PASO 10.1 + 10.2 — FILES TO UPLOAD TO GITHUB
+
+FUNCTIONAL FILES (upload/replace these):
+1. index.html
+2. service-request.html
+3. admin.html
+4. admin-calendar.html
+5. admin-jobs.html
+6. admin-invoices.html
+7. admin-provider-payments.html
+8. admin-reports.html
+9. admin-service-requests.html
+10. css/style.css
+11. js/app.js
+12. js/service-request.js
+13. js/admin-service-requests.js
+14. netlify/functions/public-service-request.js
+15. netlify/functions/admin-service-requests.js
+16. netlify/functions/admin-service-request-action.js
+17. supabase/STEP10_1_2_CUSTOMER_SERVICE_REQUESTS.sql
+
+OPTIONAL DOCUMENTATION:
+18. README.md
+19. STEP10_1_2_CUSTOMER_SERVICE_REQUESTS.md
+20. UPLOAD_ONLY_STEP10_1_2.txt
+
+NOT NECESSARY TO UPLOAD FOR THIS STEP:
+- images/
+- modules/
+- developer*.html
+- provider*.html
+- payment*.html
+- invoice.html
+- professional.html
+- work-with-us.html
+- thank-you.html
+- any JS not listed above
+- any Netlify Function not listed above
+- any SQL from STEP 2 through STEP 9
+
+IMPORTANT:
+Run the STEP10 SQL in Supabase before testing the public form.
+STEP 10.3 (Convert Request → Job & Assign) is intentionally not included yet; first validate public submission + Administration queue.

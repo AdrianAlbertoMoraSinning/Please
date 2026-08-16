@@ -55,3 +55,17 @@ Run `supabase/STEP8_2_PROVIDER_RATES_MULTI_ITEM_SCHEDULE_CHANGES.sql` before dep
 ## STEP 8.3 — Financial Separation + Provider Payments
 
 The portal now keeps Customer Revenue, Provider Cost and PLEASE Gross Profit as separate financial values. Customer invoices use only PLEASE customer pricing. Completed Jobs automatically create a manual Provider Payment obligation that Administration can mark Paid after PLEASE pays the Provider externally. Provider Payments and financial reports support CSV/XLSX reporting.
+
+
+## STEP 8.3.1 testing patch
+
+- Customer Billing rate fields support normal direct keyboard entry without losing focus.
+- Reports always leave the secure-session loading screen and degrade gracefully if an optional dataset fails.
+
+## STEP 9 — Portal UI consolidation
+
+The current build includes a visual-only consolidation pass across Admin, Developer and Provider portals: consistent cards/forms/tables/drawers, improved schedule-change presentation, responsive portal navigation and mobile layouts, loading-overlay cleanup, accessibility focus states and financial-module visual consistency. No database or workflow changes are introduced by STEP 9.
+
+## STEP 10 — Customer Service Request Flow
+
+STEP 10.1/10.2 adds the public `service-request.html` customer intake and the protected `admin-service-requests.html` PLEASE queue. Customer requests remain separate from Jobs until PLEASE reviews them; STEP 10.3 will convert a READY TO ASSIGN request into the existing Job Assignment workflow.
