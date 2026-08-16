@@ -1,32 +1,22 @@
-# PLEASE Services — Website Refresh v1
+# PLEASE Services — Web Portal Development
 
-## Included
-- `index.html`: full homepage with services, quote form, payment CTA and contact.
-- `payment.html`: Stripe payment page with placeholder Payment Links.
-- `thank-you.html`: confirmation page.
-- `css/style.css`: improved PLEASE visual style.
-- `js/app.js`: mobile menu, smooth scroll and lead prefill storage.
-- `images/please-logo.png`: logo supplied by client.
-- `modules/agenda/`: reusable booking/admin module adapted from Montecristo.
+Current build includes:
 
-## Stripe setup
-Open `payment.html` and replace:
-- `STRIPE_PAYMENT_LINK_50_DEPOSIT`
-- `STRIPE_PAYMENT_LINK_100_DEPOSIT`
-- `STRIPE_PAYMENT_LINK_CUSTOM_INVOICE`
+- Public PLEASE website and Free Quote flow.
+- Work With Us / Professional Network application workflow.
+- Private Certification / Insurance / Portfolio uploads.
+- Resend-ready transactional notification backend.
+- PLEASE Administration portal for Professional Applications.
+- **Custom administrator authentication independent of Supabase Auth.**
 
-with the real Stripe Payment Links from the PLEASE Stripe dashboard.
+## Admin login architecture
 
-## Agenda setup
-The agenda is currently in demo mode. To connect it to Google Sheets, deploy `modules/agenda/apps-script-backend.gs` as a Google Apps Script Web App and paste the URL into `modules/agenda/agenda-config.js`.
+`admin-login.html` calls a Netlify Function. Credentials are verified server-side against `admin_portal_users`, where only a password hash is stored. Successful login creates an HttpOnly secure session cookie backed by `admin_portal_sessions`.
 
-## Netlify forms
-The quote and contact forms are prepared for Netlify Forms. After deployment, test both forms from the live site.
+The admin browser does not receive the Supabase secret key and does not call Supabase Auth.
 
-## Portal development status (Aug 2026)
+See `STEP3_1_CUSTOM_ADMIN_AUTH.md` for installation steps.
 
-The repository is being migrated from the original demo agenda/Stripe placeholders to the PLEASE Supabase portal architecture. Work With Us Step 2.4 adds private provider-application uploads through Netlify Functions. See `STEP2_4_SETUP.md` for deployment instructions.
+## Legacy agenda
 
-## Step 2.5.A — Transactional emails
-
-A Resend-ready transactional email function is included at `netlify/functions/provider-application-notify.js`. It is intentionally inactive until the PLEASE sending domain is verified and the Resend environment variables are configured in Netlify. See `STEP2_5A_RESEND_EMAILS.md`.
+The original `modules/agenda/` Google Apps Script prototype remains in the repository only as legacy source material. It is not the target architecture for the new multi-provider PLEASE portal and will be replaced as development proceeds.

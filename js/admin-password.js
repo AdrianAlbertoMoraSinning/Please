@@ -1,0 +1,7 @@
+(() => {
+  const form=document.getElementById('admin-password-form'), box=document.getElementById('password-alert'), btn=document.getElementById('password-submit');
+  const show=(m,t='error')=>{box.hidden=false;box.className=`form-alert ${t}`;box.textContent=m;};
+  async function api(path,options={}){const r=await fetch(path,{credentials:'same-origin',headers:{'content-type':'application/json'},...options});const d=await r.json().catch(()=>({}));if(r.status===401){location.replace('admin-login.html');throw new Error('Session expired.');}if(!r.ok)throw new Error(d.error||'Request failed.');return d;}
+  api('/.netlify/functions/admin-session').catch(()=>{});
+  form.addEventListener('submit',async e=>{e.preventDefault();box.hidden=true;const a=document.getElementById('current-password').value,b=document.getElementById('new-password').value,c=document.getElementById('confirm-password').value;if(b!==c)return show('The new passwords do not match.');if(b.length<10)return show('New password must be at least 10 characters.');btn.disabled=true;btn.textContent='CHANGING…';try{await api('/.netlify/functions/admin-change-password',{method:'POST',body:JSON.stringify({current_password:a,new_password:b})});show('Password changed. Please sign in again.','success');setTimeout(()=>location.replace('admin-login.html'),1200);}catch(err){show(err.message);}finally{btn.disabled=false;btn.textContent='CHANGE PASSWORD →';}});
+})();

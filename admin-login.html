@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>PLEASE Admin Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-auth-page">
+  <main class="admin-auth-shell">
+    <section class="admin-auth-card" aria-labelledby="login-title">
+      <a class="admin-auth-brand" href="index.html"><img src="images/please-logo.png" alt="PLEASE Services"></a>
+      <p class="eyebrow dark">SECURE ADMINISTRATION</p>
+      <h1 id="login-title">PLEASE Web Portal</h1>
+      <p class="admin-auth-lead">Authorized PLEASE staff only. Sign in with your assigned portal administrator account.</p>
+
+      <div id="login-alert" class="form-alert" hidden></div>
+
+      <form id="admin-login-form" class="admin-login-form">
+        <label>Email
+          <input id="login-email" name="email" type="email" autocomplete="username" required placeholder="please.serviceinfo@gmail.com">
+        </label>
+        <label>Password
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Your password">
+        </label>
+        <button id="login-submit" class="btn primary full" type="submit">SIGN IN →</button>
+      </form>
+
+      <p class="admin-auth-foot">This administrator login is managed by the PLEASE portal and does not use Supabase Auth. For a forgotten password, contact the portal developer for a controlled reset.</p>
+    </section>
+  </main>
+
+  <script src="js/admin-login.js"></script>
+</body>
+</html>
