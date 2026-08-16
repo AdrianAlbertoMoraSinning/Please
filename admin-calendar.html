@@ -105,6 +105,15 @@
       </div>
       <form id="job-form" class="admin-drawer-scroll calendar-job-form">
         <input id="job-existing-id" type="hidden">
+        <input id="job-source-request-id" type="hidden">
+
+        <section class="admin-detail-section" id="job-source-request-panel" hidden>
+          <div class="admin-detail-grid">
+            <div><span>Source Request</span><strong id="job-source-request-reference">—</strong></div>
+            <div><span>Customer Preference</span><strong id="job-source-request-preference">—</strong></div>
+          </div>
+          <small>This Job is being created from an approved customer Service Request. Provider, final schedule and Customer Billing remain controlled by PLEASE.</small>
+        </section>
 
         <section class="admin-detail-section" id="customer-section">
           <h3>Customer</h3>
@@ -172,6 +181,6 @@
       </div>
     </div>
   </div>
-  <script src="js/admin-calendar.js"></script>
+  <script src="js/admin-calendar.js?v=10.3.1"></script>
 </body>
 </html>
