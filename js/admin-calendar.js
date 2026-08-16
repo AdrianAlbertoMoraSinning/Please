@@ -99,7 +99,7 @@
   }
 
   function renderUnassigned(){
-    const rows=data.needs_assignment||[]; $('needs-assignment-count').textContent=rows.length; unassignedEmpty.hidden=rows.length>0;unassignedBody.innerHTML='';
+    const rows=data.needs_assignment||[]; const activeJobIds=new Set([...(data.assignments||[]).map(a=>a.job_id),...rows.map(j=>j.id)]); $('needs-assignment-count').textContent=activeJobIds.size; unassignedEmpty.hidden=rows.length>0;unassignedBody.innerHTML='';
     rows.forEach(j=>{const c=j.customers||{};const tr=document.createElement('tr');tr.innerHTML=`<td><strong class="admin-reference">${esc(j.reference)}</strong></td><td><strong>${esc([c.first_name,c.last_name].filter(Boolean).join(' ')||'Customer')}</strong><small>${esc(c.email||c.phone||'')}</small></td><td>${esc(j.service_name)}</td><td>${esc(j.work_address)}</td><td>${esc(durationLabel(j.estimated_duration_minutes))}</td><td><button type="button" class="admin-row-button">Assign</button></td>`;tr.querySelector('button').addEventListener('click',()=>openExistingJob(j));unassignedBody.appendChild(tr);});
   }
 
@@ -123,7 +123,24 @@
   function openNewJob(prefill={}){resetForm();if(prefill.date)$('job-date').value=prefill.date;if(prefill.provider_id){const ids=[...providerServiceIds(prefill.provider_id)];if(serviceFilter.value!=='ALL'&&ids.includes(serviceFilter.value))$('job-service').value=serviceFilter.value;else if(ids.length===1)$('job-service').value=ids[0];populateJobProviders($('job-service').value,prefill.provider_id);}openDrawer();updateAvailabilityNote();}
   function openExistingJob(j){resetForm();$('job-existing-id').value=j.id;$('job-drawer-title').textContent=`Assign ${j.reference}`;$('job-drawer-eyebrow').textContent='NEEDS ASSIGNMENT';const c=j.customers||{};$('customer-first-name').value=c.first_name||'';$('customer-last-name').value=c.last_name||'';$('customer-email').value=c.email||'';$('customer-phone').value=c.phone||'';$('job-service').value=j.service_id||'';$('job-address').value=j.work_address||'';$('job-description').value=j.work_description||'';$('job-internal-notes').value='';setExistingMode(true);populateJobProviders(j.service_id||'');openDrawer();updateAvailabilityNote();}
 
-  function updateAvailabilityNote(){const pid=$('job-provider').value,date=$('job-date').value;if(!pid||!date){$('provider-availability-note').textContent='Select a provider and date to see availability.';return;}$('provider-availability-note').textContent=`Published availability: ${providerWindowText(pid,date)}. Existing assignments are also checked before saving.`;}
+  function updateAvailabilityNote(){
+    const pid=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value,note=$('provider-availability-note');
+    if(!pid||!date){note.textContent='Select a provider and date to see availability.';note.classList.remove('calendar-availability-warning');return;}
+    const published=providerWindowText(pid,date), assignments=assignmentFor(pid,date);
+    const overlaps=assignments.filter(a=>{const s=localParts(a.scheduled_start).time,e=localParts(a.scheduled_end).time;return start&&end&&start<e&&end>s;});
+    const av=availabilityFor(pid,date);
+    const insideWindow=!!(start&&end&&av.windows.some(w=>w.start<=start&&w.end>=end));
+    const blocked=av.blocked.some(e=>{if(!e.start_time&&!e.end_time)return true;const bs=e.start_time?.slice(0,5),be=e.end_time?.slice(0,5);return start&&end&&bs&&be&&start<be&&end>bs;});
+    if(overlaps.length||blocked||(!insideWindow&&start&&end)){
+      const reserved=overlaps.map(a=>{const s=localParts(a.scheduled_start).time,e=localParts(a.scheduled_end).time;return `${time12(s)}–${time12(e)} ${statusLabel(a.status)}`;}).join(', ');
+      note.textContent=`NOT AVAILABLE for ${time12(start)}–${time12(end)}. Published availability: ${published}.${reserved?` Reserved by PLEASE: ${reserved}.`:''}`;
+      note.classList.add('calendar-availability-warning');
+    }else{
+      const reserved=assignments.map(a=>{const s=localParts(a.scheduled_start).time,e=localParts(a.scheduled_end).time;return `${time12(s)}–${time12(e)} ${statusLabel(a.status)}`;}).join(', ');
+      note.textContent=`Available for the selected time. Published availability: ${published}.${reserved?` Other reserved time: ${reserved}.`:''}`;
+      note.classList.remove('calendar-availability-warning');
+    }
+  }
 
   async function submitJob(e){
     e.preventDefault();clearAlert();const existing=$('job-existing-id').value;const serviceId=$('job-service').value,providerId=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value;
@@ -135,7 +152,11 @@
     submitBtn.disabled=true;submitBtn.textContent='SENDING…';
     try{
       const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action,payload})});
-      closeDrawer();await loadCalendar();showAlert(`${result.job_reference||'Job'} assigned and reserved pending provider confirmation.`,'success');
+      closeDrawer();
+      // Move the calendar to the assigned week so PLEASE immediately sees the reserved block.
+      weekStart=startOfWeek(new Date(`${date}T12:00:00`));
+      await loadCalendar();
+      showAlert(`${result.job_reference||'Job'} assigned and reserved pending provider confirmation. The provider is now NOT AVAILABLE during ${time12(start)}–${time12(end)} on ${date}.`,'success');
       if(result.assignment_id){api('/.netlify/functions/provider-assignment-notify',{method:'POST',body:JSON.stringify({assignment_id:result.assignment_id})}).catch(()=>{});}
     }catch(err){showAlert(err.message||'Could not create the assignment.');}
     finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENT →';}
@@ -154,7 +175,7 @@
   $('today-week').addEventListener('click',()=>{weekStart=startOfWeek(new Date());loadCalendar().catch(e=>showAlert(e.message));});
   $('refresh-calendar').addEventListener('click',()=>loadCalendar().catch(e=>showAlert(e.message)));
   serviceFilter.addEventListener('change',renderCalendar);providerFilter.addEventListener('change',renderCalendar);
-  $('job-service').addEventListener('change',()=>populateJobProviders($('job-service').value));$('job-provider').addEventListener('change',updateAvailabilityNote);$('job-date').addEventListener('change',updateAvailabilityNote);
+  $('job-service').addEventListener('change',()=>populateJobProviders($('job-service').value));$('job-provider').addEventListener('change',updateAvailabilityNote);$('job-date').addEventListener('change',updateAvailabilityNote);$('job-start').addEventListener('change',updateAvailabilityNote);$('job-end').addEventListener('change',updateAvailabilityNote);
   $('job-drawer-close').addEventListener('click',closeDrawer);backdrop.addEventListener('click',closeDrawer);form.addEventListener('submit',submitJob);
   $('assignment-modal-close').addEventListener('click',()=>{$('assignment-modal').hidden=true;});$('assignment-modal').addEventListener('click',e=>{if(e.target===$('assignment-modal'))$('assignment-modal').hidden=true;});
   $('admin-signout').addEventListener('click',async()=>{try{await api('/.netlify/functions/admin-logout',{method:'POST',body:'{}'});}catch{}location.replace('admin-login.html');});
