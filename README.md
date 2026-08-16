@@ -51,3 +51,7 @@ Customer billing is now captured at Job creation and automatically prefills comp
 STEP 8.2 replaces the one-rate-per-Job model for new Jobs. Providers maintain multiple Service Rates across all services assigned to their profile; PLEASE can combine any of that Provider's active rates into one Job Customer Billing detail and one final invoice. Providers can also propose date/time changes for pending or confirmed assignments; PLEASE Administration must accept the change before the calendar is updated. Historical STEP 8.1 Jobs and invoices remain intact.
 
 Run `supabase/STEP8_2_PROVIDER_RATES_MULTI_ITEM_SCHEDULE_CHANGES.sql` before deploying the STEP 8.2 application files. See `STEP8_2_PROVIDER_RATES_MULTI_ITEM_SCHEDULE_CHANGES.md` and `UPLOAD_ONLY_STEP8_2.txt`.
+
+## STEP 8.3 — Financial Separation + Provider Payments
+
+The portal now keeps Customer Revenue, Provider Cost and PLEASE Gross Profit as separate financial values. Customer invoices use only PLEASE customer pricing. Completed Jobs automatically create a manual Provider Payment obligation that Administration can mark Paid after PLEASE pays the Provider externally. Provider Payments and financial reports support CSV/XLSX reporting.

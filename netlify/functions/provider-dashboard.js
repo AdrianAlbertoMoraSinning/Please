@@ -19,7 +19,7 @@ exports.handler=async event=>{
       const inList=jobIds.map(id=>encodeURIComponent(id)).join(',');
       [jobs,billing]=await Promise.all([
         lib.sbJson(`/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,estimated_duration_minutes,status,created_at&id=in.(${inList})`),
-        lib.sbJson(`/rest/v1/job_billing_items?select=id,job_id,provider_service_rate_id,service_id,service_name,description,quantity,unit,unit_rate,line_total,sort_order&job_id=in.(${inList})&order=sort_order.asc,id.asc`)
+        lib.sbJson(`/rest/v1/job_billing_items?select=id,job_id,provider_service_rate_id,service_id,service_name,description,quantity,unit,provider_unit_rate,provider_line_total,sort_order&job_id=in.(${inList})&order=sort_order.asc,id.asc`)
       ]);
     }
     const billByJob=new Map(); for(const x of billing||[]){if(!billByJob.has(x.job_id))billByJob.set(x.job_id,[]);billByJob.get(x.job_id).push(x);}

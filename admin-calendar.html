@@ -35,6 +35,7 @@
         <a class="active" href="admin-calendar.html">Master Calendar</a>
         <a href="admin-jobs.html" id="jobs-nav">Jobs <span id="needs-assignment-count">0</span></a>
         <a href="admin-invoices.html">Invoices</a>
+        <a href="admin-provider-payments.html">Provider Payments</a>
         <a href="admin-reports.html">Reports</a>
         <div class="admin-sidebar-separator"></div>
         <a href="index.html">View public website ↗</a>
@@ -135,7 +136,7 @@
 
         <section class="admin-detail-section" id="billing-section">
           <h3>Customer Billing</h3>
-          <p class="admin-muted">Choose one or more active Service Rates from the selected Provider. The rate catalog includes every service assigned to that Provider, not only the Job's primary service.</p>
+          <p class="admin-muted">Choose one or more active Provider Rate items. The Provider rate represents what PLEASE owes the Provider. Enter the separate PLEASE Customer Rate on each billing line. The difference is PLEASE gross profit before overhead and tax.</p>
           <div class="calendar-billing-picker">
             <label>Provider Service Rate<select id="job-billing-rate-picker"><option value="">Select provider first</option></select></label>
             <button id="job-add-billing-item" type="button" class="admin-outline-button">ADD BILLING ITEM</button>
@@ -147,7 +148,7 @@
             <div><span>GST 5%</span><strong id="job-billing-gst">$0.00</strong></div>
             <div class="grand"><span>Estimated Customer Total</span><strong id="job-billing-total">$0.00</strong></div>
           </div>
-          <small>Billing lines are frozen on the Job when the assignment is sent. Later Provider rate changes do not alter this Job.</small>
+          <small>Both financial sides are frozen on the Job when the assignment is sent: the customer selling price and the Provider cost. Later catalog changes do not alter this Job.</small>
         </section>
 
         <section class="admin-detail-section">

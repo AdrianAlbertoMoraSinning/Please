@@ -48,10 +48,10 @@ exports.handler=async event=>{
       const inv=created?.[0];
       if(!inv) throw new Error('Invoice was not created.');
       if(job){
-        const billing=await lib.sbJson(`/rest/v1/job_billing_items?select=id,service_name,description,quantity,unit,unit_rate,line_total,sort_order&job_id=eq.${encodeURIComponent(job.id)}&order=sort_order.asc,id.asc`);
+        const billing=await lib.sbJson(`/rest/v1/job_billing_items?select=id,service_name,description,quantity,unit,customer_unit_rate,customer_line_total,unit_rate,line_total,sort_order&job_id=eq.${encodeURIComponent(job.id)}&order=sort_order.asc,id.asc`);
         let invoiceItems=[];
         if(billing?.length){
-          invoiceItems=billing.map((x,i)=>({invoice_id:inv.id,description:[x.service_name,x.description].filter(Boolean).join(' — ')||'PLEASE service',qty:MONEY(x.quantity),unit:x.unit||'service',unit_rate:MONEY(x.unit_rate),line_total:MONEY(x.line_total),sort_order:(i+1)*10}));
+          invoiceItems=billing.map((x,i)=>({invoice_id:inv.id,description:[x.service_name,x.description].filter(Boolean).join(' — ')||'PLEASE service',qty:MONEY(x.quantity),unit:x.unit||'service',unit_rate:MONEY(x.customer_unit_rate??x.unit_rate),line_total:MONEY(x.customer_line_total??x.line_total),sort_order:(i+1)*10}));
         }else{
           // Legacy STEP 8.1 fallback for historical Jobs created before multi-item billing.
           const qty=Number(job.billable_quantity)>0?Number(job.billable_quantity):(job.billing_type==='HOURLY'?Math.max(0.01,Number(job.estimated_duration_minutes||60)/60):1);

@@ -1,0 +1,48 @@
+PLEASE Portal — STEP 8.3
+GitHub manual upload list
+
+REQUIRED FILES TO UPLOAD / REPLACE:
+
+admin.html
+admin-calendar.html
+admin-jobs.html
+admin-invoices.html
+admin-reports.html
+admin-provider-payments.html
+provider.html
+css/style.css
+js/admin-calendar.js
+js/admin-jobs.js
+js/admin-reports.js
+js/admin-provider-payments.js
+js/provider.js
+netlify/functions/admin-calendar-data.js
+netlify/functions/admin-job-action.js
+netlify/functions/admin-jobs-data.js
+netlify/functions/admin-invoice-action.js
+netlify/functions/admin-reports-data.js
+netlify/functions/admin-provider-payments-data.js
+netlify/functions/admin-provider-payment-action.js
+netlify/functions/admin-provider-payments-export.js
+netlify/functions/provider-dashboard.js
+netlify/functions/provider-service-rate-action.js
+supabase/STEP8_3_FINANCIAL_SEPARATION_PROVIDER_PAYMENTS.sql
+
+OPTIONAL DOCUMENTATION:
+README.md
+STEP8_3_FINANCIAL_SEPARATION_PROVIDER_PAYMENTS.md
+UPLOAD_ONLY_STEP8_3.txt
+
+NOT NECESSARY TO RE-UPLOAD FOR THIS STEP:
+images/
+modules/
+all developer pages/scripts
+provider-login.html
+provider-password.html
+public website pages
+invoice.html
+payment.html
+payment-success.html
+previous STEP SQL files
+Netlify Functions not listed above
+JavaScript files not listed above

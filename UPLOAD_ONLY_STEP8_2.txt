@@ -1,0 +1,49 @@
+PLEASE Portal — STEP 8.2
+
+FULL ZIP: complete project backup. Do NOT upload the entire ZIP manually to GitHub.
+
+FIRST: run in Supabase SQL Editor
+  supabase/STEP8_2_PROVIDER_RATES_MULTI_ITEM_SCHEDULE_CHANGES.sql
+
+UPLOAD / REPLACE ONLY THESE FILES IN GITHUB:
+  admin-calendar.html
+  provider.html
+  css/style.css
+  js/admin-calendar.js
+  js/admin-jobs.js
+  js/provider.js
+  netlify/functions/admin-calendar-data.js
+  netlify/functions/admin-job-action.js
+  netlify/functions/admin-jobs-data.js
+  netlify/functions/admin-invoice-action.js
+  netlify/functions/admin-schedule-change-action.js
+  netlify/functions/provider-dashboard.js
+  netlify/functions/provider-service-rate-action.js
+  netlify/functions/provider-schedule-change-action.js
+  supabase/STEP8_2_PROVIDER_RATES_MULTI_ITEM_SCHEDULE_CHANGES.sql
+  STEP8_2_PROVIDER_RATES_MULTI_ITEM_SCHEDULE_CHANGES.md
+  UPLOAD_ONLY_STEP8_2.txt
+  README.md
+
+NOT NECESSARY TO UPLOAD FOR THIS STEP:
+  images/
+  modules/
+  developer*.html
+  admin-login.html
+  admin-password.html
+  admin-reports.html
+  admin-invoices.html
+  invoice.html
+  payment.html
+  payment-success.html
+  professional.html
+  work-with-us.html
+  thank-you.html
+  provider-login.html
+  provider-password.html
+  prior STEP*.md files
+  prior supabase STEP*.sql files
+  Netlify Functions not listed above
+  JavaScript files not listed above
+
+The existing issued invoice PLS-INV-20260816-E0A374 remains historical and is not changed by STEP 8.2.
