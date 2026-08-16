@@ -29,3 +29,7 @@ See `STEP3_1_CUSTOM_ADMIN_AUTH.md` and `STEP4_DEVELOPER_PORTAL.md`.
 - Provider access uses custom hashed credentials and separate secure sessions; it does not use Supabase Auth.
 
 See `STEP5_PROVIDER_PORTAL.md`.
+
+## STEP 7 — Jobs Management + Service History + Reports
+
+STEP 7 adds `admin-jobs.html`, `admin-reports.html`, complete job lifecycle history, admin completion/cancellation controls, provider/service operational metrics, and CSV/XLSX exports. Run `supabase/STEP7_JOBS_HISTORY_REPORTS.sql` before deploying the STEP 7 package.
