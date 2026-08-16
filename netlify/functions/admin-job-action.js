@@ -21,8 +21,17 @@ exports.handler=async event=>{
   try{
     if(!lib.sameOrigin(event))return lib.json(403,{error:'Forbidden'});
     const auth=await lib.requireAdmin(event);let body={};try{body=JSON.parse(event.body||'{}');}catch{return lib.json(400,{error:'Invalid JSON'});}const action=String(body.action||'').trim().toUpperCase();if(!action)return lib.json(400,{error:'Action is required'});
-    let validatedBilling=null;
-    if(action==='CREATE_AND_ASSIGN')validatedBilling=await validateBillingItems(String(body.payload?.provider_id||''),body.payload?.billing_items);
+    let validatedBilling=null,sourceRequest=null;
+    if(action==='CREATE_AND_ASSIGN'){
+      const requestId=String(body.payload?.service_request_id||'').trim();
+      if(requestId){
+        const reqs=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,status,job_id,city,province,postal_code&id=eq.${encodeURIComponent(requestId)}&limit=1`);sourceRequest=reqs?.[0];
+        if(!sourceRequest)throw Object.assign(new Error('Source Service Request not found.'),{status:404});
+        if(sourceRequest.status!=='READY_TO_ASSIGN'||sourceRequest.job_id)throw Object.assign(new Error(`${sourceRequest.reference} is no longer Ready to Assign.`),{status:409});
+        body.payload.customer_city=body.payload.customer_city||sourceRequest.city||'';body.payload.customer_province=body.payload.customer_province||sourceRequest.province||'AB';body.payload.customer_postal_code=body.payload.customer_postal_code||sourceRequest.postal_code||'';
+      }
+      validatedBilling=await validateBillingItems(String(body.payload?.provider_id||''),body.payload?.billing_items);
+    }
     const result=await lib.sbJson('/rest/v1/rpc/please_portal_job_action',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_action:action,p_payload:body.payload||{}})});
     const value=Array.isArray(result)?result[0]:result;
     if(action==='CREATE_AND_ASSIGN'&&value?.job_id){
@@ -30,6 +39,10 @@ exports.handler=async event=>{
       await lib.sbJson('/rest/v1/job_billing_items',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(rows)});
       const subtotal=money(rows.reduce((n,x)=>n+x.line_total,0));
       await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(value.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({quoted_subtotal:subtotal,updated_at:new Date().toISOString()})});
+      if(sourceRequest){
+        const linked=await lib.sbJson('/rest/v1/rpc/please_link_service_request_to_job',{method:'POST',body:JSON.stringify({p_actor:auth.user.id,p_request_id:sourceRequest.id,p_job_id:value.job_id})});
+        value.service_request_assigned=true;value.service_request_reference=sourceRequest.reference;value.service_request=Array.isArray(linked)?linked[0]:linked;
+      }
     }
     return lib.json(200,value||{ok:true});
   }catch(e){console.error('admin-job-action',e);let message=e.message||'Job action failed.';if(/exclusion|job_assignments_no_provider_overlap|conflict/i.test(message))message='That provider already has an assignment overlapping the selected time.';return lib.json(e.status||400,{error:message});}

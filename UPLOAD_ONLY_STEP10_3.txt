@@ -1,0 +1,15 @@
+STEP 10.3 — Upload only these files to GitHub
+
+Required:
+admin-calendar.html
+js/admin-calendar.js
+js/admin-service-requests.js
+netlify/functions/admin-job-action.js
+supabase/STEP10_3_CONVERT_REQUEST_TO_JOB.sql
+
+Optional documentation:
+STEP10_3_CONVERT_REQUEST_TO_JOB.md
+UPLOAD_ONLY_STEP10_3.txt
+README.md
+
+No other folders/files need to be uploaded for this step.

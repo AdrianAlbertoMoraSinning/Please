@@ -69,3 +69,8 @@ The current build includes a visual-only consolidation pass across Admin, Develo
 ## STEP 10 — Customer Service Request Flow
 
 STEP 10.1/10.2 adds the public `service-request.html` customer intake and the protected `admin-service-requests.html` PLEASE queue. Customer requests remain separate from Jobs until PLEASE reviews them; STEP 10.3 will convert a READY TO ASSIGN request into the existing Job Assignment workflow.
+
+
+## STEP 10.3 — Convert Request to Job & Assign
+
+READY TO ASSIGN customer Service Requests can now be converted directly into the existing Master Calendar Job/Provider assignment workflow with customer and preference prefill. The originating request is linked one-to-one to the created Job and transitions to ASSIGNED only after the Job has been created.

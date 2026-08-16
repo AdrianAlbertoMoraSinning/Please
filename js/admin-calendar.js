@@ -8,6 +8,7 @@
   const unassignedBody=document.getElementById('unassigned-body'), unassignedEmpty=document.getElementById('unassigned-empty');
   let data={providers:[],provider_services:[],services:[],availability:[],exceptions:[],assignments:[],needs_assignment:[],provider_rates:[],job_billing_items:[],schedule_changes:[]};
   let billingItems=[];
+  let sourceRequest=null;
   let weekStart=startOfWeek(new Date());
   let weekDates=[];
 
@@ -176,10 +177,22 @@
     $('job-billing-rate-picker').disabled=existing;$('job-add-billing-item').disabled=existing;
     $('customer-section').classList.toggle('calendar-section-readonly',existing);
   }
-  function resetForm(){form.reset();billingItems=[];$('job-existing-id').value='';$('job-drawer-title').textContent='Create & Assign Job';$('job-drawer-eyebrow').textContent='NEW SERVICE REQUEST';setExistingMode(false);$('job-date').value=ymd(new Date());$('job-start').value='09:00';$('job-end').value='11:00';$('job-service').innerHTML='<option value="">Select service</option>'+data.services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');populateJobProviders('');renderBillingPicker();}
+  function resetForm(){form.reset();billingItems=[];sourceRequest=null;$('job-existing-id').value='';$('job-source-request-id').value='';$('job-source-request-panel').hidden=true;$('job-drawer-title').textContent='Create & Assign Job';$('job-drawer-eyebrow').textContent='NEW SERVICE REQUEST';setExistingMode(false);$('job-date').value=ymd(new Date());$('job-start').value='09:00';$('job-end').value='11:00';$('job-service').innerHTML='<option value="">Select service</option>'+data.services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');populateJobProviders('');renderBillingPicker();}
   function openDrawer(){drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');backdrop.hidden=false;document.body.classList.add('admin-drawer-open');}
   function closeDrawer(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');backdrop.hidden=true;document.body.classList.remove('admin-drawer-open');}
   function openNewJob(prefill={}){resetForm();if(prefill.date)$('job-date').value=prefill.date;if(prefill.provider_id){const ids=[...providerServiceIds(prefill.provider_id)];if(serviceFilter.value!=='ALL'&&ids.includes(serviceFilter.value))$('job-service').value=serviceFilter.value;else if(ids.length===1)$('job-service').value=ids[0];populateJobProviders($('job-service').value,prefill.provider_id);}openDrawer();updateAvailabilityNote();}
+  async function openServiceRequestForAssignment(id){
+    const d=await api(`/.netlify/functions/admin-service-requests?id=${encodeURIComponent(id)}`),r=d.request;
+    if(!r)throw new Error('Service request not found.');
+    if(r.status==='ASSIGNED'&&r.job_id){showAlert(`${r.reference} is already assigned to a Job.`);history.replaceState(null,'','admin-calendar.html');return;}
+    if(r.status!=='READY_TO_ASSIGN')throw new Error(`${r.reference} must be Ready to Assign before a Job can be created.`);
+    resetForm();sourceRequest=r;$('job-source-request-id').value=r.id;$('job-source-request-panel').hidden=false;$('job-source-request-reference').textContent=r.reference;$('job-source-request-preference').textContent=[r.preferred_date||'Flexible date',r.preferred_start_time?.slice(0,5)||'Flexible time',r.scheduling_flexibility].filter(Boolean).join(' · ');$('job-drawer-eyebrow').textContent='CUSTOMER SERVICE REQUEST';$('job-drawer-title').textContent=`Create Job from ${r.reference}`;
+    $('customer-first-name').value=r.first_name||'';$('customer-last-name').value=r.last_name||'';$('customer-email').value=r.email||'';$('customer-phone').value=r.phone||'';
+    if([...$('job-service').options].some(o=>o.value===r.service_id))$('job-service').value=r.service_id;populateJobProviders($('job-service').value);
+    if(r.preferred_date)$('job-date').value=r.preferred_date;if(r.preferred_start_time){$('job-start').value=r.preferred_start_time.slice(0,5);$('job-end').value='';}
+    $('job-address').value=[r.street_address,r.city,r.province,r.postal_code].filter(Boolean).join(', ');$('job-description').value=r.work_description||'';$('job-message').value=r.customer_notes||'';$('job-internal-notes').value=r.internal_notes||'';
+    openDrawer();updateAvailabilityNote();
+  }
   function openExistingJob(j){resetForm();$('job-existing-id').value=j.id;$('job-drawer-title').textContent=`Assign ${j.reference}`;$('job-drawer-eyebrow').textContent='NEEDS ASSIGNMENT';const c=j.customers||{};$('customer-first-name').value=c.first_name||'';$('customer-last-name').value=c.last_name||'';$('customer-email').value=c.email||'';$('customer-phone').value=c.phone||'';$('job-service').value=j.service_id||'';$('job-address').value=j.work_address||'';$('job-description').value=j.work_description||'';$('job-internal-notes').value='';billingItems=billingForJob(j.id).map(x=>({...x}));setExistingMode(true);populateJobProviders(j.service_id||'');renderBillingPicker();openDrawer();updateAvailabilityNote();}
 
   function updateAvailabilityNote(){
@@ -208,7 +221,7 @@
     const payload={provider_id:providerId,service_id:serviceId,scheduled_start:startIso,scheduled_end:endIso,assignment_message:$('job-message').value.trim()};
     if(!existing){if(!billingItems.length)return showAlert('Add at least one Customer Billing item from this Provider’s active Service Rates.');payload.billing_items=billingItems.map(x=>({provider_service_rate_id:x.provider_service_rate_id,quantity:Number(x.quantity),customer_unit_rate:Number(x.customer_unit_rate??x.unit_rate)}));}
     let action='ASSIGN_EXISTING';
-    if(existing){payload.job_id=existing;} else {action='CREATE_AND_ASSIGN';Object.assign(payload,{customer_first_name:$('customer-first-name').value.trim(),customer_last_name:$('customer-last-name').value.trim(),customer_email:$('customer-email').value.trim(),customer_phone:$('customer-phone').value.trim(),work_address:$('job-address').value.trim(),work_description:$('job-description').value.trim(),internal_notes:$('job-internal-notes').value.trim()});}
+    if(existing){payload.job_id=existing;} else {action='CREATE_AND_ASSIGN';Object.assign(payload,{customer_first_name:$('customer-first-name').value.trim(),customer_last_name:$('customer-last-name').value.trim(),customer_email:$('customer-email').value.trim(),customer_phone:$('customer-phone').value.trim(),work_address:$('job-address').value.trim(),work_description:$('job-description').value.trim(),internal_notes:$('job-internal-notes').value.trim()});if(sourceRequest){payload.service_request_id=sourceRequest.id;payload.customer_city=sourceRequest.city||'';payload.customer_province=sourceRequest.province||'AB';payload.customer_postal_code=sourceRequest.postal_code||'';}}
     submitBtn.disabled=true;submitBtn.textContent='SENDING…';
     try{
       const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action,payload})});
@@ -217,7 +230,7 @@
       weekStart=startOfWeek(new Date(`${date}T12:00:00`));
       await loadCalendar();
       showAlert(`${result.job_reference||'Job'} assigned and reserved pending provider confirmation. The provider is now NOT AVAILABLE during ${time12(start)}–${time12(end)} on ${date}.`,'success');
-      if(result.assignment_id){api('/.netlify/functions/provider-assignment-notify',{method:'POST',body:JSON.stringify({assignment_id:result.assignment_id})}).catch(()=>{});}
+      if(result.assignment_id){api('/.netlify/functions/provider-assignment-notify',{method:'POST',body:JSON.stringify({assignment_id:result.assignment_id})}).catch(()=>{});}if(result.service_request_assigned)history.replaceState(null,'','admin-calendar.html');
     }catch(err){showAlert(err.message||'Could not create the assignment.');}
     finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENT →';}
   }
@@ -245,6 +258,6 @@
   $('assignment-modal-close').addEventListener('click',()=>{$('assignment-modal').hidden=true;});$('assignment-modal').addEventListener('click',e=>{if(e.target===$('assignment-modal'))$('assignment-modal').hidden=true;});
   $('admin-signout').addEventListener('click',async()=>{try{await api('/.netlify/functions/admin-logout',{method:'POST',body:'{}'});}catch{}location.replace('admin-login.html');});
 
-  async function init(){try{await ensureSession();loading.hidden=true;loading.remove();app.hidden=false;await loadCalendar();}catch(e){if(loading)loading.textContent=e.message||'Unable to load secure calendar.';}}
+  async function init(){try{await ensureSession();loading.hidden=true;loading.remove();app.hidden=false;await loadCalendar();const requestId=new URLSearchParams(location.search).get('request');if(requestId)await openServiceRequestForAssignment(requestId);}catch(e){if(loading)loading.textContent=e.message||'Unable to load secure calendar.';else showAlert(e.message||'Unable to load secure calendar.');}}
   init();
 })();
