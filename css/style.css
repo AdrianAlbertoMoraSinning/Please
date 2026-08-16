@@ -713,3 +713,7 @@ h3{
 
 /* STEP 6.1 — clearer reserved-time visibility */
 .provider-reserved-panel{margin-top:20px}.provider-reserved-card{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;border:1px solid #dce7f2;border-left:4px solid #2c73c9;border-radius:13px;padding:14px;background:#fff}.provider-reserved-card.pending{border-left-color:#e9a72d;background:#fffaf0}.provider-reserved-card.confirmed{background:#f5f9ff}.provider-reserved-card>div{display:grid;gap:4px}.provider-reserved-card strong{font-size:13px;color:#7b2d2d}.provider-reserved-card span,.provider-reserved-card p{font-size:12px;color:#64788d;margin:0}.calendar-availability-warning{background:#fff0f1!important;border-color:#e9b3ba!important;color:#9b2032!important;font-weight:800}
+
+
+/* STEP 6.2 — provider response draft protection */
+.provider-response-actions{display:grid;gap:12px;margin-top:14px}.provider-response-field{display:grid;gap:6px;width:100%;font-weight:700}.provider-response-field textarea{width:100%;min-height:84px;resize:vertical;padding:12px 14px;border:1px solid rgba(20,44,75,.2);border-radius:10px;font:inherit;line-height:1.45;background:#fff}.provider-response-field textarea:focus{outline:2px solid rgba(16,89,163,.2);border-color:#1059a3}.provider-response-field small{justify-self:end;font-weight:600;color:#667085}.provider-response-buttons{display:flex;gap:10px;flex-wrap:wrap}

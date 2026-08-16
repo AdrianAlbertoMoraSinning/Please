@@ -10,6 +10,8 @@ Current build includes:
 - Provider draft, service assignment, weekly availability, custom provider credentials and activation workflow.
 - PLEASE Master Calendar with provider availability, conflict protection, job creation, assignment and reassignment queue.
 - Optional public professional landing pages while keeping all customer contact through PLEASE.
+- Provider response draft protection and decline/reassignment workflow.
+
 
 - Provider Portal with custom authentication, availability management, assignment confirmation/decline and service history.
 
