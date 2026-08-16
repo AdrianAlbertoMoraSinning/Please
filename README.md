@@ -8,6 +8,7 @@ Current build includes:
 - PLEASE Admin Portal with custom authentication independent of Supabase Auth.
 - Developer-only Provider Onboarding / Provisioning Portal.
 - Provider draft, service assignment, weekly availability, custom provider credentials and activation workflow.
+- PLEASE Master Calendar with provider availability, conflict protection, job creation, assignment and reassignment queue.
 - Optional public professional landing pages while keeping all customer contact through PLEASE.
 
 - Provider Portal with custom authentication, availability management, assignment confirmation/decline and service history.

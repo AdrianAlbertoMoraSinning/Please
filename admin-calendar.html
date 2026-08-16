@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>PLEASE Administration — Master Calendar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-portal-page">
+  <div id="admin-loading" class="admin-loading">Checking secure session…</div>
+  <div id="admin-app" hidden>
+    <header class="admin-topbar">
+      <div class="admin-topbar-inner">
+        <div class="admin-topbar-brand">
+          <img src="images/please-logo.png" alt="PLEASE Services">
+          <div><strong>Administration</strong><span>Operations & Scheduling</span></div>
+        </div>
+        <div class="admin-user-block">
+          <div><strong id="admin-name">PLEASE Administrator</strong><span id="admin-email"></span></div>
+          <a class="admin-outline-button" href="admin-password.html">Change password</a>
+          <button id="admin-signout" class="admin-outline-button" type="button">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="admin-layout">
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar-label">OPERATIONS</div>
+        <a href="admin.html">Professional Applications</a>
+        <span class="admin-sidebar-disabled">Providers <small>Developer managed</small></span>
+        <a class="active" href="admin-calendar.html">Master Calendar</a>
+        <a href="#needs-assignment" id="jobs-nav">Jobs <span id="needs-assignment-count">0</span></a>
+        <span class="admin-sidebar-disabled">Invoices <small>Coming next</small></span>
+        <span class="admin-sidebar-disabled">Reports <small>Coming next</small></span>
+        <div class="admin-sidebar-separator"></div>
+        <a href="index.html">View public website ↗</a>
+      </aside>
+
+      <main class="admin-main calendar-admin-main">
+        <div class="admin-page-heading calendar-heading">
+          <div>
+            <p class="eyebrow dark">OPERATIONS</p>
+            <h1>Master Calendar</h1>
+            <p>See provider availability, confirmed/pending work and assign service requests from one operational calendar.</p>
+          </div>
+          <button id="new-job" class="btn primary" type="button">NEW JOB ASSIGNMENT →</button>
+        </div>
+
+        <div id="calendar-alert" class="form-alert" hidden></div>
+
+        <section class="admin-panel calendar-control-panel">
+          <div class="calendar-week-nav">
+            <button id="prev-week" class="admin-outline-button" type="button">← Previous</button>
+            <button id="today-week" class="admin-outline-button" type="button">Today</button>
+            <button id="next-week" class="admin-outline-button" type="button">Next →</button>
+            <strong id="week-label"></strong>
+          </div>
+          <div class="calendar-filters">
+            <label>Service
+              <select id="calendar-service"><option value="ALL">All services</option></select>
+            </label>
+            <label>Provider
+              <select id="calendar-provider"><option value="ALL">All providers</option></select>
+            </label>
+            <button id="refresh-calendar" class="admin-outline-button" type="button">Refresh</button>
+          </div>
+        </section>
+
+        <section class="admin-panel master-calendar-panel">
+          <div class="calendar-legend">
+            <span><i class="legend-dot available"></i> Available</span>
+            <span><i class="legend-dot pending"></i> Pending provider</span>
+            <span><i class="legend-dot confirmed"></i> Confirmed</span>
+            <span><i class="legend-dot blocked"></i> Unavailable</span>
+          </div>
+          <div id="calendar-grid" class="master-calendar-grid" aria-live="polite"></div>
+        </section>
+
+        <section id="needs-assignment" class="admin-panel unassigned-panel">
+          <div class="admin-section-title-row">
+            <div><p class="eyebrow dark">JOBS</p><h2>Needs Assignment</h2><p>Jobs returned to PLEASE after a decline or cancellation appear here for reassignment.</p></div>
+          </div>
+          <div id="unassigned-empty" class="admin-empty">No jobs currently need assignment.</div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>Reference</th><th>Customer</th><th>Service</th><th>Address</th><th>Duration</th><th></th></tr></thead>
+              <tbody id="unassigned-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="calendar-backdrop" class="admin-drawer-backdrop" hidden></div>
+    <aside id="job-drawer" class="admin-drawer calendar-job-drawer" aria-hidden="true">
+      <div class="admin-drawer-head">
+        <div><span class="admin-reference" id="job-drawer-eyebrow">NEW SERVICE REQUEST</span><h2 id="job-drawer-title">Create & Assign Job</h2></div>
+        <button id="job-drawer-close" class="admin-icon-button" type="button" aria-label="Close">×</button>
+      </div>
+      <form id="job-form" class="admin-drawer-scroll calendar-job-form">
+        <input id="job-existing-id" type="hidden">
+
+        <section class="admin-detail-section" id="customer-section">
+          <h3>Customer</h3>
+          <div class="calendar-form-grid two">
+            <label>First Name *<input id="customer-first-name" required></label>
+            <label>Last Name<input id="customer-last-name"></label>
+            <label>Email<input id="customer-email" type="email"></label>
+            <label>Phone<input id="customer-phone" type="tel"></label>
+          </div>
+        </section>
+
+        <section class="admin-detail-section">
+          <h3>Service & Provider</h3>
+          <div class="calendar-form-grid two">
+            <label>Service *<select id="job-service" required></select></label>
+            <label>Provider *<select id="job-provider" required></select></label>
+          </div>
+          <div id="provider-availability-note" class="calendar-availability-note"></div>
+        </section>
+
+        <section class="admin-detail-section">
+          <h3>Schedule</h3>
+          <div class="calendar-form-grid three">
+            <label>Date *<input id="job-date" type="date" required></label>
+            <label>Start *<input id="job-start" type="time" required></label>
+            <label>End *<input id="job-end" type="time" required></label>
+          </div>
+          <small>Times are Calgary local time. A pending assignment immediately reserves this provider's selected window.</small>
+        </section>
+
+        <section class="admin-detail-section">
+          <h3>Work Details</h3>
+          <label>Work Address *<input id="job-address" required placeholder="Street address, Calgary, AB"></label>
+          <label>Work Description *<textarea id="job-description" rows="5" required placeholder="Describe the work to be completed, access details and important customer requirements."></textarea></label>
+          <label>Message to Provider<textarea id="job-message" rows="3" placeholder="Optional scheduling or coordination note shown to the provider."></textarea></label>
+          <label>PLEASE Internal Notes<textarea id="job-internal-notes" rows="3" placeholder="Internal only. Not shown to the provider."></textarea></label>
+        </section>
+      </form>
+      <div class="admin-drawer-actions">
+        <button id="job-submit" class="btn primary" type="submit" form="job-form">SEND ASSIGNMENT →</button>
+      </div>
+    </aside>
+
+    <div id="assignment-modal" class="calendar-assignment-modal" hidden>
+      <div class="calendar-assignment-card">
+        <button id="assignment-modal-close" class="admin-icon-button" type="button">×</button>
+        <div id="assignment-modal-content"></div>
+      </div>
+    </div>
+  </div>
+  <script src="js/admin-calendar.js"></script>
+</body>
+</html>
