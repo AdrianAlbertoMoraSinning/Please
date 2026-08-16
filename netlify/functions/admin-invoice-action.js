@@ -34,20 +34,27 @@ exports.handler=async event=>{
     if(action==='CREATE'){
       let job=null;
       if(body.job_id){
-        const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,customer_id,service_name,work_address,work_description,estimated_duration_minutes,status,customers(id,first_name,last_name,email,phone)&id=eq.${encodeURIComponent(body.job_id)}&limit=1`);
+        const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,customer_id,service_name,work_address,work_description,estimated_duration_minutes,billing_type,customer_rate,billable_quantity,billing_unit,quoted_subtotal,status,customers(id,first_name,last_name,email,phone)&id=eq.${encodeURIComponent(body.job_id)}&limit=1`);
         job=Array.isArray(jobs)?jobs[0]:null;
         if(!job) return lib.json(404,{error:'Job not found'});
         if(job.status!=='COMPLETED') return lib.json(409,{error:'Only completed jobs can be invoiced.'});
+        const existing=await lib.sbJson(`/rest/v1/invoices?select=id,invoice_number,status&job_id=eq.${encodeURIComponent(job.id)}&status=neq.VOID&limit=1`);
+        if(existing?.length) return lib.json(409,{error:`Job is already invoiced as ${existing[0].invoice_number}.`});
       }
       const c=job?.customers||{};
       const name=job?`${c.first_name||''} ${c.last_name||''}`.trim():String(body.client_name||'').trim();
-      const payload={invoice_number:invoiceNo(),job_id:job?.id||null,customer_id:job?.customer_id||null,client_name:name||null,client_email:job?c.email||null:body.client_email||null,client_phone:job?c.phone||null:body.client_phone||null,invoice_date:new Date().toISOString().slice(0,10),gst_rate:5,status:'DRAFT',payment_status:'UNPAID',currency:'CAD',note:null};
+      const payload={invoice_number:invoiceNo(),job_id:job?.id||null,customer_id:job?.customer_id||null,client_name:name||null,client_email:job?c.email||null:body.client_email||null,client_phone:job?c.phone||null:body.client_phone||null,invoice_date:new Date().toISOString().slice(0,10),due_date:new Date().toISOString().slice(0,10),gst_rate:5,status:'DRAFT',payment_status:'UNPAID',currency:'CAD',note:null};
       const created=await lib.sbJson('/rest/v1/invoices',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});
       const inv=created?.[0];
       if(!inv) throw new Error('Invoice was not created.');
       if(job){
-        const item={invoice_id:inv.id,description:job.service_name||'PLEASE service',qty:1,unit:'service',unit_rate:0,line_total:0,sort_order:10};
+        const qty=Number(job.billable_quantity)>0?Number(job.billable_quantity):(job.billing_type==='HOURLY'?Math.max(0.01,Number(job.estimated_duration_minutes||60)/60):1);
+        const unit=job.billing_unit||(job.billing_type==='HOURLY'?'hour':'service');
+        const rate=Number(job.customer_rate)||0;
+        const item={invoice_id:inv.id,description:job.service_name||'PLEASE service',qty:MONEY(qty),unit,unit_rate:MONEY(rate),line_total:MONEY(qty*rate),sort_order:10};
         await lib.sbJson('/rest/v1/invoice_items',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(item)});
+        const subtotal=MONEY(qty*rate),gst=MONEY(subtotal*0.05);
+        await lib.sbJson(`/rest/v1/invoices?id=eq.${inv.id}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({subtotal,gst_amount:gst,total_amount:MONEY(subtotal+gst),updated_at:new Date().toISOString()})});
       }
       await history(inv,{status:'DRAFT',payment_status:'UNPAID'},'Invoice created',auth.user);
       return lib.json(200,{ok:true,id:inv.id,invoice_number:inv.invoice_number});

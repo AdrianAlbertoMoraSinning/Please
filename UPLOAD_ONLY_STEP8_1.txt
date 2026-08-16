@@ -1,0 +1,37 @@
+PLEASE STEP 8.1 — FILES TO UPLOAD TO GITHUB
+
+RUN IN SUPABASE FIRST:
+  supabase/STEP8_1_JOB_BILLING_INVOICE_PREFILL.sql
+
+UPLOAD / REPLACE ONLY THESE FILES (11):
+  admin-calendar.html
+  css/style.css
+  js/admin-calendar.js
+  js/admin-invoices.js
+  js/admin-jobs.js
+  netlify/functions/admin-calendar-data.js
+  netlify/functions/admin-invoices-data.js
+  netlify/functions/admin-invoice-action.js
+  netlify/functions/admin-job-action.js
+  netlify/functions/admin-jobs-data.js
+  STEP8_1_JOB_BILLING_INVOICE_PREFILL.md
+
+OPTIONAL REPOSITORY DOCUMENTATION:
+  UPLOAD_ONLY_STEP8_1.txt
+  supabase/STEP8_1_JOB_BILLING_INVOICE_PREFILL.sql (recommended to keep in repo after running it)
+
+NO NEED TO UPLOAD:
+  images/
+  modules/
+  provider*.html
+  developer*.html
+  work-with-us.html
+  professional.html
+  invoice.html
+  payment.html
+  payment-success.html
+  any previous STEP*.sql files
+  unchanged Netlify Functions
+  unchanged JS files
+
+The ZIP is complete for backup, but GitHub only needs the changed files listed above.

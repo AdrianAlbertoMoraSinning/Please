@@ -133,6 +133,22 @@
           <small>Times are Calgary local time. A pending assignment immediately reserves this provider's selected window.</small>
         </section>
 
+        <section class="admin-detail-section" id="billing-section">
+          <h3>Customer Billing</h3>
+          <div class="calendar-form-grid three">
+            <label>Billing Type *
+              <select id="job-billing-type" required>
+                <option value="HOURLY">Hourly</option>
+                <option value="FLAT_RATE">Flat Rate</option>
+              </select>
+            </label>
+            <label>Customer Rate (CAD) *<input id="job-customer-rate" type="number" min="0" step="0.01" required placeholder="0.00"></label>
+            <label>Billable Quantity<input id="job-billable-quantity" type="number" min="0.01" step="0.01" readonly></label>
+          </div>
+          <div class="calendar-billing-summary"><span id="job-billing-unit">hours</span> · Estimated customer subtotal <strong id="job-billing-subtotal">$0.00</strong> before GST.</div>
+          <small>This is the price PLEASE will charge the customer. It is separate from any rate or note provided by the service provider.</small>
+        </section>
+
         <section class="admin-detail-section">
           <h3>Work Details</h3>
           <label>Work Address *<input id="job-address" required placeholder="Street address, Calgary, AB"></label>

@@ -40,3 +40,7 @@ Reporting accuracy and lifecycle visual cleanup are documented in `STEP7_3_REPOR
 ## STEP 8 — Invoices + Payments
 
 STEP 8 activates the existing billing foundation with `admin-invoices.html`, customer invoice pages, GST calculations, manual payment tracking and Stripe-ready hosted Checkout. Run `supabase/STEP8_INVOICES_PAYMENTS.sql` before testing. Online card payments remain disabled until `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are configured in Netlify.
+
+
+## STEP 8.1
+Customer billing is now captured at Job creation and automatically prefills completed-Job invoices. See `STEP8_1_JOB_BILLING_INVOICE_PREFILL.md`.
