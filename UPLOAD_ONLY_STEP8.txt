@@ -1,0 +1,31 @@
+PLEASE STEP 8 — FILES TO UPLOAD TO GITHUB FOR THIS UPDATE ONLY
+
+Upload/replace these files preserving their paths:
+
+README.md
+STEP8_INVOICES_PAYMENTS.md
+admin.html
+admin-calendar.html
+admin-jobs.html
+admin-reports.html
+admin-invoices.html
+payment.html
+invoice.html
+payment-success.html
+css/style.css
+js/admin-invoices.js
+netlify/functions/admin-invoice-action.js
+netlify/functions/admin-invoices-data.js
+netlify/functions/invoice-checkout.js
+netlify/functions/public-invoice.js
+netlify/functions/stripe-webhook.js
+supabase/STEP8_INVOICES_PAYMENTS.sql
+
+Do NOT re-upload unchanged folders/files from the full ZIP, especially:
+modules/
+images/
+all existing provider/developer/admin auth functions
+all previous STEP SQL files
+provider*.html / developer*.html / work-with-us.html / professional.html / thank-you.html
+
+The full ZIP is a complete project backup. This manifest is the small GitHub update set.

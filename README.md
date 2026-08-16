@@ -36,3 +36,7 @@ STEP 7 adds `admin-jobs.html`, `admin-reports.html`, complete job lifecycle hist
 
 ## STEP 7.3
 Reporting accuracy and lifecycle visual cleanup are documented in `STEP7_3_REPORTING_ACCURACY_LIFECYCLE_CLEANUP.md`.
+
+## STEP 8 — Invoices + Payments
+
+STEP 8 activates the existing billing foundation with `admin-invoices.html`, customer invoice pages, GST calculations, manual payment tracking and Stripe-ready hosted Checkout. Run `supabase/STEP8_INVOICES_PAYMENTS.sql` before testing. Online card payments remain disabled until `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are configured in Netlify.
