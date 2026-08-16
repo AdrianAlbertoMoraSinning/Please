@@ -26,7 +26,7 @@
   let client = null;
 
 
-  const MAX_FILE_BYTES = 5 * 1024 * 1024;
+  const MAX_FILE_BYTES = 4 * 1024 * 1024;
   const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
 
   function collectUploadFiles() {
@@ -42,7 +42,7 @@
     if (portfolioCount > 5) return 'Please select no more than 5 portfolio files.';
 
     for (const { file } of collectUploadFiles()) {
-      if (file.size > MAX_FILE_BYTES) return `${file.name} is larger than 5 MB.`;
+      if (file.size > MAX_FILE_BYTES) return `${file.name} is larger than 4 MB.`;
       if (!ALLOWED_TYPES.has(file.type)) return `${file.name} is not an accepted PDF or image file.`;
     }
     return null;
@@ -219,11 +219,34 @@
       const row = Array.isArray(result) ? result[0] : result;
       if (!row?.application_reference) throw new Error('Application reference was not returned.');
 
-      const uploadSummary = await uploadSupportingDocuments({
+      const applicationContext = {
         application_id: row.application_id,
         application_reference: row.application_reference,
         email: payload.p_email
-      });
+      };
+
+      const uploadSummary = await uploadSupportingDocuments(applicationContext);
+
+      // Email delivery is deliberately best-effort: the application must remain
+      // successfully submitted even if Resend is not configured yet or email fails.
+      try {
+        const notifyResponse = await fetch('/.netlify/functions/provider-application-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            application_id: applicationContext.application_id,
+            reference: applicationContext.application_reference,
+            email: applicationContext.email
+          })
+        });
+        if (!notifyResponse.ok) {
+          let notifyBody = {};
+          try { notifyBody = await notifyResponse.json(); } catch (_) {}
+          console.warn('Application email notification was not completed:', notifyBody);
+        }
+      } catch (notifyError) {
+        console.warn('Application email notification was not completed:', notifyError);
+      }
 
       referenceTarget.textContent = row.application_reference;
       if (uploadResult) {
