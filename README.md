@@ -33,3 +33,6 @@ See `STEP5_PROVIDER_PORTAL.md`.
 ## STEP 7 — Jobs Management + Service History + Reports
 
 STEP 7 adds `admin-jobs.html`, `admin-reports.html`, complete job lifecycle history, admin completion/cancellation controls, provider/service operational metrics, and CSV/XLSX exports. Run `supabase/STEP7_JOBS_HISTORY_REPORTS.sql` before deploying the STEP 7 package.
+
+## STEP 7.3
+Reporting accuracy and lifecycle visual cleanup are documented in `STEP7_3_REPORTING_ACCURACY_LIFECYCLE_CLEANUP.md`.
