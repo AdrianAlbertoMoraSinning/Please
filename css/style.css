@@ -754,3 +754,237 @@ h3{
 /* STEP 8.3 — Financial separation & Provider Payments */
 .calendar-billing-row.financial{grid-template-columns:minmax(190px,1.5fr) 95px 155px minmax(170px,1fr) auto;align-items:end;gap:12px}.billing-financial-snapshot{display:grid;gap:4px;padding:10px 12px;border-radius:10px;background:#f5f7fa;font-size:.78rem}.billing-financial-snapshot span{display:flex;justify-content:space-between;gap:12px}.billing-financial-snapshot b{font-size:.83rem}.provider-rate-card-metrics-compact{grid-template-columns:repeat(2,minmax(0,1fr))}.provider-payment-card{max-width:760px}.provider-payment-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}.provider-payment-form label{display:grid;gap:6px}.provider-payment-form .full{grid-column:1/-1}.provider-payment-form button{grid-column:1/-1;justify-self:end}.warning-text{display:block;color:#a15c00;font-weight:700}.financial-summary-panel{border-top:4px solid #153f77}.financial-stat-grid article:nth-child(3) strong{font-size:1.7rem}.calendar-modal-billing>div small{display:block;color:#667085;margin-top:3px}.schedule-change-review .calendar-modal-actions{display:flex;gap:12px;flex-wrap:wrap}.admin-history-item strong+span{margin-left:10px}
 @media(max-width:900px){.calendar-billing-row.financial{grid-template-columns:1fr 1fr}.calendar-billing-name,.billing-financial-snapshot{grid-column:1/-1}.provider-payment-form{grid-template-columns:1fr}.provider-payment-form .full,.provider-payment-form button{grid-column:1}}
+
+/* ========================================================================== 
+   STEP 9 — Portal consolidation / final UI cleanup
+   Visual-only refinements. No workflow, security, billing, or data logic.
+   ========================================================================== */
+:root{
+  --portal-bg:#f4f7fb;
+  --portal-card:#ffffff;
+  --portal-ink:#142338;
+  --portal-muted:#64748b;
+  --portal-line:#dbe5ef;
+  --portal-soft:#f7faff;
+  --portal-radius:16px;
+  --portal-shadow:0 10px 30px rgba(15,23,42,.055);
+}
+
+/* Global portal rhythm */
+.admin-portal-page{background:var(--portal-bg)}
+.admin-main{padding:30px clamp(18px,2.7vw,38px) 48px}
+.admin-main>.form-alert{margin-bottom:18px}
+.admin-page-heading{margin-bottom:22px;align-items:center}
+.admin-page-heading h1{font-size:clamp(30px,3vw,40px);line-height:1.08;letter-spacing:-.025em}
+.admin-page-heading>div>p:last-child{margin-top:8px;color:var(--portal-muted)}
+.admin-panel{border-color:var(--portal-line);border-radius:var(--portal-radius);box-shadow:var(--portal-shadow);padding:22px}
+.admin-panel+.admin-panel{margin-top:18px}
+.admin-panel h2{font-size:20px;letter-spacing:-.015em;color:var(--portal-ink)}
+.admin-panel h2+p,.admin-muted{color:var(--portal-muted)}
+
+/* Top bar */
+.admin-topbar{height:74px;box-shadow:0 1px 0 rgba(15,23,42,.035)}
+.admin-topbar-inner{padding:0 clamp(16px,2.4vw,30px)}
+.admin-topbar-brand{min-width:0}
+.admin-topbar-brand img{width:122px;flex:0 0 auto}
+.admin-topbar-brand strong{font-size:14px;color:var(--portal-ink)}
+.admin-topbar-brand span{font-size:11px}
+.admin-user-block{min-width:0}
+.admin-user-block>div{min-width:0;text-align:right}
+.admin-user-block strong,.admin-user-block span{max-width:270px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-outline-button{white-space:nowrap}
+
+/* Sidebar — consistent spacing, active state and scroll */
+.admin-sidebar{padding:24px 14px 30px;gap:5px;background:linear-gradient(180deg,#08182b,#0a1e35);position:sticky;top:74px;height:calc(100vh - 74px);overflow-y:auto;align-self:start}
+.admin-sidebar-label{padding:0 11px 8px;color:#87a6c6}
+.admin-sidebar a,.admin-sidebar-disabled{padding:11px 12px;border-radius:10px;min-height:42px}
+.admin-sidebar a{transition:background .15s ease,color .15s ease,transform .15s ease}
+.admin-sidebar a:hover{background:rgba(255,255,255,.07);color:#fff;transform:translateX(1px)}
+.admin-sidebar a.active{background:linear-gradient(135deg,#0b67b8,#0a5ca5);box-shadow:0 8px 18px rgba(0,87,184,.2)}
+.admin-sidebar-disabled{background:rgba(255,255,255,.025)}
+.admin-sidebar-disabled small{color:#9bb3cb}
+
+/* Buttons — one visual system */
+.btn,.admin-primary-button,.admin-outline-button,.admin-row-button,.admin-table-button,.admin-danger-button{
+  min-height:40px;border-radius:10px;letter-spacing:.01em;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease,background .12s ease;
+}
+.btn:hover,.admin-primary-button:hover,.admin-outline-button:hover,.admin-row-button:hover,.admin-table-button:hover,.admin-danger-button:hover{transform:translateY(-1px)}
+.btn.primary,.admin-primary-button{box-shadow:0 6px 14px rgba(0,87,184,.16)}
+.btn:focus-visible,.admin-primary-button:focus-visible,.admin-outline-button:focus-visible,.admin-row-button:focus-visible,.admin-table-button:focus-visible,.admin-danger-button:focus-visible,.admin-icon-button:focus-visible{outline:3px solid rgba(11,103,184,.2);outline-offset:2px}
+.admin-danger-button{background:#fff7f7}
+
+/* Inputs and forms */
+.admin-toolbar input,.admin-toolbar select,.admin-detail-section textarea,.invoice-editor-grid input,.invoice-editor-grid select,.invoice-editor-grid textarea,.invoice-item-row input,.calendar-job-form input,.calendar-job-form select,.calendar-job-form textarea,.provider-rate-editor input,.provider-rate-editor select,.provider-rate-editor textarea,.provider-exception-form input,.provider-exception-form select{
+  border-color:#cbd8e8;background:#fff;min-height:42px;transition:border-color .12s ease,box-shadow .12s ease;
+}
+.admin-toolbar input:focus,.admin-toolbar select:focus,.invoice-editor-grid input:focus,.invoice-editor-grid select:focus,.invoice-editor-grid textarea:focus,.invoice-item-row input:focus,.calendar-job-form input:focus,.calendar-job-form select:focus,.calendar-job-form textarea:focus,.provider-rate-editor input:focus,.provider-rate-editor select:focus,.provider-rate-editor textarea:focus,.provider-exception-form input:focus,.provider-exception-form select:focus{
+  outline:none;border-color:#3b82c4;box-shadow:0 0 0 3px rgba(0,87,184,.09)
+}
+
+/* Stats */
+.admin-stat-grid{gap:14px}
+.admin-stat-grid article,.invoice-summary-grid article{border-color:var(--portal-line);border-radius:14px;box-shadow:0 7px 20px rgba(15,23,42,.035)}
+.admin-stat-grid strong{font-size:30px;letter-spacing:-.03em}
+
+/* Tables */
+.admin-table-wrap{border:1px solid #e4ebf2;border-radius:12px;background:#fff}
+.admin-table th{background:#f8fafc;color:#617188;padding:12px 12px;position:sticky;top:0;z-index:1}
+.admin-table td{padding:13px 12px}
+.admin-table tbody tr:last-child td{border-bottom:0}
+.admin-table tbody tr:hover{background:#f7faff}
+.admin-reference{font-weight:700}
+
+/* Status chips */
+.status-badge{padding:6px 10px;line-height:1.1;border:1px solid transparent}
+.status-approved,.status-activated{border-color:#cbead9}
+.status-declined,.status-withdrawn{border-color:#ffd6da}
+.status-pending-provider,.status-needs-assignment{border-color:#f4dfa4}
+.status-confirmed,.status-completed{background:#e8f7ef;color:#0b7040;border-color:#cbead9}
+
+/* Drawers and modals */
+.admin-drawer{width:min(720px,96vw);box-shadow:-16px 0 48px rgba(15,23,42,.2)}
+.admin-drawer-head{padding:20px 24px;background:linear-gradient(180deg,#fff,#fbfdff)}
+.admin-drawer-head h2{font-size:27px;line-height:1.15}
+.admin-drawer-scroll{padding:22px 24px 30px}
+.admin-detail-grid{gap:10px}
+.admin-detail-grid>div{background:#f8fbff;border-color:#e1eaf3}
+.admin-detail-section{margin-top:22px;padding-top:22px}
+.admin-detail-section h3{margin-bottom:14px}
+.admin-drawer-actions{gap:12px;flex-wrap:wrap;background:#fff;box-shadow:0 -8px 24px rgba(15,23,42,.035)}
+.admin-modal-card,.calendar-assignment-card{border:1px solid rgba(255,255,255,.45)}
+
+/* Master Calendar */
+.calendar-toolbar{gap:10px}
+.calendar-week-title{letter-spacing:-.015em}
+.calendar-table{border-radius:12px;overflow:hidden}
+.calendar-provider-name strong{font-size:13px}
+.calendar-assignment{border-radius:9px;padding:8px 9px;box-shadow:0 3px 9px rgba(15,23,42,.06)}
+.calendar-assignment small{line-height:1.35}
+.calendar-assignment.schedule-change-pending{outline:2px solid #e9aa1b;box-shadow:0 0 0 4px rgba(240,180,41,.12)}
+.calendar-billing-summary{border-radius:12px}
+.calendar-billing-row.financial{border:1px solid #e2e8f0;border-radius:12px;padding:12px;background:#fff}
+.billing-financial-snapshot{border:1px solid #e4eaf1;background:#f8fafc}
+.schedule-change-review,.provider-change-request{border-color:#eab52e;background:#fffaf0;box-shadow:0 5px 16px rgba(161,92,0,.06)}
+.schedule-change-review p{margin:8px 0;line-height:1.5}
+.schedule-change-review .calendar-modal-actions{display:flex!important;gap:12px!important;align-items:center;flex-wrap:wrap;margin-top:16px;padding-top:16px}
+.schedule-change-review .calendar-modal-actions button{min-width:142px}
+
+/* Job lifecycle/history readability */
+.admin-history{gap:10px}
+.admin-history-row,.admin-history-item{border-left:3px solid #c7d9eb;padding:9px 0 9px 13px}
+.admin-history-row>span,.admin-history-item>span{line-height:1.35}
+.admin-history-row strong,.admin-history-item strong{line-height:1.4}
+.admin-history-item strong+span{margin-left:0!important;display:block;margin-top:4px;color:#74839a;font-size:11px}
+.job-assignment-history article{box-shadow:0 4px 12px rgba(15,23,42,.025)}
+.job-assignment-history article>div{gap:14px}
+
+/* Schedule change request list: status and timestamp no longer run together */
+.schedule-change-history,.schedule-change-list{display:grid;gap:10px}
+.schedule-change-history article,.schedule-change-list article{border:1px solid #e2e8f0;border-radius:11px;padding:12px;background:#fff}
+.schedule-change-history article>div,.schedule-change-list article>div{display:flex;gap:10px 16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.schedule-change-history time,.schedule-change-list time{color:#718096;font-size:11px;white-space:nowrap}
+
+/* Provider portal */
+.provider-overview-grid{gap:18px}
+.provider-card-list{gap:12px}
+.provider-card-list>article{border-radius:13px;border-color:#dde6ef;box-shadow:0 5px 14px rgba(15,23,42,.03)}
+.provider-rate-editor{overflow:hidden}
+.provider-rate-editor-head{padding-bottom:18px;border-bottom:1px solid #e5edf5}
+.provider-rate-section{padding-top:20px}
+.provider-rate-comp-card{background:#f8fbff;border:1px solid #dfe9f4;border-radius:13px;padding:18px!important;margin-top:18px}
+.provider-rate-summary{border-radius:14px;box-shadow:0 6px 18px rgba(15,23,42,.035)}
+.provider-rate-card{border-radius:14px!important}
+.provider-rate-card-metrics>div{border-radius:10px}
+.provider-rate-card-actions{gap:10px}
+.provider-response-buttons{gap:10px}
+.provider-response-field small{font-variant-numeric:tabular-nums}
+.provider-exception-panel{margin-top:18px}
+.provider-profile-note{margin-top:18px;padding-top:16px;border-top:1px solid #e5edf5}
+
+/* Reports / financial summary */
+.reports-toolbar{padding:14px 0 4px}
+.reports-export-actions{margin-bottom:4px}
+.financial-summary-panel{border-top-width:3px;box-shadow:var(--portal-shadow)}
+.financial-stat-grid article{background:linear-gradient(180deg,#fff,#fbfdff)}
+.reports-section{margin-top:18px}
+
+/* Provider Payments */
+.provider-payment-card{border-radius:16px}
+.provider-payment-form{gap:16px}
+.warning-text{padding:8px 10px;border-radius:8px;background:#fff7e8}
+
+/* Invoices */
+.invoice-summary-grid{gap:14px}
+.invoice-item-row{padding:10px;border:1px solid #e5eaf0;border-radius:11px;background:#fbfdff}
+.invoice-totals{padding:14px 0}
+.invoice-copy-link{line-height:1.45}
+.invoice-public-card{border-radius:18px}
+
+/* Authentication pages */
+.admin-auth-page{background:radial-gradient(circle at 10% 0,#e9f4ff 0,transparent 36%),linear-gradient(135deg,#f4f8fd,#edf4fb)}
+.admin-auth-card{border-radius:22px;box-shadow:0 22px 60px rgba(15,23,42,.12)}
+.admin-auth-card h1{font-size:clamp(30px,4vw,38px);letter-spacing:-.025em}
+
+/* Loading overlays only exist during validation and never occupy document flow. */
+.admin-loading,.admin-loading-overlay{position:fixed!important;inset:0!important;height:100vh!important;min-height:100vh!important;margin:0!important;z-index:9999!important;background:rgba(244,247,251,.98)!important;backdrop-filter:blur(2px)}
+.admin-loading::after{content:"";width:28px;height:28px;border:3px solid #d7e5f3;border-top-color:var(--please-blue);border-radius:50%;animation:portalSpin .7s linear infinite;position:absolute;margin-top:54px}
+@keyframes portalSpin{to{transform:rotate(360deg)}}
+
+/* Mobile/tablet: keep navigation reachable instead of hiding it. */
+@media(max-width:980px){
+  .admin-layout{display:block;min-height:calc(100vh - 74px)}
+  .admin-sidebar{display:flex!important;position:sticky;top:74px;z-index:65;height:auto;max-height:none;overflow-x:auto;overflow-y:hidden;flex-direction:row;align-items:center;padding:9px 12px;gap:6px;border-bottom:1px solid rgba(255,255,255,.08);scrollbar-width:thin}
+  .admin-sidebar-label,.admin-sidebar-separator,.admin-sidebar-disabled{display:none}
+  .admin-sidebar a{flex:0 0 auto;min-height:38px;padding:9px 11px;font-size:12px;white-space:nowrap}
+  .admin-sidebar a:hover{transform:none}
+  .admin-sidebar a span{min-width:21px;height:21px;font-size:10px}
+  .admin-main{padding:22px 16px 40px}
+  .admin-topbar{height:74px}
+  .admin-page-heading{align-items:flex-start}
+  .admin-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .calendar-grid,.calendar-table-wrap{overflow-x:auto}
+  .calendar-billing-row.financial{grid-template-columns:1fr 1fr}
+  .calendar-billing-name,.billing-financial-snapshot{grid-column:1/-1}
+}
+
+@media(max-width:700px){
+  .admin-topbar-inner{gap:10px}
+  .admin-topbar-brand img{width:102px}
+  .admin-topbar-brand div{display:none}
+  .admin-user-block>div{display:none}
+  .admin-user-block{gap:7px}
+  .admin-user-block .admin-outline-button{padding:8px 10px;font-size:11px;min-height:36px}
+  .admin-page-heading{display:grid;gap:12px}
+  .admin-page-heading button,.admin-page-heading .reports-export-actions{margin-top:0}
+  .admin-stat-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .admin-stat-grid article{padding:15px}
+  .admin-stat-grid strong{font-size:25px}
+  .admin-panel{padding:16px;border-radius:13px}
+  .admin-toolbar{display:grid;grid-template-columns:1fr;gap:10px}
+  .admin-drawer{width:100vw}
+  .admin-drawer-head{padding:16px 18px}
+  .admin-drawer-scroll{padding:18px}
+  .admin-drawer-actions{padding:13px 18px}
+  .admin-detail-grid{grid-template-columns:1fr}
+  .calendar-assignment-card{padding:22px 17px}
+  .schedule-change-review .calendar-modal-actions{display:grid!important;grid-template-columns:1fr 1fr}
+  .schedule-change-review .calendar-modal-actions button{min-width:0;width:100%}
+  .provider-rate-form-actions{gap:12px}
+  .invoice-public-card{margin:14px;padding:18px}
+}
+
+@media(max-width:480px){
+  .admin-stat-grid{grid-template-columns:1fr}
+  .admin-topbar-brand img{width:94px}
+  .admin-user-block .admin-outline-button:first-of-type{display:none}
+  .schedule-change-review .calendar-modal-actions{grid-template-columns:1fr}
+  .provider-response-buttons{display:grid;grid-template-columns:1fr}
+  .provider-response-buttons button{width:100%}
+}
+
+/* Print clarity for invoice/report pages */
+@media print{
+  .admin-topbar,.admin-sidebar,.admin-page-heading button,.reports-export-actions,.admin-outline-button,.admin-primary-button{display:none!important}
+  .admin-main{padding:0}
+  .admin-panel{box-shadow:none;border-color:#cbd5e1}
+}
