@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join Our Professional Network | PLEASE Services Calgary</title>
+  <meta name="description" content="Apply to join the PLEASE Professional Network in Calgary. Experienced contractors, tradespeople and service professionals can submit their information for review.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="professional-network-page">
+  <div class="topbar">
+    <div class="container topbar-inner">
+      <span>✉ <a href="mailto:info@pleaseservice.ca">info@pleaseservice.ca</a></span>
+      <span>Calgary &amp; Surrounding Areas · 📞 <a href="tel:+15878362866">587-836-2866</a></span>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html" aria-label="PLEASE Services home">
+        <img src="images/please-logo.png" alt="PLEASE Services" class="brand-logo">
+      </a>
+      <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="index.html#services">Services</a>
+        <a href="index.html#how">How It Works</a>
+        <a href="index.html#contact">About Us</a>
+        <a class="active-link" href="work-with-us.html">Join Our Team</a>
+        <a class="pay-cta" href="payment.html">Pay Online</a>
+        <a class="nav-cta" href="index.html#quote-form">GET A FREE QUOTE →</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="network-hero">
+      <div class="container network-hero-grid">
+        <div class="network-hero-copy">
+          <p class="eyebrow">JOIN OUR PROFESSIONAL NETWORK</p>
+          <h1>Do great work. We’ll help bring the opportunities.</h1>
+          <p class="network-lead">Are you a skilled professional or contractor? Join a trusted network of service providers and connect with customers who need your expertise.</p>
+          <a class="btn network-primary" href="#professional-application">APPLY TO JOIN →</a>
+        </div>
+        <div class="network-hero-image" role="img" aria-label="Skilled service professional working in a residential property"></div>
+      </div>
+    </section>
+
+    <section class="section network-benefits">
+      <div class="container">
+        <div class="section-title">
+          <p class="eyebrow dark">WHY WORK WITH PLEASE?</p>
+          <h2>More time doing the work you do best.</h2>
+        </div>
+        <div class="benefits-grid">
+          <article class="benefit-card"><span>01</span><h3>More Opportunities</h3><p>Connect with customers looking for your services.</p></article>
+          <article class="benefit-card"><span>02</span><h3>We Handle the Customer Experience</h3><p>PLEASE helps coordinate communication, scheduling and service requests.</p></article>
+          <article class="benefit-card"><span>03</span><h3>Focus on Your Work</h3><p>Spend more time doing the job and less time looking for the next one.</p></article>
+          <article class="benefit-card"><span>04</span><h3>Grow With Us</h3><p>Build a long-term relationship with a growing local service network.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="quality-section">
+      <div class="container quality-grid">
+        <div>
+          <p class="eyebrow">QUALITY STANDARDS</p>
+          <h2>Our customers trust us with their homes.</h2>
+          <p>That’s why we’re looking for experienced, reliable professionals who take pride in their work.</p>
+        </div>
+        <ul class="quality-list">
+          <li>Professional experience</li>
+          <li>Reliable and customer-focused</li>
+          <li>Quality workmanship</li>
+          <li>Appropriate licensing/certification when required</li>
+          <li>Insurance when applicable</li>
+          <li>Professional communication</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section application-section" id="professional-application">
+      <div class="container application-layout">
+        <aside class="application-intro">
+          <p class="eyebrow dark">APPLY TO JOIN</p>
+          <h2>Tell us about your experience.</h2>
+          <p>Complete the application below. PLEASE will review your information and, if there is a potential fit, you will be contacted regarding the next steps.</p>
+          <div class="application-note">
+            <strong>What happens next?</strong>
+            <ol>
+              <li>PLEASE reviews your application.</li>
+              <li>Selected applicants are referred for technical onboarding.</li>
+              <li>Additional information, photos and service details may be requested.</li>
+              <li>Approved providers receive their own secure portal access and availability calendar.</li>
+            </ol>
+          </div>
+          <p class="small-print">Submitting an application does not create a provider account and does not guarantee acceptance into the PLEASE Professional Network.</p>
+        </aside>
+
+        <div class="application-card">
+          <div id="application-alert" class="form-alert" role="status" aria-live="polite" hidden></div>
+
+          <form id="provider-application-form" novalidate>
+            <div class="form-section-heading">
+              <span>1</span>
+              <div><h3>Contact information</h3><p>Tell us who you are and how we can reach you.</p></div>
+            </div>
+
+            <div class="form-grid two-col">
+              <label>Full Name *
+                <input name="full_name" autocomplete="name" required maxlength="120" placeholder="Your full name">
+              </label>
+              <label>Company Name
+                <input name="company_name" autocomplete="organization" maxlength="160" placeholder="Company or business name (optional)">
+              </label>
+              <label>Phone *
+                <input name="phone" type="tel" autocomplete="tel" required maxlength="40" placeholder="403-555-1234">
+              </label>
+              <label>Email *
+                <input name="email" type="email" autocomplete="email" required maxlength="160" placeholder="you@example.com">
+              </label>
+            </div>
+
+            <div class="form-section-heading">
+              <span>2</span>
+              <div><h3>Professional information</h3><p>Tell us what you do and where you work.</p></div>
+            </div>
+
+            <div class="form-grid two-col">
+              <label>Service / Trade *
+                <select name="service_id" id="service-select" required>
+                  <option value="">Loading services…</option>
+                </select>
+              </label>
+              <label id="other-service-wrap" hidden>Describe Your Service *
+                <input name="other_service_description" id="other-service-input" maxlength="180" placeholder="Describe your service or trade">
+              </label>
+              <label>Years of Experience *
+                <input name="years_experience" type="number" required min="0" max="70" step="1" inputmode="numeric" placeholder="e.g. 8">
+              </label>
+              <label>Service Area *
+                <input name="service_area" required maxlength="180" placeholder="e.g. Calgary, Airdrie, Okotoks">
+              </label>
+            </div>
+
+            <div class="form-grid two-col status-grid">
+              <fieldset>
+                <legend>Licensed / Certified? *</legend>
+                <label class="radio-line"><input type="radio" name="license_status" value="YES" required> Yes</label>
+                <label class="radio-line"><input type="radio" name="license_status" value="NO"> No</label>
+                <label class="radio-line"><input type="radio" name="license_status" value="NOT_REQUIRED"> Not required for my trade</label>
+              </fieldset>
+              <fieldset>
+                <legend>Insured? *</legend>
+                <label class="radio-line"><input type="radio" name="insured_status" value="YES" required> Yes</label>
+                <label class="radio-line"><input type="radio" name="insured_status" value="NO"> No</label>
+                <label class="radio-line"><input type="radio" name="insured_status" value="IN_PROCESS"> In process</label>
+                <label class="radio-line"><input type="radio" name="insured_status" value="NOT_APPLICABLE"> Not applicable</label>
+              </fieldset>
+            </div>
+
+            <div class="form-section-heading">
+              <span>3</span>
+              <div><h3>Your experience</h3><p>Give us enough detail to understand the type and quality of work you provide.</p></div>
+            </div>
+
+            <label>Tell us about your experience *
+              <textarea name="experience_description" required minlength="30" maxlength="3000" rows="7" placeholder="Tell us about the type of work you do, your experience, specialties and the services you would like to provide through PLEASE."></textarea>
+            </label>
+
+            <div class="documents-preview">
+              <div>
+                <strong>Documents &amp; portfolio</strong>
+                <p>Certification, insurance and portfolio uploads will be enabled in the next portal step.</p>
+              </div>
+              <span>STEP 2.4</span>
+            </div>
+
+            <div class="consent-box">
+              <label class="check-line"><input type="checkbox" name="consent_information_accurate" required> <span>I confirm that the information provided is accurate and that PLEASE may contact me regarding this application.</span></label>
+              <label class="check-line"><input type="checkbox" name="consent_application_not_guarantee" required> <span>I understand that submitting this form does not guarantee acceptance into the PLEASE Professional Network.</span></label>
+            </div>
+
+            <div class="form-actions-row">
+              <button class="btn network-primary full" id="application-submit" type="submit">SUBMIT APPLICATION →</button>
+              <p class="form-privacy">Your application is sent securely to PLEASE for review.</p>
+            </div>
+          </form>
+
+          <section id="application-success" class="application-success" hidden>
+            <div class="success-mark">✓</div>
+            <p class="eyebrow dark">APPLICATION RECEIVED</p>
+            <h2>Thank you for your interest.</h2>
+            <p>Our team will review the information you provided. If your experience and services are a potential fit for the network, you will be contacted regarding the next steps.</p>
+            <div class="reference-box">
+              <span>Application Reference</span>
+              <strong id="application-reference">—</strong>
+            </div>
+            <p class="small-print">Please keep this reference for your records. Submitting an application does not guarantee acceptance into the PLEASE Professional Network.</p>
+            <a class="btn network-secondary" href="index.html">RETURN TO PLEASE HOME</a>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="network-final-cta">
+      <div class="container final-layout">
+        <div><p class="eyebrow">PLEASE PROFESSIONAL NETWORK</p><h2>Professional work. Coordinated opportunities.</h2></div>
+        <a class="btn network-light" href="#professional-application">APPLY TO JOIN →</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-layout">
+      <div><img src="images/please-logo.png" alt="PLEASE Services" class="footer-logo"><p>ANY SERVICE IN ONE PLACE! Local services coordinated across Calgary and surrounding areas.</p></div>
+      <div><h4>Quick Links</h4><a href="index.html#services">Services</a><a href="index.html#how">How It Works</a><a href="work-with-us.html">Join Our Team</a><a href="payment.html">Pay Online</a></div>
+      <div><h4>Professional Network</h4><a href="#professional-application">Apply to Join</a><a href="index.html#quote-form">Get a Free Quote</a></div>
+      <div><h4>Contact</h4><a href="mailto:info@pleaseservice.ca">info@pleaseservice.ca</a><a href="tel:+15878362866">587-836-2866</a><p>Calgary, Alberta</p></div>
+    </div>
+    <div class="container legal"><span>© 2026 PLEASE Services. All rights reserved.</span><span>Privacy Policy · Terms of Use</span></div>
+  </footer>
+
+  <div class="mobile-bar"><a href="tel:+15878362866">Call</a><a href="sms:+15878362866">SMS</a><a href="index.html#quote-form">Quote</a></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/work-with-us.js"></script>
+</body>
+</html>
