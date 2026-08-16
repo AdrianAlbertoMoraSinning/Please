@@ -727,3 +727,21 @@ h3{
 
 /* STEP 8.1 — customer billing captured with the Job */
 .calendar-billing-summary{margin-top:10px;padding:10px 12px;border:1px solid #dbe5ef;border-radius:8px;background:#f7fafc;font-size:.92rem}.calendar-billing-summary strong{color:#0b4e9b}
+
+/* STEP 8.2 — Provider rates, multi-item billing, schedule change requests */
+.calendar-billing-picker{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end;margin:12px 0 16px}
+.calendar-billing-picker label{display:grid;gap:6px}
+.calendar-billing-items{display:grid;gap:10px}
+.calendar-billing-row{display:grid;grid-template-columns:minmax(220px,1fr) 92px 110px 110px auto;gap:10px;align-items:end;padding:12px;border:1px solid rgba(15,23,42,.12);border-radius:12px;background:#fff}
+.calendar-billing-name{display:grid;gap:4px;align-self:center}.calendar-billing-name small{color:#64748b}
+.calendar-billing-row label{display:grid;gap:4px;font-size:.82rem;color:#64748b}.calendar-billing-row input{width:100%}
+.calendar-billing-row .billing-line-total{align-self:center;text-align:right;white-space:nowrap}
+.calendar-billing-row .billing-remove{padding:7px 10px;align-self:center}
+.calendar-billing-totals{margin-top:14px;margin-left:auto;max-width:360px;display:grid;gap:7px}.calendar-billing-totals>div,.calendar-modal-billing>div{display:flex;justify-content:space-between;gap:16px}.calendar-billing-totals .grand,.calendar-modal-billing .grand{padding-top:8px;border-top:1px solid rgba(15,23,42,.15);font-size:1.04rem}
+.calendar-modal-billing{display:grid;gap:7px;padding:12px;border:1px solid rgba(15,23,42,.12);border-radius:12px;margin-bottom:16px}
+.schedule-change-review,.provider-change-request{border:1px solid #f0b429;background:#fff9e8;border-radius:12px;padding:14px;margin:14px 0}.provider-change-request{display:grid;gap:6px}.provider-change-request span{font-weight:700}
+.provider-schedule-change-form{margin-top:14px;padding:14px;border:1px solid rgba(15,23,42,.12);border-radius:12px;background:#f8fafc}.provider-schedule-change-form h4{margin:0 0 6px}.provider-schedule-change-form label{display:grid;gap:6px;margin-top:10px}
+.provider-rate-form{display:grid;gap:14px}.provider-rate-card{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:14px;border:1px solid rgba(15,23,42,.12);border-radius:12px}.provider-rate-card>div:first-child{display:grid;gap:5px}.provider-rate-card span{color:#475569}.provider-rate-card.inactive{opacity:.62}
+.provider-job-billing{display:grid;gap:6px;padding:11px 12px;background:#f8fafc;border-radius:10px;margin:10px 0}.provider-job-billing>div{display:flex;justify-content:space-between;gap:12px;font-size:.9rem}
+@media(max-width:760px){.calendar-billing-picker,.calendar-billing-row{grid-template-columns:1fr}.calendar-billing-row .billing-line-total{text-align:left}.provider-rate-card{display:grid}.provider-job-billing>div{display:grid;gap:2px}}
+.calendar-assignment.schedule-change-pending{outline:2px solid #f0b429;outline-offset:1px}

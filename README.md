@@ -44,3 +44,9 @@ STEP 8 activates the existing billing foundation with `admin-invoices.html`, cus
 
 ## STEP 8.1
 Customer billing is now captured at Job creation and automatically prefills completed-Job invoices. See `STEP8_1_JOB_BILLING_INVOICE_PREFILL.md`.
+
+## STEP 8.2 — Provider Rates + Multi-Item Billing + Schedule Change Requests
+
+STEP 8.2 replaces the one-rate-per-Job model for new Jobs. Providers maintain multiple Service Rates across all services assigned to their profile; PLEASE can combine any of that Provider's active rates into one Job Customer Billing detail and one final invoice. Providers can also propose date/time changes for pending or confirmed assignments; PLEASE Administration must accept the change before the calendar is updated. Historical STEP 8.1 Jobs and invoices remain intact.
+
+Run `supabase/STEP8_2_PROVIDER_RATES_MULTI_ITEM_SCHEDULE_CHANGES.sql` before deploying the STEP 8.2 application files. See `STEP8_2_PROVIDER_RATES_MULTI_ITEM_SCHEDULE_CHANGES.md` and `UPLOAD_ONLY_STEP8_2.txt`.

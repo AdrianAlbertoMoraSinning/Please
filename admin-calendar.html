@@ -135,18 +135,19 @@
 
         <section class="admin-detail-section" id="billing-section">
           <h3>Customer Billing</h3>
-          <div class="calendar-form-grid three">
-            <label>Billing Type *
-              <select id="job-billing-type" required>
-                <option value="HOURLY">Hourly</option>
-                <option value="FLAT_RATE">Flat Rate</option>
-              </select>
-            </label>
-            <label>Customer Rate (CAD) *<input id="job-customer-rate" type="number" min="0" step="0.01" required placeholder="0.00"></label>
-            <label>Billable Quantity<input id="job-billable-quantity" type="number" min="0.01" step="0.01" readonly></label>
+          <p class="admin-muted">Choose one or more active Service Rates from the selected Provider. The rate catalog includes every service assigned to that Provider, not only the Job's primary service.</p>
+          <div class="calendar-billing-picker">
+            <label>Provider Service Rate<select id="job-billing-rate-picker"><option value="">Select provider first</option></select></label>
+            <button id="job-add-billing-item" type="button" class="admin-outline-button">ADD BILLING ITEM</button>
           </div>
-          <div class="calendar-billing-summary"><span id="job-billing-unit">hours</span> · Estimated customer subtotal <strong id="job-billing-subtotal">$0.00</strong> before GST.</div>
-          <small>This is the price PLEASE will charge the customer. It is separate from any rate or note provided by the service provider.</small>
+          <div id="job-billing-empty" class="admin-muted">No billing items added.</div>
+          <div id="job-billing-items" class="calendar-billing-items"></div>
+          <div class="calendar-billing-totals">
+            <div><span>Subtotal</span><strong id="job-billing-subtotal">$0.00</strong></div>
+            <div><span>GST 5%</span><strong id="job-billing-gst">$0.00</strong></div>
+            <div class="grand"><span>Estimated Customer Total</span><strong id="job-billing-total">$0.00</strong></div>
+          </div>
+          <small>Billing lines are frozen on the Job when the assignment is sent. Later Provider rate changes do not alter this Job.</small>
         </section>
 
         <section class="admin-detail-section">
