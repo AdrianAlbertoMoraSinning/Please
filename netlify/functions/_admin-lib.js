@@ -136,6 +136,14 @@ async function requireAdmin(event) {
   return auth;
 }
 
+async function requireDeveloper(event) {
+  const auth = await getSession(event);
+  if (!auth || auth.user.role !== 'DEVELOPER_ADMIN') {
+    const err = new Error('Unauthorized'); err.status = 401; throw err;
+  }
+  return auth;
+}
+
 async function revokeSession(auth) {
   if (!auth?.session?.id) return;
   await sbJson(`/rest/v1/admin_portal_sessions?id=eq.${auth.session.id}`, {
@@ -146,5 +154,5 @@ async function revokeSession(auth) {
 module.exports = {
   COOKIE_NAME, SESSION_SECONDS, json, sbFetch, sbJson, sameOrigin,
   requestIp, requestUserAgent, sessionCookie, clearCookie,
-  createSession, getSession, requireAdmin, revokeSession
+  createSession, getSession, requireAdmin, requireDeveloper, revokeSession
 };
