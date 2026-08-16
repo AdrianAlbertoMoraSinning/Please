@@ -9,6 +9,10 @@
   const submitButton = document.getElementById('application-submit');
   const successPanel = document.getElementById('application-success');
   const referenceTarget = document.getElementById('application-reference');
+  const uploadResult = document.getElementById('document-upload-result');
+  const certificationFile = document.getElementById('certification-file');
+  const insuranceFile = document.getElementById('insurance-file');
+  const portfolioFiles = document.getElementById('portfolio-files');
 
   const url = window.PLEASE_SUPABASE_URL;
   const key = window.PLEASE_SUPABASE_ANON_KEY;
@@ -20,6 +24,61 @@
   );
 
   let client = null;
+
+
+  const MAX_FILE_BYTES = 5 * 1024 * 1024;
+  const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+
+  function collectUploadFiles() {
+    const items = [];
+    if (certificationFile?.files?.[0]) items.push({ file: certificationFile.files[0], type: 'CERTIFICATION' });
+    if (insuranceFile?.files?.[0]) items.push({ file: insuranceFile.files[0], type: 'INSURANCE' });
+    Array.from(portfolioFiles?.files || []).slice(0, 5).forEach(file => items.push({ file, type: 'PORTFOLIO' }));
+    return items;
+  }
+
+  function validateUploadFiles() {
+    const portfolioCount = portfolioFiles?.files?.length || 0;
+    if (portfolioCount > 5) return 'Please select no more than 5 portfolio files.';
+
+    for (const { file } of collectUploadFiles()) {
+      if (file.size > MAX_FILE_BYTES) return `${file.name} is larger than 5 MB.`;
+      if (!ALLOWED_TYPES.has(file.type)) return `${file.name} is not an accepted PDF or image file.`;
+    }
+    return null;
+  }
+
+  async function uploadApplicationFile({ file, type }, application) {
+    const params = new URLSearchParams({
+      application_id: application.application_id,
+      reference: application.application_reference,
+      email: application.email,
+      file_type: type,
+      filename: file.name
+    });
+
+    const response = await fetch(`/.netlify/functions/provider-application-upload?${params.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file
+    });
+
+    let body = {};
+    try { body = await response.json(); } catch (_) {}
+    if (!response.ok) throw new Error(body.error || `Upload failed for ${file.name}`);
+    return body;
+  }
+
+  async function uploadSupportingDocuments(application) {
+    const files = collectUploadFiles();
+    if (!files.length) return { uploaded: 0, failed: 0 };
+
+    const results = await Promise.allSettled(files.map(item => uploadApplicationFile(item, application)));
+    return {
+      uploaded: results.filter(r => r.status === 'fulfilled').length,
+      failed: results.filter(r => r.status === 'rejected').length
+    };
+  }
 
   function showAlert(message, type = 'error') {
     alertBox.hidden = false;
@@ -117,6 +176,12 @@
 
     if (!form.reportValidity()) return;
 
+    const uploadValidationError = validateUploadFiles();
+    if (uploadValidationError) {
+      showAlert(uploadValidationError);
+      return;
+    }
+
     const data = new FormData(form);
     const serviceValue = data.get('service_id');
     const isOther = serviceValue === '__OTHER__';
@@ -154,7 +219,24 @@
       const row = Array.isArray(result) ? result[0] : result;
       if (!row?.application_reference) throw new Error('Application reference was not returned.');
 
+      const uploadSummary = await uploadSupportingDocuments({
+        application_id: row.application_id,
+        application_reference: row.application_reference,
+        email: payload.p_email
+      });
+
       referenceTarget.textContent = row.application_reference;
+      if (uploadResult) {
+        if (uploadSummary.uploaded > 0 && uploadSummary.failed === 0) {
+          uploadResult.hidden = false;
+          uploadResult.className = 'document-upload-result success';
+          uploadResult.textContent = `${uploadSummary.uploaded} supporting document${uploadSummary.uploaded === 1 ? '' : 's'} uploaded privately with your application.`;
+        } else if (uploadSummary.failed > 0) {
+          uploadResult.hidden = false;
+          uploadResult.className = 'document-upload-result warning';
+          uploadResult.textContent = `Your application was received, but ${uploadSummary.failed} document${uploadSummary.failed === 1 ? '' : 's'} could not be uploaded. PLEASE may contact you if supporting documents are needed.`;
+        }
+      }
       form.hidden = true;
       successPanel.hidden = false;
       successPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });

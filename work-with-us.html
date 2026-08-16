@@ -170,12 +170,31 @@
               <textarea name="experience_description" required minlength="30" maxlength="3000" rows="7" placeholder="Tell us about the type of work you do, your experience, specialties and the services you would like to provide through PLEASE."></textarea>
             </label>
 
-            <div class="documents-preview">
-              <div>
-                <strong>Documents &amp; portfolio</strong>
-                <p>Certification, insurance and portfolio uploads will be enabled in the next portal step.</p>
-              </div>
-              <span>STEP 2.4</span>
+            <div class="form-section-heading">
+              <span>4</span>
+              <div><h3>Documents &amp; portfolio</h3><p>Optional supporting documents are uploaded privately and linked to your application.</p></div>
+            </div>
+
+            <div class="upload-grid">
+              <label class="upload-field">Certification
+                <span class="upload-help">PDF, JPG, PNG or WEBP · maximum 5 MB</span>
+                <input type="file" name="certification_file" id="certification-file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp">
+              </label>
+
+              <label class="upload-field">Insurance
+                <span class="upload-help">PDF, JPG, PNG or WEBP · maximum 5 MB</span>
+                <input type="file" name="insurance_file" id="insurance-file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp">
+              </label>
+
+              <label class="upload-field upload-field-wide">Portfolio / Work Photos
+                <span class="upload-help">Up to 5 files · PDF, JPG, PNG or WEBP · maximum 5 MB each</span>
+                <input type="file" name="portfolio_files" id="portfolio-files" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp">
+              </label>
+            </div>
+
+            <div class="upload-security-note">
+              <strong>Private upload</strong>
+              <p>Your documents are stored in a private PLEASE application area and are not published on the website. They are intended for authorized PLEASE/developer review only.</p>
             </div>
 
             <div class="consent-box">
@@ -198,6 +217,7 @@
               <span>Application Reference</span>
               <strong id="application-reference">—</strong>
             </div>
+            <div id="document-upload-result" class="document-upload-result" hidden></div>
             <p class="small-print">Please keep this reference for your records. Submitting an application does not guarantee acceptance into the PLEASE Professional Network.</p>
             <a class="btn network-secondary" href="index.html">RETURN TO PLEASE HOME</a>
           </section>

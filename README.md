@@ -22,3 +22,7 @@ The agenda is currently in demo mode. To connect it to Google Sheets, deploy `mo
 
 ## Netlify forms
 The quote and contact forms are prepared for Netlify Forms. After deployment, test both forms from the live site.
+
+## Portal development status (Aug 2026)
+
+The repository is being migrated from the original demo agenda/Stripe placeholders to the PLEASE Supabase portal architecture. Work With Us Step 2.4 adds private provider-application uploads through Netlify Functions. See `STEP2_4_SETUP.md` for deployment instructions.
