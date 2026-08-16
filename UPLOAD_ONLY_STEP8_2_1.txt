@@ -1,0 +1,37 @@
+PLEASE Portal — STEP 8.2.1
+GitHub manual upload guide
+
+ZIP: COMPLETE PROJECT BACKUP.
+Do NOT upload the complete ZIP manually to GitHub.
+
+REQUIRED FILES TO UPLOAD / REPLACE FOR STEP 8.2.1:
+
+provider.html
+css/style.css
+js/provider.js
+netlify/functions/provider-dashboard.js
+netlify/functions/provider-service-rate-action.js
+supabase/STEP8_2_1_SERVICE_RATE_UI_COMPENSATION_MODEL.sql
+
+OPTIONAL DOCUMENTATION FILES:
+STEP8_2_1_SERVICE_RATE_UI_COMPENSATION_MODEL.md
+UPLOAD_ONLY_STEP8_2_1.txt
+README.md
+
+NOT NECESSARY TO RE-UPLOAD:
+images/
+modules/
+all developer*.html files
+all admin*.html files
+provider-login.html
+provider-password.html
+invoice.html
+payment.html
+payment-success.html
+professional.html
+work-with-us.html
+thank-you.html
+all JavaScript files not listed above
+all Netlify Functions not listed above
+all SQL migrations from earlier steps
+all previous STEP*.md files

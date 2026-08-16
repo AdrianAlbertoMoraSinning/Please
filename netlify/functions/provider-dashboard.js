@@ -10,7 +10,7 @@ exports.handler=async event=>{
       lib.sbJson(`/rest/v1/provider_availability?select=id,weekday,start_time,end_time,active&provider_id=eq.${q}&active=eq.true&order=weekday.asc,start_time.asc`),
       lib.sbJson(`/rest/v1/provider_availability_exceptions?select=id,exception_date,start_time,end_time,exception_type,reason,created_at&provider_id=eq.${q}&order=exception_date.asc,start_time.asc`),
       lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,scheduled_start,scheduled_end,status,assignment_message,provider_response_note,assigned_at,responded_at,updated_at&provider_id=eq.${q}&order=scheduled_start.desc`),
-      lib.sbJson(`/rest/v1/provider_service_rates?select=id,provider_id,service_id,rate_name,description,billing_unit,customer_rate,provider_compensation,active,sort_order,created_at,updated_at&provider_id=eq.${q}&order=active.desc,sort_order.asc,rate_name.asc`),
+      lib.sbJson(`/rest/v1/provider_service_rates?select=id,provider_id,service_id,rate_name,description,billing_unit,customer_rate,provider_compensation_method,provider_compensation,active,sort_order,created_at,updated_at&provider_id=eq.${q}&order=active.desc,sort_order.asc,rate_name.asc`),
       lib.sbJson(`/rest/v1/assignment_schedule_change_requests?select=id,assignment_id,job_id,provider_id,current_start,current_end,proposed_start,proposed_end,provider_reason,status,admin_note,reviewed_at,created_at,updated_at&provider_id=eq.${q}&order=created_at.desc`)
     ]);
     const jobIds=[...new Set((assignRaw||[]).map(x=>x.job_id).filter(Boolean))];

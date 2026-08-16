@@ -1,5 +1,6 @@
 const lib=require('./_provider-lib');
 const UNITS=new Set(['hour','service','item','load','room','sq_ft','day','other']);
+const METHODS=new Set(['NONE','FIXED_CAD','PERCENT']);
 const money=n=>Math.round(Number(n)*100)/100;
 exports.handler=async event=>{
   if(event.httpMethod!=='POST')return lib.json(405,{error:'Method not allowed'});
@@ -10,11 +11,17 @@ exports.handler=async event=>{
     if(action==='SAVE'){
       const id=String(payload.id||'').trim(),serviceId=String(payload.service_id||'').trim();
       const name=String(payload.rate_name||'').trim().slice(0,160),description=String(payload.description||'').trim().slice(0,1000)||null;
-      const unit=String(payload.billing_unit||'service').trim().toLowerCase(),rate=money(payload.customer_rate),comp=payload.provider_compensation===''||payload.provider_compensation==null?null:money(payload.provider_compensation);
-      if(!/^[0-9a-f-]{36}$/i.test(serviceId)||!name||!UNITS.has(unit)||!Number.isFinite(rate)||rate<0||(comp!==null&&(!Number.isFinite(comp)||comp<0)))return lib.json(400,{error:'Service, rate name, billing unit and a valid rate are required.'});
+      const unit=String(payload.billing_unit||'service').trim().toLowerCase(),rate=money(payload.customer_rate);
+      const method=String(payload.provider_compensation_method||'NONE').trim().toUpperCase();
+      let comp=null;
+      if(method!=='NONE')comp=money(payload.provider_compensation);
+      if(!/^[0-9a-f-]{36}$/i.test(serviceId)||!name||!UNITS.has(unit)||!Number.isFinite(rate)||rate<0||!METHODS.has(method))return lib.json(400,{error:'Service, rate name, billing unit and a valid customer rate are required.'});
+      if(method!=='NONE'&&(!Number.isFinite(comp)||comp<0))return lib.json(400,{error:'Enter a valid provider compensation value.'});
+      if(method==='PERCENT'&&comp>100)return lib.json(400,{error:'Provider compensation percentage cannot exceed 100%.'});
+      if(method==='FIXED_CAD'&&comp>rate)return lib.json(400,{error:'Provider compensation cannot exceed the customer rate.'});
       const assigned=await lib.sbJson(`/rest/v1/provider_services?select=service_id&provider_id=eq.${encodeURIComponent(pid)}&service_id=eq.${encodeURIComponent(serviceId)}&active=eq.true&limit=1`);
       if(!assigned?.length)return lib.json(409,{error:'That service is not active on your provider profile.'});
-      const row={provider_id:pid,service_id:serviceId,rate_name:name,description,billing_unit:unit,customer_rate:rate,provider_compensation:comp,active:true,updated_at:new Date().toISOString()};
+      const row={provider_id:pid,service_id:serviceId,rate_name:name,description,billing_unit:unit,customer_rate:rate,provider_compensation_method:method,provider_compensation:method==='NONE'?null:comp,active:true,updated_at:new Date().toISOString()};
       if(id){
         const owned=await lib.sbJson(`/rest/v1/provider_service_rates?select=id&provider_id=eq.${encodeURIComponent(pid)}&id=eq.${encodeURIComponent(id)}&limit=1`);
         if(!owned?.length)return lib.json(404,{error:'Rate item not found.'});
