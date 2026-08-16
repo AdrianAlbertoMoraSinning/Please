@@ -1,0 +1,14 @@
+STEP 8.3.1 — UPLOAD ONLY
+
+FUNCTIONAL FILES TO REPLACE IN GITHUB:
+
+js/admin-calendar.js
+js/admin-reports.js
+netlify/functions/admin-reports-data.js
+
+OPTIONAL DOCUMENTATION:
+STEP8_3_1_CUSTOMER_RATE_INPUT_REPORTS_RECOVERY.md
+UPLOAD_ONLY_STEP8_3_1.txt
+
+NO SQL IS REQUIRED.
+DO NOT RE-UPLOAD images/, modules/, older SQL files, provider/developer pages, or unrelated Netlify Functions.

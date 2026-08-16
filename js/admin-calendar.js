@@ -57,7 +57,52 @@
   function rateLabel(r){const sn=data.services.find(s=>s.id===r.service_id)?.name||'Service',method=String(r.provider_compensation_method||'NONE').toUpperCase(),v=r.provider_compensation==null?null:Number(r.provider_compensation),unit=String(r.billing_unit||'service').replace('_',' ');let cost='Provider rate not set';if(method==='FIXED_CAD'&&Number.isFinite(v))cost=`Provider ${money(v)} / ${unit}`;else if(method==='PERCENT'&&Number.isFinite(v))cost=`Provider ${v.toFixed(2).replace(/\.00$/,'')}% of customer price`;return `${sn} — ${r.rate_name} — ${cost}`;}
   function defaultQtyForRate(r){if(r?.billing_unit!=='hour')return 1;const start=$('job-start')?.value,end=$('job-end')?.value;if(!start||!end)return 1;const [sh,sm]=start.split(':').map(Number),[eh,em]=end.split(':').map(Number);return Math.max(.25,((eh*60+em)-(sh*60+sm))/60);}
   function renderBillingPicker(){const pid=$('job-provider')?.value,picker=$('job-billing-rate-picker');if(!picker)return;const rates=providerRates(pid);picker.innerHTML='<option value="">Select provider rate item</option>'+rates.map(r=>`<option value="${r.id}">${esc(rateLabel(r))}</option>`).join('');if(!pid)picker.innerHTML='<option value="">Select provider first</option>';else if(!rates.length)picker.innerHTML='<option value="">Provider has no active Service Rates</option>';renderBillingItems();}
-  function renderBillingItems(){const box=$('job-billing-items'),empty=$('job-billing-empty'),readonly=!!$('job-existing-id')?.value;if(!box)return;empty.hidden=billingItems.length>0;box.innerHTML=billingItems.map((x,i)=>{const providerRate=x.provider_unit_rate??providerCostPreview(providerRates($('job-provider')?.value).find(r=>r.id===x.provider_service_rate_id),x.customer_unit_rate??x.unit_rate),qty=Number(x.quantity)||0,customerRate=Number(x.customer_unit_rate??x.unit_rate)||0,customerTotal=qty*customerRate,providerTotal=providerRate==null?null:qty*providerRate,profit=providerTotal==null?null:customerTotal-providerTotal;return `<div class="calendar-billing-row financial" data-index="${i}"><div class="calendar-billing-name"><strong>${esc(x.service_name||'Service')} · ${esc(x.description)}</strong><small>${esc(String(x.unit||'service').replace('_',' '))}</small></div><label>Qty<input class="billing-qty" data-index="${i}" type="number" min="0.01" step="0.01" value="${qty.toFixed(2)}" ${readonly?'disabled':''}></label><label>PLEASE Customer Rate<input class="billing-rate" data-index="${i}" type="number" min="0" step="0.01" value="${customerRate.toFixed(2)}" ${readonly?'disabled':''}></label><div class="billing-financial-snapshot"><span>Customer <b class="billing-line-total">${money(customerTotal)}</b></span><span>Provider <b>${providerTotal==null?'Needs rate':money(providerTotal)}</b></span><span>PLEASE Profit <b>${profit==null?'—':money(profit)}</b></span></div>${readonly?'':`<button type="button" class="admin-danger-button billing-remove" data-index="${i}">×</button>`}</div>`}).join('');box.querySelectorAll('.billing-qty,.billing-rate').forEach(el=>el.addEventListener('input',()=>{const i=Number(el.dataset.index);if(el.classList.contains('billing-qty'))billingItems[i].quantity=Math.max(.01,Number(el.value)||0);else{billingItems[i].customer_unit_rate=Math.max(0,Number(el.value)||0);billingItems[i].unit_rate=billingItems[i].customer_unit_rate;}renderBillingItems();}));box.querySelectorAll('.billing-remove').forEach(b=>b.onclick=()=>{billingItems.splice(Number(b.dataset.index),1);renderBillingItems();});renderBillingTotals();}
+  function updateBillingRow(row,i){
+    const x=billingItems[i]; if(!x||!row)return;
+    const qty=Math.max(0,Number(x.quantity)||0),customerRate=Math.max(0,Number(x.customer_unit_rate??x.unit_rate)||0);
+    const r=providerRates($('job-provider')?.value).find(r=>r.id===x.provider_service_rate_id);
+    const providerRate=x.provider_unit_rate??providerCostPreview(r,customerRate);
+    const customerTotal=qty*customerRate,providerTotal=providerRate==null?null:qty*providerRate,profit=providerTotal==null?null:customerTotal-providerTotal;
+    const values=row.querySelectorAll('.billing-financial-snapshot b');
+    if(values[0])values[0].textContent=money(customerTotal);
+    if(values[1])values[1].textContent=providerTotal==null?'Needs rate':money(providerTotal);
+    if(values[2])values[2].textContent=profit==null?'—':money(profit);
+  }
+  function renderBillingItems(){
+    const box=$('job-billing-items'),empty=$('job-billing-empty'),readonly=!!$('job-existing-id')?.value;if(!box)return;
+    empty.hidden=billingItems.length>0;
+    box.innerHTML=billingItems.map((x,i)=>{
+      const qty=Number(x.quantity)||0,customerRate=Number(x.customer_unit_rate??x.unit_rate)||0;
+      return `<div class="calendar-billing-row financial" data-index="${i}"><div class="calendar-billing-name"><strong>${esc(x.service_name||'Service')} · ${esc(x.description)}</strong><small>${esc(String(x.unit||'service').replace('_',' '))}</small></div><label>Qty<input class="billing-qty" data-index="${i}" type="number" inputmode="decimal" min="0.01" step="0.01" value="${qty.toFixed(2)}" ${readonly?'disabled':''}></label><label>PLEASE Customer Rate<input class="billing-rate" data-index="${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${customerRate.toFixed(2)}" ${readonly?'disabled':''}></label><div class="billing-financial-snapshot"><span>Customer <b>${money(0)}</b></span><span>Provider <b>—</b></span><span>PLEASE Profit <b>—</b></span></div>${readonly?'':`<button type="button" class="admin-danger-button billing-remove" data-index="${i}">×</button>`}</div>`;
+    }).join('');
+    box.querySelectorAll('.calendar-billing-row').forEach((row,i)=>updateBillingRow(row,i));
+    box.querySelectorAll('.billing-qty,.billing-rate').forEach(el=>{
+      el.addEventListener('input',()=>{
+        const i=Number(el.dataset.index),raw=el.value;
+        // Do not rebuild the row while the user is typing. Re-rendering caused focus/caret loss
+        // and made direct decimal entry nearly impossible.
+        if(el.classList.contains('billing-qty')){
+          if(raw!=='')billingItems[i].quantity=Math.max(0,Number(raw)||0);
+        }else if(raw!==''){
+          billingItems[i].customer_unit_rate=Math.max(0,Number(raw)||0);
+          billingItems[i].unit_rate=billingItems[i].customer_unit_rate;
+        }
+        updateBillingRow(el.closest('.calendar-billing-row'),i);renderBillingTotals();
+      });
+      el.addEventListener('focus',()=>{requestAnimationFrame(()=>el.select());});
+      el.addEventListener('blur',()=>{
+        const i=Number(el.dataset.index);
+        if(el.classList.contains('billing-qty')){
+          const v=Math.max(.01,Number(el.value)||.01);billingItems[i].quantity=v;el.value=v.toFixed(2);
+        }else{
+          const v=Math.max(0,Number(el.value)||0);billingItems[i].customer_unit_rate=v;billingItems[i].unit_rate=v;el.value=v.toFixed(2);
+        }
+        updateBillingRow(el.closest('.calendar-billing-row'),i);renderBillingTotals();
+      });
+    });
+    box.querySelectorAll('.billing-remove').forEach(b=>b.onclick=()=>{billingItems.splice(Number(b.dataset.index),1);renderBillingItems();});
+    renderBillingTotals();
+  }
   function renderBillingTotals(){const subtotal=billingItems.reduce((n,x)=>n+(Number(x.quantity)||0)*Number((x.customer_unit_rate??x.unit_rate)??0),0),gst=subtotal*.05;if($('job-billing-subtotal'))$('job-billing-subtotal').textContent=money(subtotal);if($('job-billing-gst'))$('job-billing-gst').textContent=money(gst);if($('job-billing-total'))$('job-billing-total').textContent=money(subtotal+gst);}
   function addBillingItem(){const id=$('job-billing-rate-picker')?.value,r=providerRates($('job-provider')?.value).find(x=>x.id===id);if(!r)return showAlert('Select an active Provider Service Rate first.');const method=String(r.provider_compensation_method||'NONE').toUpperCase();if(method==='NONE'||r.provider_compensation==null)return showAlert('This Provider Service Rate does not have a Provider Charge configured.');const defaultCustomer=Number(r.customer_rate)>0?Number(r.customer_rate):(method==='FIXED_CAD'?Number(r.provider_compensation)||0:0);billingItems.push({provider_service_rate_id:r.id,service_id:r.service_id,service_name:data.services.find(s=>s.id===r.service_id)?.name||'Service',description:r.rate_name,quantity:defaultQtyForRate(r),unit:r.billing_unit,customer_unit_rate:defaultCustomer,unit_rate:defaultCustomer});renderBillingItems();}
   function scheduleChangeFor(assignmentId){return (data.schedule_changes||[]).find(r=>r.assignment_id===assignmentId&&r.status==='PENDING');}
