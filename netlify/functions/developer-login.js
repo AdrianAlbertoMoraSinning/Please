@@ -1,4 +1,5 @@
 const lib = require('./_admin-lib');
+const security = require('./_security-lib');
 exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') return lib.json(405,{error:'Method not allowed'});
   if (!lib.sameOrigin(event)) return lib.json(403,{error:'Invalid request origin'});
@@ -7,6 +8,8 @@ exports.handler = async function(event) {
     const email=String(body.email||'').trim().toLowerCase();
     const password=String(body.password||'');
     if(!email||!password) return lib.json(400,{error:'Email and password are required.'});
+    const rl=await security.checkRateLimit(event,{endpoint:'developer-login',limit:20,windowSeconds:900,identity:email});
+    if(!rl.allowed) return lib.json(429,{error:'Too many sign-in attempts. Please wait a few minutes and try again.'},{'Retry-After':String(rl.retryAfter)});
     const data=await lib.sbJson('/rest/v1/rpc/admin_portal_authenticate',{method:'POST',body:JSON.stringify({p_email:email,p_password:password})});
     const user=Array.isArray(data)?data[0]:null;
     const success=Boolean(user&&user.role==='DEVELOPER_ADMIN');

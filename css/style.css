@@ -302,8 +302,19 @@ h3{
   background:white;
   border:1px solid var(--line);
   border-radius:20px;
-  padding:26px;
+  padding:18px;
   box-shadow:0 16px 40px rgba(15,23,42,.07);
+  overflow:hidden;
+}
+
+.service-photo{
+  display:block;
+  width:100%;
+  aspect-ratio:457 / 364;
+  object-fit:cover;
+  border-radius:15px;
+  margin-bottom:18px;
+  background:#eef4fb;
 }
 
 .service-icon{

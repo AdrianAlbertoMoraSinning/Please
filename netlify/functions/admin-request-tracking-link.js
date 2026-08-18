@@ -1,5 +1,6 @@
 const crypto=require('crypto');
 const lib=require('./_admin-lib');
+const security=require('./_security-lib');
 const hash=v=>crypto.createHash('sha256').update(String(v||'')).digest('hex');
 
 exports.handler=async event=>{
@@ -14,9 +15,7 @@ exports.handler=async event=>{
     const req=rows?.[0];
     if(!req) return lib.json(404,{error:'Service request not found.'});
     const token=crypto.randomBytes(24).toString('hex');
-    await lib.sbJson('/rest/v1/service_request_tracking_tokens',{
-      method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:req.id,token_hash:hash(token),source:'ADMIN_GENERATED'})
-    });
+    await security.issueTrackingToken({serviceRequestId:req.id,tokenHash:hash(token),source:'ADMIN_GENERATED'});
     return lib.json(200,{reference:req.reference,tracking_token:token,generated_by:auth.user.email});
   }catch(e){
     console.error('admin-request-tracking-link',e);

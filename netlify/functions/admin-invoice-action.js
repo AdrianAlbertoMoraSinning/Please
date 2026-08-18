@@ -72,6 +72,7 @@ exports.handler=async event=>{
 
     if(action==='SAVE'){
       if(inv.status==='PAID'||inv.status==='VOID') return lib.json(409,{error:'Paid or void invoices cannot be edited.'});
+      if(inv.payment_status==='PENDING'&&inv.stripe_checkout_session_id) return lib.json(409,{error:'Invoice financial details are locked while a Stripe Checkout session is active.'});
       const items=(Array.isArray(body.items)?body.items:[]).map(cleanItem);
       if(!items.length) return lib.json(400,{error:'Add at least one invoice item.'});
       const rate=MONEY(body.gst_rate);
@@ -109,6 +110,8 @@ exports.handler=async event=>{
       if(inv.payment_status==='PAID') return lib.json(409,{error:'Invoice is already paid.'});
       const amount=MONEY(body.amount||inv.total_amount),method=String(body.payment_method||'MANUAL').trim().slice(0,80),ref=String(body.payment_reference||'').trim().slice(0,250)||null,note=String(body.note||'').trim().slice(0,1000)||'Manual payment recorded by PLEASE';
       if(amount<=0) return lib.json(400,{error:'Payment amount must be greater than zero.'});
+      const remaining=MONEY(Math.max(0,Number(inv.total_amount)-Number(inv.amount_paid||0)));
+      if(amount>remaining+0.001) return lib.json(409,{error:`Payment amount exceeds the remaining balance of $${remaining.toFixed(2)}.`});
       const paid=MONEY((Number(inv.amount_paid)||0)+amount),isFull=paid+0.001>=Number(inv.total_amount);
       const patch={amount_paid:paid,payment_method:method,payment_reference:ref,payment_status:isFull?'PAID':'PENDING',status:isFull?'PAID':inv.status,paid_at:isFull?new Date().toISOString():inv.paid_at,updated_at:new Date().toISOString()};
       await lib.sbJson(`/rest/v1/invoices?id=eq.${id}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});

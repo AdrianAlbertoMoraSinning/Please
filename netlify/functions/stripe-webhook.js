@@ -22,8 +22,13 @@ exports.handler=async event=>{
       if(invoiceId){
         const rows=await lib.sbJson(`/rest/v1/invoices?select=*&id=eq.${encodeURIComponent(invoiceId)}&limit=1`),inv=rows?.[0];
         if(inv && inv.payment_status!=='PAID'){
-          const amount=Number(obj.amount_total||0)/100;
-          const patch={status:'PAID',payment_status:'PAID',amount_paid:Number(inv.total_amount),payment_method:'STRIPE',payment_reference:obj.payment_intent||obj.id,stripe_checkout_session_id:obj.id,stripe_payment_intent_id:obj.payment_intent||null,paid_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+          const amount=Math.round((Number(obj.amount_total||0)/100)*100)/100;
+          const expected=Math.round(Math.max(0,Number(inv.total_amount)-Number(inv.amount_paid||0))*100)/100;
+          const stripeCurrency=String(obj.currency||'').toUpperCase(),invoiceCurrency=String(inv.currency||'CAD').toUpperCase();
+          if(inv.stripe_checkout_session_id && inv.stripe_checkout_session_id!==obj.id) throw new Error('Stripe session does not match the active invoice checkout session.');
+          if(Math.abs(amount-expected)>0.001) throw new Error(`Stripe amount mismatch for ${inv.invoice_number}: expected ${expected.toFixed(2)}, received ${amount.toFixed(2)}.`);
+          if(stripeCurrency!==invoiceCurrency) throw new Error(`Stripe currency mismatch for ${inv.invoice_number}.`);
+          const patch={status:'PAID',payment_status:'PAID',amount_paid:Math.round((Number(inv.amount_paid||0)+amount)*100)/100,payment_method:'STRIPE',payment_reference:obj.payment_intent||obj.id,stripe_checkout_session_id:obj.id,stripe_payment_intent_id:obj.payment_intent||null,paid_at:new Date().toISOString(),updated_at:new Date().toISOString()};
           await lib.sbJson(`/rest/v1/invoices?id=eq.${invoiceId}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
           try{await lib.sbJson('/rest/v1/payment_transactions',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({invoice_id:invoiceId,amount,currency:String(obj.currency||inv.currency||'CAD').toUpperCase(),provider:'STRIPE',status:'SUCCEEDED',external_reference:obj.payment_intent||obj.id,stripe_checkout_session_id:obj.id,stripe_payment_intent_id:obj.payment_intent||null,note:'Stripe Checkout payment'})})}catch(e){if(!String(e.message).toLowerCase().includes('duplicate')) throw e}
           await lib.sbJson('/rest/v1/invoice_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({invoice_id:invoiceId,old_status:inv.status,new_status:'PAID',old_payment_status:inv.payment_status,new_payment_status:'PAID',note:'Payment confirmed by Stripe webhook',source:'STRIPE'})});

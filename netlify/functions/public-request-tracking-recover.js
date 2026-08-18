@@ -1,5 +1,6 @@
 const crypto=require('crypto');
 const lib=require('./_admin-lib');
+const security=require('./_security-lib');
 
 const clean=(v,n=240)=>String(v??'').trim().slice(0,n);
 const hash=v=>crypto.createHash('sha256').update(String(v||'')).digest('hex');
@@ -28,6 +29,8 @@ exports.handler=async event=>{
     const p=JSON.parse(event.body||'{}');
     const reference=clean(p.reference,40).toUpperCase();
     const email=clean(p.email,200).toLowerCase();
+    const rl=await security.checkRateLimit(event,{endpoint:'tracking-recovery',limit:20,windowSeconds:900,identity:reference});
+    if(!rl.allowed) return lib.json(429,{error:'Too many tracking recovery attempts. Please wait a few minutes and try again.'},{'Retry-After':String(rl.retryAfter)});
     const generic='We could not find a matching request. Check the reference and email and try again.';
     if(!refOk(reference)||!emailOk(email)){
       await audit(event,reference,email,false);
@@ -40,9 +43,7 @@ exports.handler=async event=>{
       return lib.json(404,{error:generic});
     }
     const token=newTrackingToken();
-    await lib.sbJson('/rest/v1/service_request_tracking_tokens',{
-      method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:req.id,token_hash:hash(token),source:'CUSTOMER_RECOVERY'})
-    });
+    await security.issueTrackingToken({serviceRequestId:req.id,tokenHash:hash(token),source:'CUSTOMER_RECOVERY'});
     await audit(event,reference,email,true);
     return lib.json(200,{reference:req.reference,tracking_token:token});
   }catch(e){

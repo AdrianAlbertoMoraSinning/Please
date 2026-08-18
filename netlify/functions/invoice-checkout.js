@@ -1,8 +1,9 @@
-const lib=require('./_admin-lib');
+const lib=require('./_admin-lib');const security=require('./_security-lib');
 exports.handler=async event=>{
   if(event.httpMethod!=='POST') return lib.json(405,{error:'Method not allowed'});
   try{
     if(!lib.sameOrigin(event)) return lib.json(403,{error:'Invalid origin'});
+    const rl=await security.checkRateLimit(event,{endpoint:'invoice-checkout',limit:20,windowSeconds:900});if(!rl.allowed)return lib.json(429,{error:'Too many payment attempts. Please wait and try again.'},{'Retry-After':String(rl.retryAfter)});
     const secret=process.env.STRIPE_SECRET_KEY;
     if(!secret) return lib.json(503,{error:'Online card payment is not activated yet. Please contact PLEASE Services.'});
     const body=JSON.parse(event.body||'{}'),token=String(body.token||'').trim();
@@ -10,6 +11,7 @@ exports.handler=async event=>{
     const rows=await lib.sbJson(`/rest/v1/invoices?select=*&public_token=eq.${encodeURIComponent(token)}&limit=1`),inv=rows?.[0];
     if(!inv||!['ISSUED','SENT','OVERDUE'].includes(inv.status)) return lib.json(404,{error:'Invoice is not payable.'});
     if(inv.payment_status==='PAID') return lib.json(409,{error:'Invoice is already paid.'});
+    if(inv.payment_status==='PENDING'&&inv.stripe_checkout_session_id) return lib.json(409,{error:'A payment session is already active for this invoice. Return to the invoice and try again later if needed.'});
     const balance=Math.max(0,Number(inv.total_amount)-Number(inv.amount_paid||0));
     const cents=Math.round(balance*100);
     if(cents<50) return lib.json(409,{error:'No payable balance remains.'});

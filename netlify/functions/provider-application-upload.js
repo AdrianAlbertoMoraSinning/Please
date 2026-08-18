@@ -1,3 +1,4 @@
+const security = require('./_security-lib');
 const { randomUUID } = require('crypto');
 
 const BUCKET = 'provider-applications';
@@ -10,13 +11,14 @@ const ALLOWED = {
 };
 const TYPES = new Set(['CERTIFICATION', 'INSURANCE', 'PORTFOLIO']);
 
-function json(statusCode, payload) {
+function json(statusCode, payload, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
-      'x-content-type-options': 'nosniff'
+      'x-content-type-options': 'nosniff',
+      ...extraHeaders
     },
     body: JSON.stringify(payload)
   };
@@ -52,6 +54,7 @@ async function supabaseFetch(url, secret, path, options = {}) {
 
 exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
+  if (!security.sameOrigin(event)) return json(403, { error: 'Invalid request origin' });
 
   const supabaseUrl = process.env.PLEASE_SUPABASE_URL;
   const secret = process.env.PLEASE_SUPABASE_SECRET_KEY;
@@ -59,6 +62,8 @@ exports.handler = async function(event) {
 
   const q = event.queryStringParameters || {};
   const applicationId = String(q.application_id || '').trim();
+  const rl = await security.checkRateLimit(event,{endpoint:'provider-application-upload',limit:30,windowSeconds:3600,identity:applicationId});
+  if(!rl.allowed) return json(429,{error:'Too many upload attempts. Please wait and try again.'},{'Retry-After':String(rl.retryAfter)});
   const reference = String(q.reference || '').trim();
   const email = String(q.email || '').trim().toLowerCase();
   const fileType = String(q.file_type || '').trim().toUpperCase();

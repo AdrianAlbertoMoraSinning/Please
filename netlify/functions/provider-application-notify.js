@@ -1,12 +1,14 @@
+const security = require('./_security-lib');
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
-function json(statusCode, payload) {
+function json(statusCode, payload, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
-      'x-content-type-options': 'nosniff'
+      'x-content-type-options': 'nosniff',
+      ...extraHeaders
     },
     body: JSON.stringify(payload)
   };
@@ -143,6 +145,9 @@ function internalText(app, documentCount, viewUrl) {
 
 exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
+  if (!security.sameOrigin(event)) return json(403, { error: 'Invalid request origin' });
+  const rl = await security.checkRateLimit(event,{endpoint:'provider-application-notify',limit:20,windowSeconds:3600});
+  if(!rl.allowed) return json(429,{error:'Too many notification attempts. Please wait and try again.'},{'Retry-After':String(rl.retryAfter)});
 
   const supabaseUrl = process.env.PLEASE_SUPABASE_URL;
   const supabaseSecret = process.env.PLEASE_SUPABASE_SECRET_KEY;

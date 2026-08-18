@@ -1,5 +1,6 @@
 const crypto=require('crypto');
 const lib=require('./_admin-lib');
+const security=require('./_security-lib');
 
 const RESEND_ENDPOINT='https://api.resend.com/emails';
 const clean=(v,n=500)=>String(v??'').trim().slice(0,n);
@@ -53,6 +54,8 @@ exports.handler=async event=>{
     }
     if(event.httpMethod!=='POST') return lib.json(405,{error:'Method not allowed'});
     if(!lib.sameOrigin(event)) return lib.json(403,{error:'Invalid request origin'});
+    const rl=await security.checkRateLimit(event,{endpoint:'public-service-request',limit:10,windowSeconds:3600});
+    if(!rl.allowed) return lib.json(429,{error:'Too many service requests were submitted from this connection. Please wait and try again.'},{'Retry-After':String(rl.retryAfter)});
     const p=JSON.parse(event.body||'{}');
     const first=clean(p.first_name,100), last=clean(p.last_name,100), email=clean(p.email,200).toLowerCase(), phone=clean(p.phone,80);
     const serviceId=clean(p.service_id,60), address=clean(p.street_address,300), city=clean(p.city||'Calgary',120), province=clean(p.province||'AB',80), postal=clean(p.postal_code,30);
@@ -72,7 +75,7 @@ exports.handler=async event=>{
     // STEP 10.4.3 token table. Keep request submission successful even if a legacy
     // deployment does not yet have this table; tracking_token_hash remains authoritative fallback.
     try{
-      await lib.sbJson('/rest/v1/service_request_tracking_tokens',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:item.id,token_hash:hash(token),source:'INITIAL'})});
+      await security.issueTrackingToken({serviceRequestId:item.id,tokenHash:hash(token),source:'INITIAL'});
     }catch(e){console.error('public-service-request:tracking-token-table',e);}
 
     const trackingUrl=`${baseUrl(event)}/track-request.html?token=${encodeURIComponent(token)}`;
