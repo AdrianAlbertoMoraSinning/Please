@@ -1,0 +1,17 @@
+STEP 10.4 — Upload only these functional files to GitHub:
+
+track-request.html
+service-request.html
+index.html
+css/style.css
+js/service-request.js
+js/track-request.js
+netlify/functions/public-request-tracking.js
+
+Optional documentation:
+STEP10_4_CUSTOMER_TRACKING.md
+UPLOAD_ONLY_STEP10_4.txt
+README.md
+
+No SQL is required for STEP 10.4.
+Do not re-upload images/, modules/, Provider/Developer/Admin pages, previous Netlify Functions, or prior SQL files.

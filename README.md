@@ -74,3 +74,7 @@ STEP 10.1/10.2 adds the public `service-request.html` customer intake and the pr
 ## STEP 10.3 — Convert Request to Job & Assign
 
 READY TO ASSIGN customer Service Requests can now be converted directly into the existing Master Calendar Job/Provider assignment workflow with customer and preference prefill. The originating request is linked one-to-one to the created Job and transitions to ASSIGNED only after the Job has been created.
+
+## STEP 10.4 — Customer Tracking
+
+Customers now receive a secure tracking link after submitting a Service Request. The public tracking page follows the request through PLEASE review, scheduling/provider confirmation, service completion and invoice/payment availability without exposing internal notes, Provider compensation or PLEASE profitability. No new SQL migration is required because STEP 10.1 already stores only the SHA-256 tracking-token hash.
