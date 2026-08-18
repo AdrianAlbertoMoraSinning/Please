@@ -1,0 +1,11 @@
+STEP 10.6A — upload only
+
+Functional files:
+- service-request.html
+- js/service-request.js
+
+Optional documentation:
+- STEP10_6A_MANUAL_TRACKING_LINK_MODE.md
+- UPLOAD_ONLY_STEP10_6A.txt
+
+No SQL required.
