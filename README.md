@@ -78,3 +78,11 @@ READY TO ASSIGN customer Service Requests can now be converted directly into the
 ## STEP 10.4 — Customer Tracking
 
 Customers now receive a secure tracking link after submitting a Service Request. The public tracking page follows the request through PLEASE review, scheduling/provider confirmation, service completion and invoice/payment availability without exposing internal notes, Provider compensation or PLEASE profitability. No new SQL migration is required because STEP 10.1 already stores only the SHA-256 tracking-token hash.
+
+## STEP 10.4.3 — Tracking recovery
+
+Customer Tracking now supports both secure-link access and recovery through Request Reference + Email. PLEASE Administration can generate additional customer-safe tracking links without invalidating prior links. Run `supabase/STEP10_4_3_TRACKING_RECOVERY.sql` before deploying the STEP 10.4.3 files.
+
+## STEP 10.6 — Initial Tracking Email
+
+A newly submitted Customer Service Request now triggers a best-effort server-side Resend confirmation email containing the `PLS-REQ-...` reference and secure tracking link. Email credentials remain in Netlify environment variables only. Request creation never depends on email delivery success.

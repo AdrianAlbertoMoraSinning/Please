@@ -1,0 +1,13 @@
+STEP 10.6 — Upload only these functional files to GitHub:
+
+1. service-request.html
+2. js/service-request.js
+3. netlify/functions/public-service-request.js
+
+Optional documentation:
+4. STEP10_6_INITIAL_TRACKING_EMAIL.md
+5. UPLOAD_ONLY_STEP10_6.txt
+6. README.md
+
+No SQL is required for STEP 10.6 if STEP10_4_3_TRACKING_RECOVERY.sql has already been executed.
+Do not upload the full ZIP manually; it is the complete project backup.
