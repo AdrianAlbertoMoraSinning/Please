@@ -1,0 +1,6 @@
+const lib=require('./_provider-lib');
+exports.handler=async event=>{
+ if(event.httpMethod!=='POST')return lib.json(405,{error:'Method not allowed'});if(!lib.sameOrigin(event))return lib.json(403,{error:'Invalid request origin'});
+ try{const a=await lib.requireProvider(event),b=JSON.parse(event.body||'{}'),id=String(b.document_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return lib.json(400,{error:'Invalid document id'});const rows=await lib.sbJson(`/rest/v1/provider_documents?select=id,storage_path&id=eq.${id}&provider_id=eq.${a.provider.id}&active=eq.true&limit=1`),doc=rows?.[0];if(!doc)return lib.json(404,{error:'Document not found'});const path=doc.storage_path.split('/').map(encodeURIComponent).join('/');const signed=await lib.sbJson(`/storage/v1/object/sign/provider-applications/${path}`,{method:'POST',body:JSON.stringify({expiresIn:300})});const url=signed?.signedURL||signed?.signedUrl;if(!url)throw new Error('Unable to create signed URL');const base=process.env.PLEASE_SUPABASE_URL.replace(/\/$/,'');return lib.json(200,{url:url.startsWith('http')?url:`${base}/storage/v1${url}`});}
+ catch(e){console.error('provider-document-url',e);return lib.json(e.status===401?401:500,{error:e.status===401?'Unauthorized':'Could not open document.'});}
+};
