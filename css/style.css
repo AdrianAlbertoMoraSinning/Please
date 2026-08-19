@@ -1021,3 +1021,96 @@ h3{
 
 /* STEP 13.2D.2 — Developer Landing Profiles */
 .landing-row-actions{display:flex;flex-wrap:wrap;gap:.55rem;align-items:center;justify-content:flex-end}.landing-row-actions .admin-outline-button,.landing-row-actions .admin-row-button{white-space:nowrap}.landing-oversight-note{margin-top:1.25rem;padding:1.25rem 1.35rem;border:1px solid rgba(13,53,46,.12);border-radius:18px;background:#fff}.landing-oversight-note h2{margin:0 0 .35rem;font-size:1.05rem}.landing-oversight-note p{margin:0;color:var(--muted,#61706b);line-height:1.6}@media(max-width:900px){.landing-row-actions{justify-content:flex-start}}
+
+/* ===== Client Website Recommendations Consolidation — 2026-08 ===== */
+.client-hero{
+  min-height:720px;
+  background:#073f8c;
+}
+.client-hero:before{
+  content:"";
+  position:absolute;
+  inset:0 48% 0 0;
+  background:linear-gradient(135deg,#032f6d 0%,#0759b7 100%);
+  pointer-events:none;
+}
+.client-hero-grid{position:relative;z-index:1;}
+.hero-copy-panel{padding:46px 0;}
+.hero-copy-panel h1{color:#fff;}
+.hero-trust{display:flex;flex-wrap:wrap;gap:22px;margin-top:26px;color:#fff;font-weight:800;font-size:14px;}
+.hero-trust span{display:inline-flex;align-items:center;gap:7px;}
+.client-quote-card{padding:18px;border-radius:26px;}
+.client-quote-card img{max-height:330px;object-fit:cover;object-position:center 35%;}
+.client-quote-card .quick-form{padding:2px 6px 8px;}
+.client-quote-card h3{font-size:28px;}
+.quote-supporting-copy{margin:0 0 6px;color:var(--muted);line-height:1.5;}
+.quote-label{display:grid;gap:6px;color:#334155;font-size:13px;font-weight:800;}
+.quote-microcopy{text-align:center;color:#64748b;font-weight:700;}
+
+.service-group-heading{display:flex;align-items:end;justify-content:space-between;margin:30px 0 18px;}
+.service-group-heading .eyebrow{margin-bottom:6px;}
+.service-group-heading h3{font-size:24px;color:#0f2440;letter-spacing:-.025em;}
+.everyday-services-grid{grid-template-columns:repeat(4,1fr);}
+.professional-services-block{margin-top:54px;padding:34px;background:#f4f8fd;border:1px solid #dce8f7;border-radius:28px;}
+.professional-heading{margin-top:0;}
+.professional-heading h3{max-width:820px;font-size:22px;line-height:1.45;}
+.professional-services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.pro-service-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 12px 30px rgba(15,23,42,.05);}
+.pro-service-card span{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:var(--please-blue-soft);font-size:23px;margin-bottom:14px;}
+.pro-service-card h3{font-size:19px;}
+.pro-service-card p{color:var(--muted);line-height:1.6;margin-bottom:0;}
+
+.interior-design-feature{margin-top:28px;display:grid;grid-template-columns:.78fr 1.22fr;overflow:hidden;border:1px solid #e3dfd5;border-radius:28px;background:linear-gradient(135deg,#fff 0%,#f7f2e8 100%);box-shadow:0 16px 40px rgba(15,23,42,.07);}
+.interior-design-visual{min-height:330px;background:linear-gradient(135deg,#0a4b99 0%,#06346f 62%,#10233b 100%);display:flex;align-items:end;padding:28px;color:#fff;font:900 34px/1.05 Poppins;letter-spacing:-.04em;}
+.interior-design-copy{padding:38px;align-self:center;}
+.interior-design-copy h2{font-size:clamp(30px,4vw,46px);}
+.interior-design-copy p{color:#475569;line-height:1.7;}
+.interior-design-lead{font-size:18px;}
+
+.client-reviews{background:#fff;}
+.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.verified-review-grid{grid-template-columns:minmax(280px,760px);justify-content:center;}
+.client-review-card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:30px;box-shadow:0 14px 38px rgba(15,23,42,.07);}
+.client-review-card blockquote{margin:16px 0 22px;color:#1e293b;font-size:18px;line-height:1.7;}
+.client-review-card strong,.client-review-card small{display:block;}
+.client-review-card small{color:#64748b;margin-top:4px;}
+.review-stars{color:#f5b400;letter-spacing:.12em;font-size:20px;}
+
+.about-please-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:54px;align-items:start;}
+.about-please-grid p{color:#475569;font-size:18px;line-height:1.75;margin-top:0;}
+.brand-message-box{margin-top:24px;padding:24px 28px;border-radius:20px;background:#edf5ff;color:var(--please-blue);display:grid;gap:4px;}
+.brand-message-box strong{font:900 24px Poppins;}
+.brand-message-box span{font-weight:800;font-size:19px;}
+
+.client-payment-box{border-top:5px solid var(--please-blue);}
+.professional-network-preview{display:grid;grid-template-columns:1fr auto;gap:32px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:28px;padding:38px;box-shadow:var(--shadow);}
+.professional-network-preview p{color:#475569;line-height:1.7;}
+.professional-categories{font-weight:800;color:#0f3e78!important;}
+
+.home-quote-banner{background:linear-gradient(135deg,#034486,#0069d9);color:#fff;padding:56px 0;}
+.home-quote-banner-inner{display:flex;justify-content:space-between;align-items:center;gap:30px;}
+.home-quote-banner h2{color:#fff;font-size:clamp(30px,4vw,48px);}
+.home-quote-banner p{font-size:20px;margin:8px 0 0;color:#e4f0ff;}
+.light-cta{background:#fff;color:var(--please-blue);box-shadow:0 16px 36px rgba(0,0,0,.14);}
+
+.payment-title{color:#111827;font-size:clamp(38px,5vw,64px);}
+.payment-lead{font-size:19px;line-height:1.7;color:#475569;}
+.payment-help{color:#64748b;line-height:1.6;}
+.standalone-payment-box{margin-top:20px;}
+
+@media(max-width:1000px){
+  .client-hero:before{inset:0;background:linear-gradient(180deg,#063a82 0%,#0759b7 52%,rgba(7,89,183,.92) 100%);}
+  .everyday-services-grid{grid-template-columns:repeat(2,1fr);}
+  .professional-services-grid{grid-template-columns:repeat(2,1fr);}
+  .interior-design-feature,.about-please-grid{grid-template-columns:1fr;}
+  .interior-design-visual{min-height:260px;}
+  .professional-network-preview{grid-template-columns:1fr;}
+}
+@media(max-width:640px){
+  .hero-trust{display:grid;gap:10px;}
+  .everyday-services-grid,.professional-services-grid{grid-template-columns:1fr;}
+  .professional-services-block{padding:20px;}
+  .interior-design-copy{padding:26px 22px;}
+  .home-quote-banner-inner{align-items:flex-start;flex-direction:column;}
+  .home-quote-banner .btn{width:100%;}
+}
