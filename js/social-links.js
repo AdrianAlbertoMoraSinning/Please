@@ -1,0 +1,1 @@
+(()=>{const links={instagram:'',facebook:'',tiktok:''};document.querySelectorAll('[data-please-social]').forEach(el=>{const items=Object.entries(links).filter(([,u])=>u);if(!items.length){el.hidden=true;return;}el.hidden=false;el.innerHTML=items.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener noreferrer">${n.charAt(0).toUpperCase()+n.slice(1)}</a>`).join('');});})();

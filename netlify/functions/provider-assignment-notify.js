@@ -5,6 +5,7 @@ function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt
 exports.handler=async event=>{
   if(event.httpMethod!=='POST') return lib.json(405,{error:'Method not allowed'});
   try{
+    return lib.json(200,{ok:true,skipped:true,reason:'Email delivery is intentionally deferred until PLEASE domain mail is configured.'});
     if(!lib.sameOrigin(event)) return lib.json(403,{error:'Forbidden'});
     await lib.requireAdmin(event);
     const {assignment_id}=JSON.parse(event.body||'{}');

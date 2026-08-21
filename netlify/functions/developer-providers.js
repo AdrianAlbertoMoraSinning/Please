@@ -5,7 +5,7 @@ exports.handler=async function(event){
     await lib.requireDeveloper(event);
     const id=String(event.queryStringParameters?.id||'').trim();
     if(!id){
-      const rows=await lib.sbJson('/rest/v1/providers?select=id,reference,display_name,company_name,slug,primary_email,primary_phone,public_title,service_area,status,public_visible,activated_at,created_at,updated_at,source_application_id&order=created_at.desc');
+      const rows=await lib.sbJson('/rest/v1/providers?select=id,reference,display_name,company_name,slug,primary_email,primary_phone,public_title,service_area,status,public_visible,activated_at,created_at,updated_at,source_application_id,worker_type&order=created_at.desc');
       const providerIds=(rows||[]).map(x=>x.id);
       let users=[];
       if(providerIds.length){
@@ -16,7 +16,7 @@ exports.handler=async function(event){
       return lib.json(200,{providers:(rows||[]).map(p=>({...p,account:byProvider.get(p.id)||null}))});
     }
     if(!/^[0-9a-f-]{36}$/i.test(id)) return lib.json(400,{error:'Invalid provider id'});
-    const providers=await lib.sbJson(`/rest/v1/providers?select=id,reference,display_name,company_name,slug,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,profile_image_url,logo_url,status,public_visible,activated_at,created_at,updated_at,source_application_id&id=eq.${id}&limit=1`);
+    const providers=await lib.sbJson(`/rest/v1/providers?select=id,reference,display_name,company_name,slug,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,profile_image_url,logo_url,status,public_visible,activated_at,created_at,updated_at,source_application_id,worker_type&id=eq.${id}&limit=1`);
     const provider=providers?.[0]; if(!provider) return lib.json(404,{error:'Provider not found'});
     const [account,services,availability,exceptions,documents,history,allServices]=await Promise.all([
       lib.sbJson(`/rest/v1/provider_portal_users?select=id,email,display_name,active,last_login_at,password_changed_at,created_at,updated_at&provider_id=eq.${id}&limit=1`).then(x=>x?.[0]||null),

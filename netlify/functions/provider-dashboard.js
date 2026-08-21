@@ -4,7 +4,7 @@ exports.handler=async event=>{
   try{
     const a=await lib.requireProvider(event),pid=a.provider.id,q=encodeURIComponent(pid);
     const [providers,ps,services,av,ex,assignRaw,rates,changeRequests,documents,technicalHistory,account]=await Promise.all([
-      lib.sbJson(`/rest/v1/providers?select=id,reference,display_name,company_name,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,status,public_visible,slug,profile_image_url,logo_url,activated_at,created_at,updated_at&id=eq.${q}&limit=1`),
+      lib.sbJson(`/rest/v1/providers?select=id,reference,display_name,company_name,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,status,worker_type,public_visible,slug,profile_image_url,logo_url,activated_at,created_at,updated_at&id=eq.${q}&limit=1`),
       lib.sbJson(`/rest/v1/provider_services?select=service_id,active,developer_authorized,provider_enabled,provider_notes&provider_id=eq.${q}`),
       lib.sbJson('/rest/v1/services?select=id,name,short_description,active&active=eq.true&order=sort_order.asc'),
       lib.sbJson(`/rest/v1/provider_availability?select=id,weekday,start_time,end_time,active&provider_id=eq.${q}&active=eq.true&order=weekday.asc,start_time.asc`),
@@ -21,7 +21,7 @@ exports.handler=async event=>{
     if(jobIds.length){
       const inList=jobIds.map(id=>encodeURIComponent(id)).join(',');
       [jobs,billing]=await Promise.all([
-        lib.sbJson(`/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,estimated_duration_minutes,status,created_at&id=in.(${inList})`),
+        lib.sbJson(`/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,estimated_duration_minutes,status,actual_arrived_at,actual_started_at,actual_completed_at,approved_extension_minutes,created_at&id=in.(${inList})`),
         lib.sbJson(`/rest/v1/job_billing_items?select=id,job_id,provider_service_rate_id,service_id,service_name,description,quantity,unit,provider_unit_rate,provider_line_total,sort_order&job_id=in.(${inList})&order=sort_order.asc,id.asc`)
       ]);
     }

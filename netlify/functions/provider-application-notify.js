@@ -151,7 +151,7 @@ exports.handler = async function(event) {
 
   const supabaseUrl = process.env.PLEASE_SUPABASE_URL;
   const supabaseSecret = process.env.PLEASE_SUPABASE_SECRET_KEY;
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const resendApiKey = null; // External email intentionally deferred until PLEASE domain mail is configured.
   const emailFrom = process.env.PLEASE_EMAIL_FROM;
   const replyTo = process.env.PLEASE_EMAIL_REPLY_TO || 'info@pleaseservice.ca';
   const notifyEmail = process.env.PLEASE_APPLICATION_NOTIFY_EMAIL || 'info@pleaseservice.ca';
