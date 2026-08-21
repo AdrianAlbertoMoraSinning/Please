@@ -1,0 +1,18 @@
+PLEASE Client Recommendations — upload only these files to GitHub
+
+REPLACE:
+index.html
+payment.html
+work-with-us.html
+css/style.css
+
+OPTIONAL DOCUMENTATION:
+CLIENT_RECOMMENDATIONS_IMPLEMENTED.md
+UPLOAD_ONLY_CLIENT_RECOMMENDATIONS.txt
+
+No SQL required.
+No Netlify Functions changed.
+No JavaScript changed.
+No images changed.
+No Admin / Developer / Provider HTML changed.
+No Supabase files changed.

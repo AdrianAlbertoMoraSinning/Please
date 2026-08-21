@@ -1114,3 +1114,8 @@ h3{
   .home-quote-banner-inner{align-items:flex-start;flex-direction:column;}
   .home-quote-banner .btn{width:100%;}
 }
+
+/* STEP 14 — Live Operations + Gallery Experience */
+.provider-live-actions{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:1rem;padding-top:1rem;border-top:1px solid #dbe5f1}.gallery-hero{background:#0057b8;color:#fff;padding:72px 0 58px}.gallery-hero .eyebrow{color:#fff}.gallery-hero h1{color:#fff;font-size:clamp(2.4rem,6vw,4.8rem);margin:.25rem 0}.gallery-hero p{max-width:760px;font-size:1.1rem}.gallery-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.gallery-card{margin:0;border-radius:20px;overflow:hidden;background:#0b1d32;box-shadow:0 12px 30px rgba(12,31,55,.12);min-height:240px}.gallery-card img,.gallery-card video{display:block;width:100%;height:100%;min-height:240px;max-height:430px;object-fit:cover}.gallery-card.video{background:#07182c}.live-event-highlight{border-left:4px solid #0b6bdc}.provider-staff-badge{display:inline-flex;padding:.28rem .65rem;border-radius:999px;background:#eaf5ff;color:#075cad;font-weight:800;font-size:.78rem}@media(max-width:900px){.gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.gallery-grid{grid-template-columns:1fr}.gallery-hero{padding:48px 0 36px}.provider-live-actions>*{width:100%}}
+
+.please-social-links{display:flex;gap:1rem;flex-wrap:wrap;padding:1rem 0}.please-social-links a{font-weight:800;text-decoration:none}

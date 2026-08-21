@@ -1,0 +1,9 @@
+PLEASE HOME — Cleaning Photo Update
+
+Upload/replace only these files in GitHub:
+
+index.html
+images/services/03_cleaning.jpeg
+
+No SQL required.
+No CSS or JavaScript changes required.
