@@ -47,9 +47,9 @@ exports.handler=async event=>{
     const req=await requestFromToken(token);
     if(!req) return lib.json(404,{error:'Tracking link not found.'});
 
-    let job=null, assignment=null, provider=null, scheduleChange=null, invoice=null;
+    let job=null, assignment=null, provider=null, scheduleChange=null, invoice=null, serviceEvents=[], extensionRequest=null;
     if(req.job_id){
-      const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,service_name,status,work_address,estimated_duration_minutes,created_at,updated_at,completed_at,cancelled_at&id=eq.${encodeURIComponent(req.job_id)}&limit=1`);
+      const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,service_name,status,work_address,estimated_duration_minutes,actual_arrived_at,actual_started_at,actual_completed_at,approved_extension_minutes,created_at,updated_at,completed_at,cancelled_at&id=eq.${encodeURIComponent(req.job_id)}&limit=1`);
       job=jobs?.[0]||null;
       if(job){
         const assignments=await lib.sbJson(`/rest/v1/job_assignments?select=id,provider_id,scheduled_start,scheduled_end,status,assigned_at,responded_at,updated_at&job_id=eq.${encodeURIComponent(job.id)}&status=in.(PENDING,CONFIRMED,COMPLETED,CANCELLED,DECLINED)&order=assigned_at.desc&limit=1`);
@@ -64,6 +64,8 @@ exports.handler=async event=>{
         }
         const invoices=await lib.sbJson(`/rest/v1/invoices?select=id,invoice_number,public_token,invoice_date,due_date,status,payment_status,total_amount,currency,issued_at,sent_at,paid_at&job_id=eq.${encodeURIComponent(job.id)}&status=not.in.(DRAFT,VOID)&order=created_at.desc&limit=1`);
         invoice=invoices?.[0]||null;
+        try{serviceEvents=await lib.sbJson(`/rest/v1/job_service_events?select=event_type,event_note,customer_message,created_at&job_id=eq.${encodeURIComponent(job.id)}&order=created_at.asc`);}catch(_){}
+        try{const ex=await lib.sbJson(`/rest/v1/job_extension_requests?select=id,extra_minutes,reason,proposed_end,customer_addition,status,customer_approval_method,created_at&job_id=eq.${encodeURIComponent(job.id)}&status=eq.PENDING&order=created_at.desc&limit=1`);extensionRequest=ex?.[0]||null;}catch(_){}
       }
     }
 
@@ -85,6 +87,7 @@ exports.handler=async event=>{
     if(assignment?.responded_at&&assignment.status==='CONFIRMED')push(assignment.responded_at,'Provider confirmed the service');
     if(scheduleChange?.created_at)push(scheduleChange.created_at,'Schedule change proposed',scheduleChange.status==='PENDING'?'Awaiting PLEASE review':`Status: ${scheduleChange.status}`);
     if(scheduleChange?.reviewed_at)push(scheduleChange.reviewed_at,`Schedule change ${String(scheduleChange.status||'').toLowerCase()}`);
+    for(const e of serviceEvents||[]){const labels={ARRIVED:'PLEASE professional arrived',STARTED:'Service started',EXTENSION_REQUESTED:'Additional time requested',EXTENSION_APPROVED:'Additional time approved',EXTENSION_REJECTED:'Additional time not approved',COMPLETED:'Service completed'};if(labels[e.event_type])push(e.created_at,labels[e.event_type],e.customer_message||e.event_note);}
     push(job?.completed_at,'Service completed');
     push(invoice?.issued_at,'Invoice issued',invoice?.invoice_number);
     push(invoice?.sent_at,'Invoice sent');
@@ -95,9 +98,10 @@ exports.handler=async event=>{
     return lib.json(200,{
       request:{reference:req.reference,first_name:req.first_name,service_name:req.service_name,status:req.status,preferred_date:req.preferred_date,preferred_start_time:req.preferred_start_time,scheduling_flexibility:req.scheduling_flexibility,created_at:req.created_at},
       public_status:{code,label},
-      job:job?{reference:job.reference,status:job.status,service_name:job.service_name,work_address:job.work_address,estimated_duration_minutes:job.estimated_duration_minutes,completed_at:iso(job.completed_at)}:null,
+      job:job?{reference:job.reference,status:job.status,service_name:job.service_name,work_address:job.work_address,estimated_duration_minutes:job.estimated_duration_minutes,actual_arrived_at:iso(job.actual_arrived_at),actual_started_at:iso(job.actual_started_at),actual_completed_at:iso(job.actual_completed_at),approved_extension_minutes:job.approved_extension_minutes||0,completed_at:iso(job.completed_at)}:null,
       assignment:assignment?{status:assignment.status,scheduled_start:assignment.scheduled_start,scheduled_end:assignment.scheduled_end,provider_name:provider?.display_name||null,provider_title:provider?.public_title||null}:null,
       schedule_change:scheduleChange?{status:scheduleChange.status,proposed_start:scheduleChange.proposed_start,proposed_end:scheduleChange.proposed_end}:null,
+      extension_request:extensionRequest,
       invoice:invoice?{invoice_number:invoice.invoice_number,status:invoice.status,payment_status:invoice.payment_status,total_amount:invoice.total_amount,currency:invoice.currency||'CAD',public_token:invoice.public_token,due_date:invoice.due_date}:null,
       timeline
     });

@@ -80,7 +80,7 @@ exports.handler=async event=>{
 
     const trackingUrl=`${baseUrl(event)}/track-request.html?token=${encodeURIComponent(token)}`;
     let emailSent=false,emailWarning=null;
-    const resendApiKey=process.env.RESEND_API_KEY;
+    const resendApiKey=null; // Email delivery intentionally deferred until PLEASE domain mail is configured.
     const emailFrom=process.env.PLEASE_EMAIL_FROM;
     const replyTo=process.env.PLEASE_EMAIL_REPLY_TO||'info@pleaseservice.ca';
     if(resendApiKey&&emailFrom){
