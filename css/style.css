@@ -1143,3 +1143,22 @@ h3{
 @media (max-width:620px){
   .gallery-card.video{aspect-ratio:9/16;}
 }
+
+
+/* CLIENT MOBILE CONTENT & REVIEWS UPDATE — 2026-08-22 */
+.request-intro .request-page-title{color:#0f2440!important;text-shadow:none!important;}
+.reviews-scroll{display:flex;gap:18px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x mandatory;padding:8px 4px 20px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#8eb9e8 #edf5ff;}
+.reviews-scroll::-webkit-scrollbar{height:9px}.reviews-scroll::-webkit-scrollbar-track{background:#edf5ff;border-radius:999px}.reviews-scroll::-webkit-scrollbar-thumb{background:#8eb9e8;border-radius:999px}
+.reviews-scroll .client-review-card{flex:0 0 min(390px,84vw);scroll-snap-align:start;min-height:330px;display:flex;flex-direction:column;}
+.reviews-scroll .client-review-card blockquote{flex:1;}
+#join .professional-network-preview{background:#fff!important;}
+#join .professional-network-preview h2{color:#0f2440!important;}
+#join .professional-network-preview p{color:#334155!important;}
+#join .professional-categories{color:#0f3e78!important;}
+@media(max-width:640px){
+  .hero-copy-panel .hero-lead{font-size:1rem;line-height:1.55;margin-bottom:18px;}
+  .reviews-scroll{margin-right:-18px;padding-right:18px;}
+  .reviews-scroll .client-review-card{flex-basis:86vw;min-height:0;padding:24px;}
+  .reviews-scroll .client-review-card blockquote{font-size:16px;line-height:1.6;}
+  .request-intro .request-page-title{font-size:clamp(2.25rem,12vw,3.4rem);}
+}
