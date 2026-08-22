@@ -14,17 +14,7 @@
   const insuranceFile = document.getElementById('insurance-file');
   const portfolioFiles = document.getElementById('portfolio-files');
 
-  const url = window.PLEASE_SUPABASE_URL;
-  const key = window.PLEASE_SUPABASE_ANON_KEY;
-  const configured = Boolean(
-    url && key &&
-    !url.includes('PASTE_') &&
-    !key.includes('PASTE_') &&
-    window.supabase?.createClient
-  );
-
-  let client = null;
-
+  let servicesLoaded = false;
 
   const MAX_FILE_BYTES = 4 * 1024 * 1024;
   const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
@@ -128,34 +118,26 @@
   }
 
   async function loadServices() {
-    if (!configured) {
+    try {
+      const response = await fetch('/.netlify/functions/public-provider-application', {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      let body = {};
+      try { body = await response.json(); } catch (_) {}
+      if (!response.ok) throw new Error(body.error || 'Unable to load services.');
+      renderServices(body.services || []);
+      servicesLoaded = true;
+      submitButton.disabled = false;
+    } catch (error) {
+      console.error('work-with-us:services', error);
       renderServices(fallbackServices().map(([slug, name]) => ({ id: '', slug, name })));
       serviceSelect.querySelectorAll('option').forEach((option, index) => {
         if (index > 0 && option.value !== '__OTHER__') option.disabled = true;
       });
-      showAlert('The Work With Us page is ready, but Supabase browser configuration still needs to be added before applications can be submitted.', 'setup');
+      showAlert('We could not load the professional service list right now. Please refresh the page or contact PLEASE.', 'error');
       submitButton.disabled = true;
-      return;
     }
-
-    client = window.supabase.createClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-    });
-
-    const { data, error } = await client
-      .from('services')
-      .select('id,slug,name,sort_order')
-      .eq('active', true)
-      .order('sort_order', { ascending: true });
-
-    if (error) {
-      renderServices([]);
-      showAlert('We could not load the professional service list. Please refresh the page or contact PLEASE.', 'error');
-      submitButton.disabled = true;
-      return;
-    }
-
-    renderServices(data || []);
   }
 
   serviceSelect.addEventListener('change', () => {
@@ -169,8 +151,8 @@
     event.preventDefault();
     clearAlert();
 
-    if (!configured || !client) {
-      showAlert('Applications cannot be submitted until the Supabase public configuration is completed.', 'setup');
+    if (!servicesLoaded) {
+      showAlert('The application form is still loading. Please wait a moment and try again.', 'error');
       return;
     }
 
@@ -213,16 +195,34 @@
     };
 
     try {
-      const { data: result, error } = await client.rpc('submit_provider_application', payload);
-      if (error) throw error;
-
-      const row = Array.isArray(result) ? result[0] : result;
-      if (!row?.application_reference) throw new Error('Application reference was not returned.');
+      const submitResponse = await fetch('/.netlify/functions/public-provider-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: payload.p_full_name,
+          company_name: payload.p_company_name,
+          phone: payload.p_phone,
+          email: payload.p_email,
+          service_id: isOther ? '__OTHER__' : payload.p_service_id,
+          other_service_description: payload.p_other_service_description,
+          years_experience: payload.p_years_experience,
+          service_area: payload.p_service_area,
+          license_status: payload.p_license_status,
+          insured_status: payload.p_insured_status,
+          experience_description: payload.p_experience_description,
+          consent_information_accurate: payload.p_consent_information_accurate,
+          consent_application_not_guarantee: payload.p_consent_application_not_guarantee
+        })
+      });
+      let result = {};
+      try { result = await submitResponse.json(); } catch (_) {}
+      if (!submitResponse.ok) throw new Error(result.error || 'Unable to submit application.');
+      if (!result?.application_reference) throw new Error('Application reference was not returned.');
 
       const applicationContext = {
-        application_id: row.application_id,
-        application_reference: row.application_reference,
-        email: payload.p_email
+        application_id: result.application_id,
+        application_reference: result.application_reference,
+        email: result.email || payload.p_email
       };
 
       const uploadSummary = await uploadSupportingDocuments(applicationContext);
@@ -248,7 +248,7 @@
         console.warn('Application email notification was not completed:', notifyError);
       }
 
-      referenceTarget.textContent = row.application_reference;
+      referenceTarget.textContent = result.application_reference;
       if (uploadResult) {
         if (uploadSummary.uploaded > 0 && uploadSummary.failed === 0) {
           uploadResult.hidden = false;
