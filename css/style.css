@@ -673,7 +673,7 @@ h3{
    Professional Network / Work With Us — Step 2.3
    ============================================================ */
 .professional-network-page{background:#fff}.professional-network-page .active-link{color:var(--please-blue)}
-.network-hero{background:var(--please-blue);color:#fff;overflow:hidden}.network-hero-grid{min-height:610px;display:grid;grid-template-columns:1fr 1fr;align-items:stretch}.network-hero-copy{padding:88px 64px 88px 0;display:flex;flex-direction:column;justify-content:center}.network-hero-copy h1{font-size:clamp(42px,5.4vw,70px);max-width:700px}.network-lead{font-size:19px;line-height:1.7;color:#e8f2ff;max-width:650px;margin:22px 0 30px}.network-hero-image{min-height:610px;background:linear-gradient(90deg,rgba(0,87,184,.28),rgba(0,87,184,.04)),url('https://images.unsplash.com/photo-1621905251918-48416bd8575a?q=85&w=1400&auto=format&fit=crop') center/cover no-repeat;position:relative}.network-hero-image:after{content:"";position:absolute;inset:0;border-left:1px solid rgba(255,255,255,.24)}
+.network-hero{background:var(--please-blue);color:#fff;overflow:hidden}.network-hero-grid{min-height:610px;display:grid;grid-template-columns:1fr 1fr;align-items:stretch}.network-hero-copy{padding:88px 64px 88px 0;display:flex;flex-direction:column;justify-content:center}.network-hero-copy h1{font-size:clamp(42px,5.4vw,70px);max-width:700px}.network-lead{font-size:19px;line-height:1.7;color:#e8f2ff;max-width:650px;margin:22px 0 30px}.network-hero-image{min-height:610px;background:linear-gradient(90deg,rgba(0,87,184,.18),rgba(0,87,184,.02)),url('../images/services/handyman-and-furniture-assembly.jpg') center/cover no-repeat;position:relative}.network-hero-image:after{content:"";position:absolute;inset:0;border-left:1px solid rgba(255,255,255,.24)}
 .network-primary{background:#fff;color:var(--please-blue);box-shadow:0 18px 42px rgba(0,38,90,.24);align-self:flex-start}.network-primary:hover{transform:translateY(-1px)}.network-secondary{background:var(--please-blue-soft);color:var(--please-blue);border:1px solid var(--line)}.network-light{background:#fff;color:var(--please-blue)}
 .network-benefits{background:#fff}.benefits-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.benefit-card{border:1px solid var(--line);border-radius:20px;padding:28px;background:#fff;box-shadow:0 14px 34px rgba(15,23,42,.06)}.benefit-card>span{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:14px;background:var(--please-blue-soft);color:var(--please-blue);font-weight:900;margin-bottom:20px}.benefit-card h3{font-size:20px;line-height:1.25}.benefit-card p{color:var(--muted);line-height:1.65;margin-bottom:0}
 .quality-section{background:#063f87;color:#fff;padding:70px 0}.quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}.quality-grid h2{color:#fff}.quality-grid p{font-size:18px;line-height:1.7;color:#dbeaff}.quality-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:14px}.quality-list li{position:relative;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:15px 16px 15px 44px;font-weight:700}.quality-list li:before{content:"✓";position:absolute;left:16px;color:#fff;font-weight:900}
@@ -1165,3 +1165,20 @@ h3{
 
 /* Updated service photography — 2026-08-22 */
 .pro-service-card .pro-service-photo{width:100%;aspect-ratio:384/341;object-fit:cover;border-radius:14px;display:block;margin:0 0 14px}
+
+
+/* 2026-08-22 — Professional Network image + contrast restoration */
+.network-hero .professional-categories{color:#ffffff!important;font-weight:800;line-height:1.65;text-shadow:0 1px 2px rgba(0,0,0,.18);}
+.professional-network-preview{grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr)!important;overflow:hidden;padding:0!important;align-items:stretch!important;}
+.professional-network-copy{padding:38px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;}
+#join .professional-network-preview .professional-categories{color:#0057b8!important;font-weight:900;line-height:1.65;}
+.professional-network-media{min-height:360px;overflow:hidden;}
+.professional-network-media img{width:100%;height:100%;min-height:360px;display:block;object-fit:cover;object-position:center;}
+@media(max-width:760px){
+  .professional-network-preview{grid-template-columns:1fr!important;}
+  .professional-network-copy{padding:30px 24px;}
+  .professional-network-media{min-height:280px;order:2;}
+  .professional-network-media img{min-height:280px;max-height:360px;}
+  #join .professional-network-preview .professional-categories{font-size:15px;color:#004a9f!important;}
+  .network-hero .professional-categories{font-size:15px;color:#ffffff!important;}
+}
