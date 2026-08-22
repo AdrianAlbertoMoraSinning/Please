@@ -1261,3 +1261,7 @@ body.provider-portal-page .admin-sidebar a span{
 .live-customer-meta .full{grid-column:1/-1;}
 .live-customer-meta b{color:#243b55;}
 @media(max-width:760px){.tracking-status-stack{align-items:flex-start;max-width:none;width:100%;}.tracking-latest-update{margin-top:2px}.tracking-intro h1,.tracking-intro .request-page-title{color:#0f2440!important}.live-customer-meta{grid-template-columns:1fr}.live-customer-meta .full{grid-column:1}}
+
+
+/* STEP 14.10 — Extension approval visibility */
+.extension-approval-state{margin:.75rem 0;padding:.7rem .85rem;border-radius:10px;display:grid;gap:.2rem;font-size:.9rem}.extension-approval-state.approved{background:#e8f7ef;border:1px solid #a9dec0;color:#11643b}.extension-approval-state.waiting{background:#fff6df;border:1px solid #f1d38a;color:#705212}.extension-approval-state span{color:inherit}.extension-request-state{margin-top:.8rem}
