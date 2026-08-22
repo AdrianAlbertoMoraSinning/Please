@@ -1248,3 +1248,16 @@ body.provider-portal-page .admin-sidebar a span{
   color:#a74308;
 }
 
+
+/* STEP 14.9 — Live Operations customer context + tracking latest update */
+.tracking-intro h1,.tracking-intro .request-page-title{color:#0f2440!important;text-shadow:none!important;}
+.tracking-status-stack{display:flex;flex-direction:column;align-items:flex-end;gap:10px;max-width:430px;}
+.tracking-latest-update{width:100%;border-left:4px solid #0876df;background:#eef6ff;border-radius:0 12px 12px 0;padding:11px 13px;color:#18314e;}
+.tracking-latest-update span{display:block;color:#4f6b88;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;}
+.tracking-latest-update strong{display:block;font-size:.9rem;line-height:1.35;}
+.tracking-latest-update small{display:block;color:#5e7187;font-size:.72rem;line-height:1.4;margin-top:3px;}
+.live-customer-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 16px;margin:9px 0 10px;padding:10px 12px;border-radius:10px;background:#f6f9fc;border:1px solid #e2eaf3;font-size:11px;color:#52677c;}
+.live-customer-meta span{overflow-wrap:anywhere;}
+.live-customer-meta .full{grid-column:1/-1;}
+.live-customer-meta b{color:#243b55;}
+@media(max-width:760px){.tracking-status-stack{align-items:flex-start;max-width:none;width:100%;}.tracking-latest-update{margin-top:2px}.tracking-intro h1,.tracking-intro .request-page-title{color:#0f2440!important}.live-customer-meta{grid-template-columns:1fr}.live-customer-meta .full{grid-column:1}}
