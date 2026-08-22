@@ -1196,3 +1196,55 @@ h3{
 /* Join Our Team: always land at the beginning of the professional network module */
 #join-professional-network{scroll-margin-top:120px;}
 @media(max-width:768px){#join-professional-network{scroll-margin-top:92px;}}
+
+/* STEP14.8 PORTAL SIDEBAR COLOR DIFFERENTIATION */
+/* Administration: burgundy / wine. Developer intentionally keeps its existing blue. */
+body.admin-portal-page:not(.provider-portal-page):not(.developer-portal-page) .admin-sidebar{
+  background:linear-gradient(180deg,#721b3b 0%,#54112b 100%);
+}
+body.admin-portal-page:not(.provider-portal-page):not(.developer-portal-page) .admin-sidebar-label{
+  color:#f2c7d5;
+}
+body.admin-portal-page:not(.provider-portal-page):not(.developer-portal-page) .admin-sidebar a{
+  color:#fff3f7;
+}
+body.admin-portal-page:not(.provider-portal-page):not(.developer-portal-page) .admin-sidebar a:hover{
+  background:rgba(255,255,255,.11);
+  color:#fff;
+}
+body.admin-portal-page:not(.provider-portal-page):not(.developer-portal-page) .admin-sidebar a.active{
+  background:linear-gradient(135deg,#a8325b,#8b2349);
+  color:#fff;
+  box-shadow:0 8px 18px rgba(82,15,41,.24);
+}
+body.admin-portal-page:not(.provider-portal-page):not(.developer-portal-page) .admin-sidebar-disabled{
+  color:#f3d7e1;
+  background:rgba(255,255,255,.04);
+}
+body.admin-portal-page:not(.provider-portal-page):not(.developer-portal-page) .admin-sidebar-disabled small{
+  color:#dfafc0;
+}
+
+/* Provider: orange. */
+body.provider-portal-page .admin-sidebar{
+  background:linear-gradient(180deg,#e27624 0%,#bd5411 100%);
+}
+body.provider-portal-page .admin-sidebar-label{
+  color:#fff1df;
+}
+body.provider-portal-page .admin-sidebar a{
+  color:#fff8ef;
+}
+body.provider-portal-page .admin-sidebar a:hover{
+  background:rgba(255,255,255,.13);
+  color:#fff;
+}
+body.provider-portal-page .admin-sidebar a.active{
+  background:linear-gradient(135deg,#a74308,#8f3500);
+  color:#fff;
+  box-shadow:0 8px 18px rgba(116,45,0,.24);
+}
+body.provider-portal-page .admin-sidebar a span{
+  color:#a74308;
+}
+
