@@ -1162,3 +1162,6 @@ h3{
   .reviews-scroll .client-review-card blockquote{font-size:16px;line-height:1.6;}
   .request-intro .request-page-title{font-size:clamp(2.25rem,12vw,3.4rem);}
 }
+
+/* Updated service photography — 2026-08-22 */
+.pro-service-card .pro-service-photo{width:100%;aspect-ratio:384/341;object-fit:cover;border-radius:14px;display:block;margin:0 0 14px}
