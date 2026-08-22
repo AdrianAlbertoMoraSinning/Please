@@ -1192,3 +1192,7 @@ h3{
   display:inline-flex;
   align-items:center;
 }
+
+/* Join Our Team: always land at the beginning of the professional network module */
+#join-professional-network{scroll-margin-top:120px;}
+@media(max-width:768px){#join-professional-network{scroll-margin-top:92px;}}

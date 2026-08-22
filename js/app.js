@@ -6,5 +6,5 @@ document.addEventListener('click',function(e){
   const link=e.target.closest('a.join-team-link');
   if(!link)return;
   e.preventDefault();
-  window.location.assign('/work-with-us.html');
+  window.location.assign('/work-with-us.html#join-professional-network');
 },true);
