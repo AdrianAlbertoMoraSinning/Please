@@ -126,40 +126,32 @@
         </section>
 
         <section class="admin-detail-section">
-          <h3>Service & Provider</h3>
-          <div class="calendar-form-grid two">
-            <label>Service *<select id="job-service" required></select></label>
-            <label>Provider *<select id="job-provider" required></select></label>
-          </div>
-          <div id="provider-availability-note" class="calendar-availability-note"></div>
+          <h3>Service</h3>
+          <div class="calendar-form-grid one"><label>Service *<select id="job-service" required></select></label></div>
         </section>
 
-        <section class="admin-detail-section">
-          <h3>Schedule</h3>
-          <div class="calendar-form-grid three">
-            <label>Date *<input id="job-date" type="date" required></label>
-            <label>Start *<input id="job-start" type="time" required></label>
-            <label>End *<input id="job-end" type="time" required></label>
+        <section class="admin-detail-section" id="multi-provider-section">
+          <div class="multi-provider-heading"><div><h3>Service Team & Provider Billing</h3><p class="admin-muted">Add every Provider required for this Job. Each Provider has an independent schedule, Provider Rate items, customer billing lines and lifecycle.</p></div><button id="job-add-provider" type="button" class="admin-outline-button">+ ADD ANOTHER PROVIDER</button></div>
+          <div id="job-team-assignments" class="multi-provider-team"></div>
+          <div class="calendar-billing-totals multi-provider-totals">
+            <div><span>Customer Quote Subtotal</span><strong id="team-customer-subtotal">$0.00</strong></div>
+            <div><span>Total Provider Cost</span><strong id="team-provider-cost">$0.00</strong></div>
+            <div><span>PLEASE Gross Profit</span><strong id="team-profit">$0.00</strong></div>
+            <div><span>GST 5%</span><strong id="team-gst">$0.00</strong></div>
+            <div class="grand"><span>Estimated Customer Total</span><strong id="team-customer-total">$0.00</strong></div>
           </div>
-          <small>Times are Calgary local time. A pending assignment immediately reserves this provider's selected window.</small>
+          <small>The first Provider added is the primary Provider shown first in Customer Tracking. All Providers must independently confirm, arrive with photo, start, and complete with photo.</small>
         </section>
 
-        <section class="admin-detail-section" id="billing-section">
-          <h3>Customer Billing</h3>
-          <p class="admin-muted">Choose one or more active Provider Rate items. The Provider rate represents what PLEASE owes the Provider. Enter the separate PLEASE Customer Rate on each billing line. The difference is PLEASE gross profit before overhead and tax.</p>
-          <div class="calendar-billing-picker">
-            <label>Provider Service Rate<select id="job-billing-rate-picker"><option value="">Select provider first</option></select></label>
-            <button id="job-add-billing-item" type="button" class="admin-outline-button">ADD BILLING ITEM</button>
-          </div>
-          <div id="job-billing-empty" class="admin-muted">No billing items added.</div>
-          <div id="job-billing-items" class="calendar-billing-items"></div>
-          <div class="calendar-billing-totals">
-            <div><span>Subtotal</span><strong id="job-billing-subtotal">$0.00</strong></div>
-            <div><span>GST 5%</span><strong id="job-billing-gst">$0.00</strong></div>
-            <div class="grand"><span>Estimated Customer Total</span><strong id="job-billing-total">$0.00</strong></div>
-          </div>
-          <small>Both financial sides are frozen on the Job when the assignment is sent: the customer selling price and the Provider cost. Later catalog changes do not alter this Job.</small>
-        </section>
+        <div id="legacy-assignment-section" hidden>
+          <section class="admin-detail-section">
+            <h3>Provider</h3>
+            <div class="calendar-form-grid two"><label>Provider *<select id="job-provider"></select></label></div>
+            <div id="provider-availability-note" class="calendar-availability-note"></div>
+          </section>
+          <section class="admin-detail-section"><h3>Schedule</h3><div class="calendar-form-grid three"><label>Date *<input id="job-date" type="date"></label><label>Start *<input id="job-start" type="time"></label><label>End *<input id="job-end" type="time"></label></div><small>Times are Calgary local time.</small></section>
+          <section class="admin-detail-section" id="billing-section"><h3>Customer Billing</h3><div class="calendar-billing-picker"><label>Provider Service Rate<select id="job-billing-rate-picker"><option value="">Select provider first</option></select></label><button id="job-add-billing-item" type="button" class="admin-outline-button">ADD BILLING ITEM</button></div><div id="job-billing-empty" class="admin-muted">No billing items added.</div><div id="job-billing-items" class="calendar-billing-items"></div><div class="calendar-billing-totals"><div><span>Subtotal</span><strong id="job-billing-subtotal">$0.00</strong></div><div><span>GST 5%</span><strong id="job-billing-gst">$0.00</strong></div><div class="grand"><span>Estimated Customer Total</span><strong id="job-billing-total">$0.00</strong></div></div></section>
+        </div>
 
         <section class="admin-detail-section">
           <h3>Work Details</h3>
@@ -170,7 +162,7 @@
         </section>
       </form>
       <div class="admin-drawer-actions">
-        <button id="job-submit" class="btn primary" type="submit" form="job-form">SEND ASSIGNMENT →</button>
+        <button id="job-submit" class="btn primary" type="submit" form="job-form">SEND ASSIGNMENTS →</button>
       </div>
     </aside>
 
@@ -181,6 +173,6 @@
       </div>
     </div>
   </div>
-  <script src="js/admin-calendar.js?v=10.3.1"></script>
+  <script src="js/admin-calendar.js?v=15.2.1"></script>
 </body>
 </html>

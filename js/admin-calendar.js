@@ -17,11 +17,18 @@
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   async function api(url, options={}) {
-    const r=await fetch(url,{credentials:'same-origin',headers:{'content-type':'application/json',...(options.headers||{})},...options});
-    const text=await r.text(); let payload={}; try{payload=text?JSON.parse(text):{};}catch{payload={error:text};}
-    if(r.status===401){location.replace('admin-login.html');throw new Error('Session expired');}
-    if(!r.ok) throw new Error(payload.error||`Request failed (${r.status})`);
-    return payload;
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),15000);
+    try {
+      const r=await fetch(url,{credentials:'same-origin',headers:{'content-type':'application/json',...(options.headers||{})},...options,signal:controller.signal});
+      const text=await r.text(); let payload={}; try{payload=text?JSON.parse(text):{};}catch{payload={error:text};}
+      if(r.status===401){location.replace('admin-login.html');throw new Error('Session expired');}
+      if(!r.ok) throw new Error(payload.error||`Request failed (${r.status})`);
+      return payload;
+    } catch (error) {
+      if(error?.name==='AbortError') throw new Error('The secure Administration request timed out. Refresh the page and try again.');
+      throw error;
+    } finally { clearTimeout(timeout); }
   }
   async function ensureSession(){const s=await api('/.netlify/functions/admin-session');$('admin-name').textContent=s.user?.display_name||'PLEASE Administrator';$('admin-email').textContent=s.user?.email||'';}
   function showAlert(msg,type='error'){alertBox.textContent=msg;alertBox.className=`form-alert ${type==='success'?'success':''}`;alertBox.hidden=false;window.scrollTo({top:0,behavior:'smooth'});}
@@ -311,17 +318,41 @@
   function fmtAdmin(v){return v?new Intl.DateTimeFormat('en-CA',{dateStyle:'medium',timeStyle:'short',timeZone:TZ}).format(new Date(v)):'—';}
   async function reviewScheduleChange(id,action,note=''){try{await api('/.netlify/functions/admin-schedule-change-action',{method:'POST',body:JSON.stringify({request_id:id,action,note})});$('assignment-modal').hidden=true;await loadCalendar();showAlert(`Schedule change ${action==='ACCEPT'?'accepted and calendar updated':'rejected'}.`,'success');}catch(e){showAlert(e.message);}}
 
-  $('new-job').addEventListener('click',()=>{sourceRequest=null;try{sessionStorage.removeItem('pleasePendingServiceRequest');}catch{}history.replaceState(null,'','admin-calendar.html');openNewJob();});
-  $('prev-week').addEventListener('click',()=>{weekStart=addDays(weekStart,-7);loadCalendar().catch(e=>showAlert(e.message));});
-  $('next-week').addEventListener('click',()=>{weekStart=addDays(weekStart,7);loadCalendar().catch(e=>showAlert(e.message));});
-  $('today-week').addEventListener('click',()=>{weekStart=startOfWeek(new Date());loadCalendar().catch(e=>showAlert(e.message));});
-  $('refresh-calendar').addEventListener('click',()=>loadCalendar().catch(e=>showAlert(e.message)));
-  serviceFilter.addEventListener('change',renderCalendar);providerFilter.addEventListener('change',renderCalendar);
-  $('job-service').addEventListener('change',()=>{populateJobProviders($('job-service').value);teamAssignments.forEach(a=>{if(a.provider_id&&!eligibleProviders($('job-service').value).some(p=>p.id===a.provider_id)){a.provider_id='';a.billing_items=[];}});renderTeam();});$('job-provider').addEventListener('change',()=>{updateAvailabilityNote();if(!$('job-existing-id').value)billingItems=[];renderBillingPicker();});$('job-date').addEventListener('change',updateAvailabilityNote);$('job-start').addEventListener('change',updateAvailabilityNote);$('job-end').addEventListener('change',updateAvailabilityNote);$('job-add-billing-item').addEventListener('click',addBillingItem);$('job-add-provider').addEventListener('click',()=>{const base=teamAssignments[0]||teamDefault();teamAssignments.push(teamDefault(base.date,base.start,base.end));renderTeam();});
-  $('job-drawer-close').addEventListener('click',closeDrawer);backdrop.addEventListener('click',closeDrawer);form.addEventListener('submit',submitJob);
-  $('assignment-modal-close').addEventListener('click',()=>{$('assignment-modal').hidden=true;});$('assignment-modal').addEventListener('click',e=>{if(e.target===$('assignment-modal'))$('assignment-modal').hidden=true;});
-  $('admin-signout').addEventListener('click',async()=>{try{await api('/.netlify/functions/admin-logout',{method:'POST',body:'{}'});}catch{}location.replace('admin-login.html');});
+  function on(id,event,handler){const el=$(id);if(el)el.addEventListener(event,handler);return el;}
+  function bindEvents(){
+    on('new-job','click',()=>{sourceRequest=null;try{sessionStorage.removeItem('pleasePendingServiceRequest');}catch{}history.replaceState(null,'','admin-calendar.html');openNewJob();});
+    on('prev-week','click',()=>{weekStart=addDays(weekStart,-7);loadCalendar().catch(e=>showAlert(e.message));});
+    on('next-week','click',()=>{weekStart=addDays(weekStart,7);loadCalendar().catch(e=>showAlert(e.message));});
+    on('today-week','click',()=>{weekStart=startOfWeek(new Date());loadCalendar().catch(e=>showAlert(e.message));});
+    on('refresh-calendar','click',()=>loadCalendar().catch(e=>showAlert(e.message)));
+    serviceFilter?.addEventListener('change',renderCalendar);providerFilter?.addEventListener('change',renderCalendar);
+    on('job-service','change',()=>{populateJobProviders($('job-service').value);teamAssignments.forEach(a=>{if(a.provider_id&&!eligibleProviders($('job-service').value).some(p=>p.id===a.provider_id)){a.provider_id='';a.billing_items=[];}});renderTeam();});
+    on('job-provider','change',()=>{updateAvailabilityNote();if(!$('job-existing-id')?.value)billingItems=[];renderBillingPicker();});
+    on('job-date','change',updateAvailabilityNote);on('job-start','change',updateAvailabilityNote);on('job-end','change',updateAvailabilityNote);
+    on('job-add-billing-item','click',addBillingItem);
+    on('job-add-provider','click',()=>{const base=teamAssignments[0]||teamDefault();teamAssignments.push(teamDefault(base.date,base.start,base.end));renderTeam();});
+    on('job-drawer-close','click',closeDrawer);backdrop?.addEventListener('click',closeDrawer);form?.addEventListener('submit',submitJob);
+    on('assignment-modal-close','click',()=>{if($('assignment-modal'))$('assignment-modal').hidden=true;});
+    $('assignment-modal')?.addEventListener('click',e=>{if(e.target===$('assignment-modal'))$('assignment-modal').hidden=true;});
+    on('admin-signout','click',async()=>{try{await api('/.netlify/functions/admin-logout',{method:'POST',body:'{}'});}catch{}location.replace('admin-login.html');});
+  }
 
-  async function init(){try{await ensureSession();loading.hidden=true;loading.remove();app.hidden=false;await loadCalendar();const requestId=new URLSearchParams(location.search).get('request');if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}}catch(e){console.error('admin-calendar init',e);if(loading)loading.textContent=e.message||'Unable to load secure calendar.';else showAlert(e.message||'Unable to load secure calendar.');}}
+  async function init(){
+    try{
+      if(!loading||!app) throw new Error('Administration calendar page is incomplete. Deploy admin-calendar.html and js/admin-calendar.js from the same release.');
+      loading.textContent='Checking secure session…';
+      await ensureSession();
+      loading.textContent='Loading Master Calendar…';
+      await loadCalendar();
+      bindEvents();
+      loading.hidden=true;loading.remove();app.hidden=false;
+      const requestId=new URLSearchParams(location.search).get('request');
+      if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}
+    }catch(e){
+      console.error('admin-calendar init',e);
+      if(loading){loading.textContent=e.message||'Unable to load secure calendar.';loading.classList.add('admin-loading-error');}
+      else showAlert(e.message||'Unable to load secure calendar.');
+    }
+  }
   init();
 })();
