@@ -54,6 +54,20 @@
 
         <div id="calendar-alert" class="form-alert" hidden></div>
 
+
+        <section id="pending-schedule-changes" class="admin-panel schedule-change-queue-panel">
+          <div class="admin-section-title-row">
+            <div><p class="eyebrow dark">PROVIDER REQUESTS</p><h2>Pending Schedule Changes <span id="schedule-change-count" class="schedule-change-count">0</span></h2><p>Review Provider-proposed date/time changes before the new schedule becomes official.</p></div>
+          </div>
+          <div id="schedule-change-empty" class="admin-empty">No Provider schedule changes awaiting approval.</div>
+          <div class="admin-table-wrap" id="schedule-change-table-wrap" hidden>
+            <table class="admin-table schedule-change-table">
+              <thead><tr><th>Job / Provider</th><th>Current Schedule</th><th>Requested Schedule</th><th>Reason</th><th>Action</th></tr></thead>
+              <tbody id="schedule-change-body"></tbody>
+            </table>
+          </div>
+        </section>
+
         <section class="admin-panel calendar-control-panel">
           <div class="calendar-week-nav">
             <button id="prev-week" class="admin-outline-button" type="button">← Previous</button>
@@ -173,6 +187,6 @@
       </div>
     </div>
   </div>
-  <script src="js/admin-calendar.js?v=15.4.0"></script>
+  <script src="js/admin-calendar.js?v=15.5.0"></script>
 </body>
 </html>

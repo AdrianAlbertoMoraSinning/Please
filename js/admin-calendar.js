@@ -165,6 +165,30 @@
     grid.querySelectorAll('.calendar-assignment').forEach(btn=>btn.addEventListener('click',()=>openAssignment(btn.dataset.assignment)));
   }
 
+  function scheduleChangeContext(change){
+    const a=(data.assignments||[]).find(x=>x.id===change.assignment_id);
+    const p=(data.providers||[]).find(x=>x.id===change.provider_id)||null;
+    const j=a?.jobs||null;
+    return {a,p,j};
+  }
+  function renderPendingScheduleChanges(){
+    const changes=(data.schedule_changes||[]).filter(x=>x.status==='PENDING');
+    const count=$('schedule-change-count'),empty=$('schedule-change-empty'),wrap=$('schedule-change-table-wrap'),body=$('schedule-change-body');
+    if(count)count.textContent=String(changes.length); if(!empty||!wrap||!body)return;
+    empty.hidden=changes.length>0;wrap.hidden=changes.length===0;
+    body.innerHTML=changes.map(ch=>{
+      const {a,p,j}=scheduleChangeContext(ch),customer=j?.customers||{};
+      const customerName=[customer.first_name,customer.last_name].filter(Boolean).join(' ')||'Customer';
+      return `<tr data-change="${esc(ch.id)}"><td><strong class="admin-reference">${esc(j?.reference||'Job')}</strong><small>${esc(p?.display_name||'Provider')} · ${esc(j?.service_name||'Service')} · ${esc(customerName)}</small></td><td>${esc(fmtAdmin(ch.current_start))}<small>to ${esc(fmtAdmin(ch.current_end))}</small></td><td><strong>${esc(fmtAdmin(ch.proposed_start))}</strong><small>to ${esc(fmtAdmin(ch.proposed_end))}</small></td><td>${esc(ch.provider_reason||'No reason provided')}</td><td><div class="schedule-change-queue-actions"><button type="button" class="admin-primary-button sc-approve">APPROVE</button><button type="button" class="admin-outline-button sc-team">APPROVE TEAM</button><button type="button" class="admin-danger-button sc-reject">REJECT</button></div></td></tr>`;
+    }).join('');
+    body.querySelectorAll('tr[data-change]').forEach(row=>{
+      const id=row.dataset.change;
+      row.querySelector('.sc-approve').onclick=()=>reviewScheduleChange(id,'ACCEPT','',false);
+      row.querySelector('.sc-team').onclick=()=>{if(confirm('Apply this same requested date and time to every active Provider assignment on this Job?'))reviewScheduleChange(id,'ACCEPT','Applied to remaining service team by PLEASE Administration.',true);};
+      row.querySelector('.sc-reject').onclick=()=>{const note=prompt('Reason for rejecting this Provider schedule change (optional):','');if(note!==null)reviewScheduleChange(id,'REJECT',note,false);};
+    });
+  }
+
   function renderUnassigned(){
     const rows=data.needs_assignment||[]; const activeJobIds=new Set([...(data.assignments||[]).map(a=>a.job_id),...rows.map(j=>j.id)]); $('needs-assignment-count').textContent=activeJobIds.size; unassignedEmpty.hidden=rows.length>0;unassignedBody.innerHTML='';
     rows.forEach(j=>{const c=j.customers||{};const tr=document.createElement('tr');tr.innerHTML=`<td><strong class="admin-reference">${esc(j.reference)}</strong></td><td><strong>${esc([c.first_name,c.last_name].filter(Boolean).join(' ')||'Customer')}</strong><small>${esc(c.email||c.phone||'')}</small></td><td>${esc(j.service_name)}</td><td>${esc(j.work_address)}</td><td>${esc(durationLabel(j.estimated_duration_minutes))}</td><td><button type="button" class="admin-row-button">Assign</button></td>`;tr.querySelector('button').addEventListener('click',()=>openExistingJob(j));unassignedBody.appendChild(tr);});
@@ -204,7 +228,7 @@
   async function loadCalendar(){
     clearAlert(); const from=ymd(weekStart),to=ymd(addDays(weekStart,6));
     data=await api(`/.netlify/functions/admin-calendar-data?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-    renderFilters();renderCalendar();renderUnassigned();
+    renderFilters();renderPendingScheduleChanges();renderCalendar();renderUnassigned();
   }
 
   function populateJobProviders(serviceId,preferred=''){
@@ -331,14 +355,14 @@
   function openAssignment(id){
     const a=data.assignments.find(x=>x.id===id);if(!a)return;const p=data.providers.find(x=>x.id===a.provider_id),j=a.jobs||{},s=localParts(a.scheduled_start),e=localParts(a.scheduled_end),c=j.customers||{},items=billingForJob(j.id).filter(x=>x.assignment_id===a.id||(!x.assignment_id&&x.provider_id===a.provider_id)),change=scheduleChangeFor(a.id);
     const billHtml=items.length?`<h3>Customer Billing</h3><div class="calendar-modal-billing">${items.map(x=>`<div><span>${esc(x.service_name||'Service')} · ${esc(x.description)} · ${Number(x.quantity).toFixed(2)} ${esc(x.unit)}</span><strong>${money(x.customer_line_total??x.line_total)}</strong><small>Provider ${x.provider_line_total==null?'—':money(x.provider_line_total)} · Profit ${x.gross_profit==null?'—':money(x.gross_profit)}</small></div>`).join('')}<div class="grand"><span>Subtotal</span><strong>${money(items.reduce((n,x)=>n+Number((x.customer_line_total??x.line_total)??0),0))}</strong></div></div>`:'';
-    const changeHtml=change?`<div class="admin-detail-section schedule-change-review"><h3>Provider Schedule Change Request</h3><p><b>Current:</b> ${esc(fmtAdmin(change.current_start))} → ${esc(fmtAdmin(change.current_end))}</p><p><b>Proposed:</b> ${esc(fmtAdmin(change.proposed_start))} → ${esc(fmtAdmin(change.proposed_end))}</p>${change.provider_reason?`<p><b>Provider reason:</b> ${esc(change.provider_reason)}</p>`:''}<div class="calendar-modal-actions"><button id="accept-schedule-change" class="btn primary" type="button">ACCEPT CHANGE</button><button id="reject-schedule-change" class="admin-danger-button" type="button">REJECT CHANGE</button></div></div>`:'';
+    const changeHtml=change?`<div class="admin-detail-section schedule-change-review"><h3>Provider Schedule Change Request</h3><p><b>Current:</b> ${esc(fmtAdmin(change.current_start))} → ${esc(fmtAdmin(change.current_end))}</p><p><b>Proposed:</b> ${esc(fmtAdmin(change.proposed_start))} → ${esc(fmtAdmin(change.proposed_end))}</p>${change.provider_reason?`<p><b>Provider reason:</b> ${esc(change.provider_reason)}</p>`:''}<div class="calendar-modal-actions"><button id="accept-schedule-change" class="btn primary" type="button">APPROVE CHANGE</button><button id="accept-team-schedule-change" class="admin-outline-button" type="button">APPROVE SAME TIME FOR TEAM</button><button id="reject-schedule-change" class="admin-danger-button" type="button">REJECT CHANGE</button></div></div>`:'';
     $('assignment-modal-content').innerHTML=`<span class="status-badge status-${a.status.toLowerCase()}">${esc(statusLabel(a.status))}</span><h2>${esc(j.reference||'Assignment')}</h2><div class="admin-detail-grid"><div><span>Provider</span><strong>${esc(p?.display_name||'')}</strong></div><div><span>Service</span><strong>${esc(j.service_name||'')}</strong></div><div><span>Date</span><strong>${esc(s.date)}</strong></div><div><span>Time</span><strong>${time12(s.time)}–${time12(e.time)}</strong></div><div><span>Customer</span><strong>${esc([c.first_name,c.last_name].filter(Boolean).join(' ')||'—')}</strong></div><div><span>Customer Contact</span><strong>${esc(c.email||c.phone||'—')}</strong></div></div>${billHtml}<h3>Work Address</h3><p>${esc(j.work_address||'')}</p><h3>Work Description</h3><p class="admin-prewrap">${esc(j.work_description||'')}</p>${a.assignment_message?`<h3>Message to Provider</h3><p>${esc(a.assignment_message)}</p>`:''}${a.provider_response_note?`<h3>Provider Response</h3><p>${esc(a.provider_response_note)}</p>`:''}${changeHtml}<div class="calendar-modal-actions">${['PENDING','CONFIRMED'].includes(a.status)?'<button id="cancel-assignment" class="admin-danger-button" type="button">CANCEL ASSIGNMENT</button>':''}</div>`;
     $('assignment-modal').hidden=false;
-    const accept=$('accept-schedule-change');if(accept)accept.onclick=()=>reviewScheduleChange(change.id,'ACCEPT');const reject=$('reject-schedule-change');if(reject)reject.onclick=()=>{const note=prompt('Reason for rejecting the provider schedule change (optional):','')||'';reviewScheduleChange(change.id,'REJECT',note);};
+    const accept=$('accept-schedule-change');if(accept)accept.onclick=()=>reviewScheduleChange(change.id,'ACCEPT','',false);const teamAccept=$('accept-team-schedule-change');if(teamAccept)teamAccept.onclick=()=>{if(confirm('Apply this same requested date and time to every active Provider assignment on this Job?'))reviewScheduleChange(change.id,'ACCEPT','Applied to remaining service team by PLEASE Administration.',true);};const reject=$('reject-schedule-change');if(reject)reject.onclick=()=>{const note=prompt('Reason for rejecting the provider schedule change (optional):','');if(note!==null)reviewScheduleChange(change.id,'REJECT',note,false);};
     const cancel=$('cancel-assignment');if(cancel)cancel.addEventListener('click',async()=>{if(!confirm('Cancel this assignment and return the job to Needs Assignment?'))return;cancel.disabled=true;try{await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'CANCEL_ASSIGNMENT',payload:{assignment_id:a.id,note:'Cancelled by PLEASE administration'}})});$('assignment-modal').hidden=true;await loadCalendar();showAlert('Assignment cancelled. The job now needs reassignment.','success');}catch(err){showAlert(err.message);}finally{cancel.disabled=false;}});
   }
   function fmtAdmin(v){return v?new Intl.DateTimeFormat('en-CA',{dateStyle:'medium',timeStyle:'short',timeZone:TZ}).format(new Date(v)):'—';}
-  async function reviewScheduleChange(id,action,note=''){try{await api('/.netlify/functions/admin-schedule-change-action',{method:'POST',body:JSON.stringify({request_id:id,action,note})});$('assignment-modal').hidden=true;await loadCalendar();showAlert(`Schedule change ${action==='ACCEPT'?'accepted and calendar updated':'rejected'}.`,'success');}catch(e){showAlert(e.message);}}
+  async function reviewScheduleChange(id,action,note='',applyToTeam=false){try{const result=await api('/.netlify/functions/admin-schedule-change-action',{method:'POST',body:JSON.stringify({request_id:id,action,note,apply_to_team:applyToTeam})});$('assignment-modal').hidden=true;await loadCalendar();const extra=action==='ACCEPT'&&result.updated_assignments>1?` for ${result.updated_assignments} Providers`:'';showAlert(`Schedule change ${action==='ACCEPT'?`approved${extra} and calendar updated`:'rejected'}.`,'success');}catch(e){showAlert(e.message);}}
 
   function on(id,event,handler){const el=$(id);if(el)el.addEventListener(event,handler);return el;}
   function bindEvents(){
