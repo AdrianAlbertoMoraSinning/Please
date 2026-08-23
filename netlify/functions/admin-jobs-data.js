@@ -13,7 +13,7 @@ exports.handler=async event=>{
       lib.sbJson('/rest/v1/assignment_status_history?select=id,assignment_id,old_status,new_status,note,changed_at,changed_by_admin_portal_user,changed_by_provider_user&order=changed_at.desc'),
       lib.sbJson('/rest/v1/job_billing_items?select=id,job_id,assignment_id,provider_id,service_name,description,quantity,unit,customer_unit_rate,customer_line_total,provider_unit_rate,provider_line_total,gross_profit,unit_rate,line_total,sort_order&order=job_id.asc,sort_order.asc'),
       lib.sbJson('/rest/v1/assignment_schedule_change_requests?select=id,assignment_id,job_id,provider_id,current_start,current_end,proposed_start,proposed_end,provider_reason,status,admin_note,reviewed_at,created_at&order=created_at.desc'),
-      lib.sbJson('/rest/v1/job_service_evidence?select=id,job_id,assignment_id,provider_id,evidence_type,storage_path,created_at&order=created_at.asc').catch(()=>[])
+      lib.sbJson('/rest/v1/job_service_evidence?select=id,job_id,assignment_id,provider_id,evidence_type,storage_path,created_at&status=eq.COMMITTED&order=created_at.asc').catch(()=>[])
     ]);
     for(const x of evidence||[])x.url=await signed(x.storage_path);
     return lib.json(200,{jobs:jobs||[],assignments:assignments||[],providers:providers||[],services:services||[],job_history:jobHistory||[],assignment_history:assignmentHistory||[],job_billing_items:billingItems||[],schedule_changes:scheduleChanges||[],evidence:evidence||[]});
