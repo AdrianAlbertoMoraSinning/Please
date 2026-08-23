@@ -1333,3 +1333,7 @@ body.provider-portal-page .admin-sidebar a span{
 
 /* STEP 15.2.6 — persistent profile-photo metadata */
 .provider-profile-file-name{display:block;margin-top:8px;color:#64748b;font-size:.82rem;font-weight:600;line-height:1.35}
+
+/* STEP 15.2.7 - resilient provider photo delivery */
+.tracking-provider-avatar,.tracking-team-avatar{width:68px;height:68px;flex:0 0 68px;position:relative}.tracking-team-avatar{width:48px;height:48px;flex-basis:48px}.tracking-provider-avatar img,.tracking-team-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.12)}.tracking-provider-avatar-fallback{width:100%;height:100%;border-radius:50%;align-items:center;justify-content:center;background:#e9f2fb;color:#0057b8;font-weight:900;font-size:1.25rem;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.12)}.tracking-team-member{display:flex;align-items:center;gap:12px}.admin-provider-avatar.fallback{align-items:center;justify-content:center}
+@media(max-width:700px){.tracking-provider-avatar{width:58px;height:58px;flex-basis:58px}.tracking-team-avatar{width:44px;height:44px;flex-basis:44px}}
