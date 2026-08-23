@@ -1326,3 +1326,7 @@ body.provider-portal-page .admin-sidebar a span{
   .multi-provider-totals{grid-template-columns:1fr;}
   .multi-provider-totals .grand{grid-column:auto;}
 }
+
+/* STEP 15.2.4 — Provider profile photo visibility */
+.provider-header-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.15);flex:0 0 auto}.provider-welcome-block{display:flex;align-items:center;gap:18px}.provider-overview-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 4px 16px rgba(0,0,0,.14);flex:0 0 auto}.provider-profile-photo-preview small{display:block;color:#66788a;max-width:560px;margin-top:4px}.admin-provider-list-identity,.admin-provider-drawer-identity{display:flex;align-items:center;gap:12px}.admin-provider-avatar{width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.12);flex:0 0 auto}.admin-provider-avatar.large{width:72px;height:72px}.admin-provider-avatar.placeholder{display:inline-flex;align-items:center;justify-content:center;background:#eaf2fa;color:#0057b8;font-weight:800}.tracking-provider-card img,.tracking-team-member img{background:#eef4f8}
+@media(max-width:700px){.provider-header-avatar{width:40px;height:40px}.provider-overview-avatar{width:72px;height:72px}.provider-welcome-block{align-items:flex-start;gap:12px}.admin-provider-avatar.large{width:60px;height:60px}}
