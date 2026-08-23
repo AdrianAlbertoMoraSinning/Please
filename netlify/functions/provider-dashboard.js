@@ -5,12 +5,18 @@ async function safeJson(path, fallback=[]){
 }
 async function signed(path,expires=1800){if(!path)return null;try{const enc=String(path).split('/').map(encodeURIComponent).join('/');const d=await lib.sbJson(`/storage/v1/object/sign/provider-applications/${enc}`,{method:'POST',body:JSON.stringify({expiresIn:expires})});const u=d?.signedURL||d?.signedUrl;return u?`${process.env.PLEASE_SUPABASE_URL.replace(/\/$/,'')}/storage/v1${u}`:null;}catch(e){return null;}}
 async function providerRow(q){
+  const core='id,reference,display_name,company_name,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,status,public_visible,slug,profile_image_url,profile_image_path,logo_url,activated_at,created_at,updated_at';
   try{
-    return await lib.sbJson(`/rest/v1/providers?select=id,reference,display_name,company_name,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,status,worker_type,public_visible,slug,profile_image_url,profile_image_path,logo_url,activated_at,created_at,updated_at&id=eq.${q}&limit=1`);
+    return await lib.sbJson(`/rest/v1/providers?select=${core},worker_type,profile_image_name&id=eq.${q}&limit=1`);
   }catch(e){
-    console.warn('provider-dashboard:worker_type-fallback',e.status||'',e.message||e);
-    const rows=await lib.sbJson(`/rest/v1/providers?select=id,reference,display_name,company_name,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,status,public_visible,slug,profile_image_url,profile_image_path,logo_url,activated_at,created_at,updated_at&id=eq.${q}&limit=1`);
-    return (rows||[]).map(x=>({...x,worker_type:'INDEPENDENT_PROVIDER'}));
+    console.warn('provider-dashboard:provider-column-fallback',e.status||'',e.message||e);
+    try{
+      const rows=await lib.sbJson(`/rest/v1/providers?select=${core},worker_type&id=eq.${q}&limit=1`);
+      return (rows||[]).map(x=>({...x,profile_image_name:null}));
+    }catch(e2){
+      const rows=await lib.sbJson(`/rest/v1/providers?select=${core}&id=eq.${q}&limit=1`);
+      return (rows||[]).map(x=>({...x,worker_type:'INDEPENDENT_PROVIDER',profile_image_name:null}));
+    }
   }
 }
 exports.handler=async event=>{
@@ -50,6 +56,6 @@ exports.handler=async event=>{
     const assignments=(assignRaw||[]).map(x=>({...x,jobs:{...(jobsById.get(x.job_id)||{}),billing_items:billByAssignment.get(x.id)||billByAssignment.get(x.job_id)||[]},schedule_changes:reqByAssignment.get(x.id)||[],extensions:extByAssignment.get(x.id)||[]}));
     const p=providers?.[0]||null,serviceMap=new Map((services||[]).map(s=>[s.id,s]));
     const assignedServices=(ps||[]).filter(x=>x.developer_authorized!==false).map(x=>({...serviceMap.get(x.service_id),service_id:x.service_id,developer_authorized:x.developer_authorized!==false,provider_enabled:x.provider_enabled!==false,active:!!x.active,provider_notes:x.provider_notes||null})).filter(x=>x.name);
-    if(p?.profile_image_path)p.profile_image_signed_url=await signed(p.profile_image_path);for(const x of servicePhotos||[])x.signed_url=await signed(x.storage_path);for(const x of evidence||[])x.signed_url=await signed(x.storage_path);return lib.json(200,{provider:p,services:assignedServices,availability:av||[],exceptions:ex||[],assignments,rates:rates||[],schedule_changes:changeRequests||[],extensions:extensions||[],documents:documents||[],technical_history:technicalHistory||[],service_photos:servicePhotos||[],evidence:evidence||[],service_events:serviceEvents||[],account,user:{email:a.user.email,display_name:a.user.display_name}});
+    if(p?.profile_image_path)p.profile_image_signed_url='/.netlify/functions/provider-profile-photo';for(const x of servicePhotos||[])x.signed_url=await signed(x.storage_path);for(const x of evidence||[])x.signed_url=await signed(x.storage_path);return lib.json(200,{provider:p,services:assignedServices,availability:av||[],exceptions:ex||[],assignments,rates:rates||[],schedule_changes:changeRequests||[],extensions:extensions||[],documents:documents||[],technical_history:technicalHistory||[],service_photos:servicePhotos||[],evidence:evidence||[],service_events:serviceEvents||[],account,user:{email:a.user.email,display_name:a.user.display_name}});
   }catch(e){console.error('provider-dashboard',e);return lib.json(e.status||500,{error:e.status===401?'Unauthorized':'Unable to load provider portal.'});}
 };

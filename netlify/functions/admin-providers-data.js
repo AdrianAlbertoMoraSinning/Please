@@ -52,7 +52,7 @@ exports.handler=async function(event){
         users=await optional('portal-users',()=>lib.sbJson(`/rest/v1/provider_portal_users?select=id,provider_id,email,display_name,active,last_login_at,password_changed_at,created_at,updated_at&provider_id=in.(${list})`),[]);
       }
       const byProvider=new Map((users||[]).map(x=>[x.provider_id,x]));
-      const enriched=[];for(const p of rows||[]){enriched.push({...p,profile_photo_url:p.profile_image_path?await signed(p.profile_image_path):safePublicUrl(p.profile_image_url),account:byProvider.get(p.id)||null});}return lib.json(200,{providers:enriched});
+      const enriched=[];for(const p of rows||[]){enriched.push({...p,profile_photo_url:p.profile_image_path?`/.netlify/functions/provider-profile-photo?provider_id=${encodeURIComponent(p.id)}`:safePublicUrl(p.profile_image_url),account:byProvider.get(p.id)||null});}return lib.json(200,{providers:enriched});
     }
     if(!/^[0-9a-f-]{36}$/i.test(id)) return lib.json(400,{error:'Invalid provider id'});
     const provider=await getProvider(id);
@@ -69,7 +69,7 @@ exports.handler=async function(event){
       optional('history',()=>lib.sbJson(`/rest/v1/provider_technical_history?select=id,event_type,event_label,details,actor_type,created_at&provider_id=eq.${id}&order=created_at.desc&limit=100`),[]),
       optional('all-services',()=>lib.sbJson('/rest/v1/services?select=id,name,short_description,active&active=eq.true&order=sort_order.asc'),[])
     ]);
-    provider.profile_photo_url=provider.profile_image_path?await signed(provider.profile_image_path):safePublicUrl(provider.profile_image_url);return lib.json(200,{provider,account,services,availability,exceptions,documents,history,all_services:allServices});
+    provider.profile_photo_url=provider.profile_image_path?`/.netlify/functions/provider-profile-photo?provider_id=${encodeURIComponent(provider.id)}`:safePublicUrl(provider.profile_image_url);return lib.json(200,{provider,account,services,availability,exceptions,documents,history,all_services:allServices});
   }catch(e){
     console.error('admin-providers',e);
     return lib.json(e.status===401?401:500,{error:e.status===401?'Unauthorized':'Unable to load provider accounts.'});
