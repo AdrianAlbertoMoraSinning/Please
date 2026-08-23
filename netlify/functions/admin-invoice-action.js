@@ -23,6 +23,22 @@ function cleanItem(x,i){
   return {description,qty,unit,unit_rate,line_total:MONEY(qty*unit_rate),sort_order:(i+1)*10};
 }
 
+async function saveDraftFinancials(inv,body){
+  if(inv.status==='PAID'||inv.status==='VOID') throw Object.assign(new Error('Paid or void invoices cannot be edited.'),{status:409});
+  if(inv.payment_status==='PENDING'&&inv.stripe_checkout_session_id) throw Object.assign(new Error('Invoice financial details are locked while a Stripe Checkout session is active.'),{status:409});
+  const items=(Array.isArray(body.items)?body.items:[]).map(cleanItem);
+  if(!items.length) throw Object.assign(new Error('Add at least one invoice item.'),{status:400});
+  const rate=MONEY(body.gst_rate);
+  if(rate<0||rate>100) throw Object.assign(new Error('Invalid GST rate.'),{status:400});
+  const patch={client_name:String(body.client_name||'').trim().slice(0,200)||null,client_email:String(body.client_email||'').trim().slice(0,250)||null,client_phone:String(body.client_phone||'').trim().slice(0,80)||null,invoice_date:body.invoice_date||inv.invoice_date,due_date:body.due_date||null,gst_rate:rate,note:String(body.note||'').trim().slice(0,4000)||null,updated_at:new Date().toISOString()};
+  await lib.sbJson(`/rest/v1/invoices?id=eq.${encodeURIComponent(inv.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
+  await lib.sbJson(`/rest/v1/invoice_items?invoice_id=eq.${encodeURIComponent(inv.id)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});
+  await lib.sbJson('/rest/v1/invoice_items',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(items.map(x=>({...x,invoice_id:inv.id})))});
+  const subtotal=MONEY(items.reduce((n,x)=>n+x.line_total,0)),gst=MONEY(subtotal*rate/100),total=MONEY(subtotal+gst);
+  await lib.sbJson(`/rest/v1/invoices?id=eq.${encodeURIComponent(inv.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({subtotal,gst_amount:gst,total_amount:total,updated_at:new Date().toISOString()})});
+  return {subtotal,gst,total,items};
+}
+
 exports.handler=async event=>{
   if(event.httpMethod!=='POST') return lib.json(405,{error:'Method not allowed'});
   try{
@@ -71,29 +87,21 @@ exports.handler=async event=>{
     if(!inv) return lib.json(404,{error:'Invoice not found'});
 
     if(action==='SAVE'){
-      if(inv.status==='PAID'||inv.status==='VOID') return lib.json(409,{error:'Paid or void invoices cannot be edited.'});
-      if(inv.payment_status==='PENDING'&&inv.stripe_checkout_session_id) return lib.json(409,{error:'Invoice financial details are locked while a Stripe Checkout session is active.'});
-      const items=(Array.isArray(body.items)?body.items:[]).map(cleanItem);
-      if(!items.length) return lib.json(400,{error:'Add at least one invoice item.'});
-      const rate=MONEY(body.gst_rate);
-      if(rate<0||rate>100) return lib.json(400,{error:'Invalid GST rate.'});
-      const patch={client_name:String(body.client_name||'').trim().slice(0,200)||null,client_email:String(body.client_email||'').trim().slice(0,250)||null,client_phone:String(body.client_phone||'').trim().slice(0,80)||null,invoice_date:body.invoice_date||inv.invoice_date,due_date:body.due_date||null,gst_rate:rate,note:String(body.note||'').trim().slice(0,4000)||null,updated_at:new Date().toISOString()};
-      await lib.sbJson(`/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
-      await lib.sbJson(`/rest/v1/invoice_items?invoice_id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});
-      await lib.sbJson('/rest/v1/invoice_items',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(items.map(x=>({...x,invoice_id:id})))});
-      // Explicit final calculation avoids any client-side trust.
-      const subtotal=MONEY(items.reduce((n,x)=>n+x.line_total,0)),gst=MONEY(subtotal*rate/100),total=MONEY(subtotal+gst);
-      await lib.sbJson(`/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({subtotal,gst_amount:gst,total_amount:total,updated_at:new Date().toISOString()})});
+      await saveDraftFinancials(inv,body);
       return lib.json(200,{ok:true});
     }
 
     if(action==='ISSUE'){
       if(inv.status!=='DRAFT') return lib.json(409,{error:'Only draft invoices can be issued.'});
-      if(Number(inv.total_amount)<=0) return lib.json(409,{error:'Invoice total must be greater than zero.'});
+      // Financial Separation Integrity: ISSUE persists the exact customer-facing values currently shown in Administration before status changes.
+      if(Array.isArray(body.items)) await saveDraftFinancials(inv,body);
+      const fresh=await getInvoice(id);
+      if(!fresh) return lib.json(404,{error:'Invoice not found after save.'});
+      if(Number(fresh.total_amount)<=0) return lib.json(409,{error:'Invoice total must be greater than zero.'});
       const patch={status:'ISSUED',issued_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-      await lib.sbJson(`/rest/v1/invoices?id=eq.${id}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
-      await history(inv,patch,'Invoice issued',auth.user);
-      return lib.json(200,{ok:true});
+      await lib.sbJson(`/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
+      await history(fresh,patch,'Invoice customer values saved and invoice issued',auth.user);
+      return lib.json(200,{ok:true,total_amount:fresh.total_amount});
     }
 
     if(action==='MARK_SENT'){

@@ -8,6 +8,8 @@ exports.handler=async event=>{
     const inv=Array.isArray(rows)?rows[0]:null;
     if(!inv||inv.status==='DRAFT'||inv.status==='VOID') return lib.json(404,{error:'Invoice is not available.'});
     const items=await lib.sbJson(`/rest/v1/invoice_items?select=id,description,qty,unit,unit_rate,line_total,sort_order&invoice_id=eq.${inv.id}&order=sort_order.asc,id.asc`);
-    return lib.json(200,{invoice:inv,items:items||[],stripe_enabled:Boolean(process.env.STRIPE_SECRET_KEY)});
+    // STEP 15.4: defensive customer-only projection. Never expose Job/Provider compensation fields through a public invoice link.
+    const customerItems=(items||[]).map(x=>({id:x.id,description:x.description,qty:x.qty,unit:x.unit,unit_rate:x.unit_rate,line_total:x.line_total,sort_order:x.sort_order}));
+    return lib.json(200,{invoice:inv,items:customerItems,stripe_enabled:Boolean(process.env.STRIPE_SECRET_KEY)});
   }catch(e){console.error('public-invoice',e);return lib.json(500,{error:'Unable to load invoice.'})}
 };
