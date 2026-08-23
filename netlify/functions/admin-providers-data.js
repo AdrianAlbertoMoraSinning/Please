@@ -1,4 +1,6 @@
 const lib=require('./_admin-lib');
+async function signed(path,expires=1800){if(!path)return null;try{const enc=String(path).split('/').map(encodeURIComponent).join('/');const d=await lib.sbJson(`/storage/v1/object/sign/provider-applications/${enc}`,{method:'POST',body:JSON.stringify({expiresIn:expires})});const u=d?.signedURL||d?.signedUrl;return u?`${process.env.PLEASE_SUPABASE_URL.replace(/\/$/,'')}/storage/v1${u}`:null;}catch{return null;}}
+function safePublicUrl(v){try{const u=new URL(String(v||''));return ['http:','https:'].includes(u.protocol)?u.href:null}catch{return null;}}
 
 async function optional(label, fn, fallback){
   try{return await fn();}
@@ -6,7 +8,7 @@ async function optional(label, fn, fallback){
 }
 
 async function listProviders(){
-  const base='id,reference,display_name,company_name,slug,primary_email,primary_phone,public_title,service_area,status,public_visible,activated_at,created_at,updated_at,source_application_id';
+  const base='id,reference,display_name,company_name,slug,primary_email,primary_phone,public_title,service_area,profile_image_url,profile_image_path,status,public_visible,activated_at,created_at,updated_at,source_application_id';
   try{
     return await lib.sbJson(`/rest/v1/providers?select=${base},worker_type&order=created_at.desc`);
   }catch(e){
@@ -22,7 +24,7 @@ async function listProviders(){
 }
 
 async function getProvider(id){
-  const base='id,reference,display_name,company_name,slug,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,profile_image_url,logo_url,status,public_visible,activated_at,created_at,updated_at,source_application_id';
+  const base='id,reference,display_name,company_name,slug,primary_email,primary_phone,public_title,short_bio,technical_description,service_area,licensed_certified,insured,profile_image_url,profile_image_path,logo_url,status,public_visible,activated_at,created_at,updated_at,source_application_id';
   try{
     const rows=await lib.sbJson(`/rest/v1/providers?select=${base},worker_type&id=eq.${id}&limit=1`);
     return rows?.[0]||null;
@@ -50,7 +52,7 @@ exports.handler=async function(event){
         users=await optional('portal-users',()=>lib.sbJson(`/rest/v1/provider_portal_users?select=id,provider_id,email,display_name,active,last_login_at,password_changed_at,created_at,updated_at&provider_id=in.(${list})`),[]);
       }
       const byProvider=new Map((users||[]).map(x=>[x.provider_id,x]));
-      return lib.json(200,{providers:(rows||[]).map(p=>({...p,account:byProvider.get(p.id)||null}))});
+      const enriched=[];for(const p of rows||[]){enriched.push({...p,profile_photo_url:p.profile_image_path?await signed(p.profile_image_path):safePublicUrl(p.profile_image_url),account:byProvider.get(p.id)||null});}return lib.json(200,{providers:enriched});
     }
     if(!/^[0-9a-f-]{36}$/i.test(id)) return lib.json(400,{error:'Invalid provider id'});
     const provider=await getProvider(id);
@@ -67,7 +69,7 @@ exports.handler=async function(event){
       optional('history',()=>lib.sbJson(`/rest/v1/provider_technical_history?select=id,event_type,event_label,details,actor_type,created_at&provider_id=eq.${id}&order=created_at.desc&limit=100`),[]),
       optional('all-services',()=>lib.sbJson('/rest/v1/services?select=id,name,short_description,active&active=eq.true&order=sort_order.asc'),[])
     ]);
-    return lib.json(200,{provider,account,services,availability,exceptions,documents,history,all_services:allServices});
+    provider.profile_photo_url=provider.profile_image_path?await signed(provider.profile_image_path):safePublicUrl(provider.profile_image_url);return lib.json(200,{provider,account,services,availability,exceptions,documents,history,all_services:allServices});
   }catch(e){
     console.error('admin-providers',e);
     return lib.json(e.status===401?401:500,{error:e.status===401?'Unauthorized':'Unable to load provider accounts.'});
