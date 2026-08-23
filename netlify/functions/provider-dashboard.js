@@ -17,13 +17,13 @@ exports.handler=async event=>{
   if(event.httpMethod!=='GET')return lib.json(405,{error:'Method not allowed'});
   try{
     const a=await lib.requireProvider(event),pid=a.provider.id,q=encodeURIComponent(pid);
-    const [providers,ps,services,av,ex,assignRaw,rates,changeRequests,extensions,documents,technicalHistory,account,servicePhotos,evidence]=await Promise.all([
+    const [providers,ps,services,av,ex,assignRaw,rates,changeRequests,extensions,documents,technicalHistory,account,servicePhotos,evidence,serviceEvents]=await Promise.all([
       providerRow(q),
       safeJson(`/rest/v1/provider_services?select=service_id,active,developer_authorized,provider_enabled,provider_notes&provider_id=eq.${q}`),
       safeJson('/rest/v1/services?select=id,name,short_description,active&active=eq.true&order=sort_order.asc'),
       safeJson(`/rest/v1/provider_availability?select=id,weekday,start_time,end_time,active&provider_id=eq.${q}&active=eq.true&order=weekday.asc,start_time.asc`),
       safeJson(`/rest/v1/provider_availability_exceptions?select=id,exception_date,start_time,end_time,exception_type,reason,created_at&provider_id=eq.${q}&order=exception_date.asc,start_time.asc`),
-      safeJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,scheduled_start,scheduled_end,status,assignment_message,provider_response_note,assigned_at,responded_at,updated_at&provider_id=eq.${q}&order=scheduled_start.desc`),
+      safeJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,sequence_no,is_primary,scheduled_start,scheduled_end,status,assignment_message,provider_response_note,assigned_at,responded_at,updated_at&provider_id=eq.${q}&order=scheduled_start.desc`),
       safeJson(`/rest/v1/provider_service_rates?select=id,provider_id,service_id,rate_name,description,billing_unit,customer_rate,provider_compensation_method,provider_compensation,active,sort_order,created_at,updated_at&provider_id=eq.${q}&order=active.desc,sort_order.asc,rate_name.asc`),
       safeJson(`/rest/v1/assignment_schedule_change_requests?select=id,assignment_id,job_id,provider_id,current_start,current_end,proposed_start,proposed_end,provider_reason,status,admin_note,reviewed_at,created_at,updated_at&provider_id=eq.${q}&order=created_at.desc`),
       safeJson(`/rest/v1/job_extension_requests?select=id,job_id,assignment_id,provider_id,extra_minutes,reason,original_end,proposed_end,customer_addition,provider_addition,status,customer_approval_method,admin_note,created_at,reviewed_at&provider_id=eq.${q}&order=created_at.desc`),
@@ -31,7 +31,8 @@ exports.handler=async event=>{
       safeJson(`/rest/v1/provider_technical_history?select=id,event_type,event_label,details,actor_type,created_at&provider_id=eq.${q}&order=created_at.desc&limit=100`),
       safeJson(`/rest/v1/provider_portal_users?select=id,email,display_name,active,last_login_at,password_changed_at,created_at,updated_at&provider_id=eq.${q}&limit=1`).then(x=>x?.[0]||null),
       safeJson(`/rest/v1/provider_service_photos?select=id,service_id,caption,storage_path,mime_type,created_at&provider_id=eq.${q}&active=eq.true&order=created_at.desc`),
-      safeJson(`/rest/v1/job_service_evidence?select=id,job_id,assignment_id,evidence_type,storage_path,mime_type,created_at&provider_id=eq.${q}&order=created_at.desc&limit=200`)
+      safeJson(`/rest/v1/job_service_evidence?select=id,job_id,assignment_id,evidence_type,storage_path,mime_type,created_at&provider_id=eq.${q}&order=created_at.desc&limit=200`),
+      safeJson(`/rest/v1/job_service_events?select=id,job_id,assignment_id,provider_id,event_type,event_note,customer_message,created_at&provider_id=eq.${q}&order=created_at.asc&limit=500`)
     ]);
     const jobIds=[...new Set((assignRaw||[]).map(x=>x.job_id).filter(Boolean))];
     let jobs=[],billing=[];
@@ -39,16 +40,16 @@ exports.handler=async event=>{
       const inList=jobIds.map(id=>encodeURIComponent(id)).join(',');
       [jobs,billing]=await Promise.all([
         (async()=>{try{return await lib.sbJson(`/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,moving_bedrooms,moving_square_feet,moving_inventory,estimated_duration_minutes,status,actual_arrived_at,actual_started_at,actual_completed_at,approved_extension_minutes,created_at&id=in.(${inList})`);}catch(e){console.warn('provider-dashboard:live-fields-fallback',e.status||'',e.message||e);return await lib.sbJson(`/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,moving_bedrooms,moving_square_feet,moving_inventory,estimated_duration_minutes,status,created_at&id=in.(${inList})`);}})(),
-        safeJson(`/rest/v1/job_billing_items?select=id,job_id,provider_service_rate_id,service_id,service_name,description,quantity,unit,provider_unit_rate,provider_line_total,sort_order&job_id=in.(${inList})&order=sort_order.asc,id.asc`)
+        safeJson(`/rest/v1/job_billing_items?select=id,job_id,assignment_id,provider_id,provider_service_rate_id,service_id,service_name,description,quantity,unit,provider_unit_rate,provider_line_total,sort_order&job_id=in.(${inList})&order=sort_order.asc,id.asc`)
       ]);
     }
-    const billByJob=new Map(); for(const x of billing||[]){if(!billByJob.has(x.job_id))billByJob.set(x.job_id,[]);billByJob.get(x.job_id).push(x);}
-    const jobsById=new Map((jobs||[]).map(j=>[j.id,{...j,billing_items:billByJob.get(j.id)||[]}]))
+    const billByAssignment=new Map(); for(const x of billing||[]){if(x.provider_id&&x.provider_id!==pid)continue;const k=x.assignment_id||x.job_id;if(!billByAssignment.has(k))billByAssignment.set(k,[]);billByAssignment.get(k).push(x);}
+    const jobsById=new Map((jobs||[]).map(j=>[j.id,{...j}]))
     const reqByAssignment=new Map(); for(const r of changeRequests||[]){if(!reqByAssignment.has(r.assignment_id))reqByAssignment.set(r.assignment_id,[]);reqByAssignment.get(r.assignment_id).push(r);}
     const extByAssignment=new Map(); for(const r of extensions||[]){if(!extByAssignment.has(r.assignment_id))extByAssignment.set(r.assignment_id,[]);extByAssignment.get(r.assignment_id).push(r);}
-    const assignments=(assignRaw||[]).map(x=>({...x,jobs:jobsById.get(x.job_id)||null,schedule_changes:reqByAssignment.get(x.id)||[],extensions:extByAssignment.get(x.id)||[]}));
+    const assignments=(assignRaw||[]).map(x=>({...x,jobs:{...(jobsById.get(x.job_id)||{}),billing_items:billByAssignment.get(x.id)||billByAssignment.get(x.job_id)||[]},schedule_changes:reqByAssignment.get(x.id)||[],extensions:extByAssignment.get(x.id)||[]}));
     const p=providers?.[0]||null,serviceMap=new Map((services||[]).map(s=>[s.id,s]));
     const assignedServices=(ps||[]).filter(x=>x.developer_authorized!==false).map(x=>({...serviceMap.get(x.service_id),service_id:x.service_id,developer_authorized:x.developer_authorized!==false,provider_enabled:x.provider_enabled!==false,active:!!x.active,provider_notes:x.provider_notes||null})).filter(x=>x.name);
-    if(p?.profile_image_path)p.profile_image_signed_url=await signed(p.profile_image_path);for(const x of servicePhotos||[])x.signed_url=await signed(x.storage_path);for(const x of evidence||[])x.signed_url=await signed(x.storage_path);return lib.json(200,{provider:p,services:assignedServices,availability:av||[],exceptions:ex||[],assignments,rates:rates||[],schedule_changes:changeRequests||[],extensions:extensions||[],documents:documents||[],technical_history:technicalHistory||[],service_photos:servicePhotos||[],evidence:evidence||[],account,user:{email:a.user.email,display_name:a.user.display_name}});
+    if(p?.profile_image_path)p.profile_image_signed_url=await signed(p.profile_image_path);for(const x of servicePhotos||[])x.signed_url=await signed(x.storage_path);for(const x of evidence||[])x.signed_url=await signed(x.storage_path);return lib.json(200,{provider:p,services:assignedServices,availability:av||[],exceptions:ex||[],assignments,rates:rates||[],schedule_changes:changeRequests||[],extensions:extensions||[],documents:documents||[],technical_history:technicalHistory||[],service_photos:servicePhotos||[],evidence:evidence||[],service_events:serviceEvents||[],account,user:{email:a.user.email,display_name:a.user.display_name}});
   }catch(e){console.error('provider-dashboard',e);return lib.json(e.status||500,{error:e.status===401?'Unauthorized':'Unable to load provider portal.'});}
 };

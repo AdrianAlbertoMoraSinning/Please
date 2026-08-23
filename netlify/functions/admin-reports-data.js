@@ -15,7 +15,7 @@ exports.handler=async event=>{
     // dataset can never leave the Reports page stuck on "Checking secure session…".
     const [jobs,assignments,providers,services,assignmentHistory,invoices,providerPaymentsRaw]=await Promise.all([
       safe('jobs',()=>lib.sbJson('/rest/v1/jobs?select=id,reference,service_id,service_name,status,work_address,estimated_duration_minutes,created_at,updated_at,completed_at,cancelled_at,customers(first_name,last_name,phone,email)&order=created_at.desc'),warnings),
-      safe('assignments',()=>lib.sbJson('/rest/v1/job_assignments?select=id,job_id,provider_id,scheduled_start,scheduled_end,status,assigned_at,responded_at,provider_response_note,providers(id,reference,display_name,company_name)&order=scheduled_start.desc'),warnings),
+      safe('assignments',()=>lib.sbJson('/rest/v1/job_assignments?select=id,job_id,provider_id,sequence_no,is_primary,scheduled_start,scheduled_end,status,assigned_at,responded_at,provider_response_note,providers(id,reference,display_name,company_name)&order=scheduled_start.desc'),warnings),
       safe('providers',()=>lib.sbJson('/rest/v1/providers?select=id,reference,display_name,company_name,status&order=display_name.asc'),warnings),
       safe('services',()=>lib.sbJson('/rest/v1/services?select=id,name,active&order=name.asc'),warnings),
       safe('assignment history',()=>lib.sbJson('/rest/v1/assignment_status_history?select=id,assignment_id,old_status,new_status,changed_at&order=changed_at.desc'),warnings),
