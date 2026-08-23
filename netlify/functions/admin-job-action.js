@@ -25,7 +25,7 @@ exports.handler=async event=>{
     if(action==='CREATE_AND_ASSIGN'){
       const requestId=String(body.payload?.service_request_id||'').trim();
       if(requestId){
-        const reqs=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,status,job_id,city,province,postal_code&id=eq.${encodeURIComponent(requestId)}&limit=1`);sourceRequest=reqs?.[0];
+        const reqs=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,status,job_id,city,province,postal_code,moving_bedrooms,moving_square_feet,moving_inventory&id=eq.${encodeURIComponent(requestId)}&limit=1`);sourceRequest=reqs?.[0];
         if(!sourceRequest)throw Object.assign(new Error('Source Service Request not found.'),{status:404});
         if(sourceRequest.status!=='READY_TO_ASSIGN'||sourceRequest.job_id)throw Object.assign(new Error(`${sourceRequest.reference} is no longer Ready to Assign.`),{status:409});
         body.payload.customer_city=body.payload.customer_city||sourceRequest.city||'';body.payload.customer_province=body.payload.customer_province||sourceRequest.province||'AB';body.payload.customer_postal_code=body.payload.customer_postal_code||sourceRequest.postal_code||'';
@@ -38,7 +38,7 @@ exports.handler=async event=>{
       const rows=validatedBilling.map(x=>({...x,job_id:value.job_id}));
       await lib.sbJson('/rest/v1/job_billing_items',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(rows)});
       const subtotal=money(rows.reduce((n,x)=>n+x.line_total,0));
-      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(value.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({quoted_subtotal:subtotal,updated_at:new Date().toISOString()})});
+      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(value.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({quoted_subtotal:subtotal,moving_bedrooms:sourceRequest?.moving_bedrooms??null,moving_square_feet:sourceRequest?.moving_square_feet??null,moving_inventory:sourceRequest?.moving_inventory??null,updated_at:new Date().toISOString()})});
       if(sourceRequest){
         const linked=await lib.sbJson('/rest/v1/rpc/please_link_service_request_to_job',{method:'POST',body:JSON.stringify({p_actor:auth.user.id,p_request_id:sourceRequest.id,p_job_id:value.job_id})});
         value.service_request_assigned=true;value.service_request_reference=sourceRequest.reference;value.service_request=Array.isArray(linked)?linked[0]:linked;

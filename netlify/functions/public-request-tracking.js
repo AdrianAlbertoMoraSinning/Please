@@ -3,6 +3,7 @@ const lib=require('./_admin-lib');
 
 function hash(v){return crypto.createHash('sha256').update(String(v||'')).digest('hex');}
 function iso(v){return v||null;}
+async function signed(path,expires=1800){if(!path)return null;try{const enc=String(path).split('/').map(encodeURIComponent).join('/');const d=await lib.sbJson(`/storage/v1/object/sign/provider-applications/${enc}`,{method:'POST',body:JSON.stringify({expiresIn:expires})});const u=d?.signedURL||d?.signedUrl;return u?`${process.env.PLEASE_SUPABASE_URL.replace(/\/$/,'')}/storage/v1${u}`:null;}catch{return null;}}
 function publicRequestStatus(status){
   return ({
     NEW:['REQUEST_RECEIVED','Request received'],
@@ -31,11 +32,11 @@ async function requestFromToken(token){
   try{
     const links=await lib.sbJson(`/rest/v1/service_request_tracking_tokens?select=service_request_id&token_hash=eq.${encodeURIComponent(tokenHash)}&revoked_at=is.null&or=(expires_at.is.null,expires_at.gt.${encodeURIComponent(new Date().toISOString())})&limit=1`);
     if(links?.[0]?.service_request_id){
-      const rows=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,first_name,service_id,service_name,street_address,city,province,postal_code,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,reviewed_at,ready_to_assign_at,assigned_at,cancelled_at,cancellation_reason&id=eq.${encodeURIComponent(links[0].service_request_id)}&limit=1`);
+      const rows=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,first_name,service_id,service_name,street_address,city,province,postal_code,moving_bedrooms,moving_square_feet,moving_inventory,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,reviewed_at,ready_to_assign_at,assigned_at,cancelled_at,cancellation_reason&id=eq.${encodeURIComponent(links[0].service_request_id)}&limit=1`);
       if(rows?.[0]) return rows[0];
     }
   }catch(e){console.error('public-request-tracking:token-table',e);}
-  const rows=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,first_name,service_id,service_name,street_address,city,province,postal_code,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,reviewed_at,ready_to_assign_at,assigned_at,cancelled_at,cancellation_reason&tracking_token_hash=eq.${encodeURIComponent(tokenHash)}&limit=1`);
+  const rows=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,first_name,service_id,service_name,street_address,city,province,postal_code,moving_bedrooms,moving_square_feet,moving_inventory,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,reviewed_at,ready_to_assign_at,assigned_at,cancelled_at,cancellation_reason&tracking_token_hash=eq.${encodeURIComponent(tokenHash)}&limit=1`);
   return rows?.[0]||null;
 }
 
@@ -47,7 +48,7 @@ exports.handler=async event=>{
     const req=await requestFromToken(token);
     if(!req) return lib.json(404,{error:'Tracking link not found.'});
 
-    let job=null, assignment=null, provider=null, scheduleChange=null, invoice=null, serviceEvents=[], extensionRequest=null;
+    let job=null, assignment=null, provider=null, scheduleChange=null, invoice=null, serviceEvents=[], extensionRequest=null,evidence=[];
     if(req.job_id){
       const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,service_name,status,work_address,estimated_duration_minutes,actual_arrived_at,actual_started_at,actual_completed_at,approved_extension_minutes,created_at,updated_at,completed_at,cancelled_at&id=eq.${encodeURIComponent(req.job_id)}&limit=1`);
       job=jobs?.[0]||null;
@@ -55,7 +56,7 @@ exports.handler=async event=>{
         const assignments=await lib.sbJson(`/rest/v1/job_assignments?select=id,provider_id,scheduled_start,scheduled_end,status,assigned_at,responded_at,updated_at&job_id=eq.${encodeURIComponent(job.id)}&status=in.(PENDING,CONFIRMED,COMPLETED,CANCELLED,DECLINED)&order=assigned_at.desc&limit=1`);
         assignment=assignments?.[0]||null;
         if(assignment?.provider_id){
-          const providers=await lib.sbJson(`/rest/v1/providers?select=id,display_name,public_title,status&id=eq.${encodeURIComponent(assignment.provider_id)}&limit=1`);
+          const providers=await lib.sbJson(`/rest/v1/providers?select=id,display_name,public_title,status,profile_image_path&id=eq.${encodeURIComponent(assignment.provider_id)}&limit=1`);
           provider=providers?.[0]||null;
         }
         if(assignment?.id){
@@ -64,6 +65,7 @@ exports.handler=async event=>{
         }
         const invoices=await lib.sbJson(`/rest/v1/invoices?select=id,invoice_number,public_token,invoice_date,due_date,status,payment_status,total_amount,currency,issued_at,sent_at,paid_at&job_id=eq.${encodeURIComponent(job.id)}&status=not.in.(DRAFT,VOID)&order=created_at.desc&limit=1`);
         invoice=invoices?.[0]||null;
+        try{evidence=await lib.sbJson(`/rest/v1/job_service_evidence?select=id,evidence_type,storage_path,created_at&job_id=eq.${encodeURIComponent(job.id)}&order=created_at.asc`);for(const x of evidence)x.url=await signed(x.storage_path);}catch(_){}
         try{serviceEvents=await lib.sbJson(`/rest/v1/job_service_events?select=event_type,event_note,customer_message,created_at&job_id=eq.${encodeURIComponent(job.id)}&order=created_at.asc`);}catch(_){}
         try{const ex=await lib.sbJson(`/rest/v1/job_extension_requests?select=id,extra_minutes,reason,proposed_end,customer_addition,status,customer_approval_method,created_at&job_id=eq.${encodeURIComponent(job.id)}&status=eq.PENDING&order=created_at.desc&limit=1`);extensionRequest=ex?.[0]||null;}catch(_){}
       }
@@ -93,15 +95,16 @@ exports.handler=async event=>{
     push(invoice?.sent_at,'Invoice sent');
     push(invoice?.paid_at,'Payment received',invoice?.invoice_number);
     push(req.cancelled_at,'Request cancelled');
-    timeline.sort((a,b)=>new Date(a.when)-new Date(b.when));
+    timeline.sort((a,b)=>new Date(a.when)-new Date(b.when));if(provider?.profile_image_path)provider.profile_photo_url=await signed(provider.profile_image_path);
 
     return lib.json(200,{
-      request:{reference:req.reference,first_name:req.first_name,service_name:req.service_name,status:req.status,preferred_date:req.preferred_date,preferred_start_time:req.preferred_start_time,scheduling_flexibility:req.scheduling_flexibility,created_at:req.created_at},
+      request:{reference:req.reference,first_name:req.first_name,service_name:req.service_name,status:req.status,moving_bedrooms:req.moving_bedrooms,moving_square_feet:req.moving_square_feet,moving_inventory:req.moving_inventory,preferred_date:req.preferred_date,preferred_start_time:req.preferred_start_time,scheduling_flexibility:req.scheduling_flexibility,created_at:req.created_at},
       public_status:{code,label},
       job:job?{reference:job.reference,status:job.status,service_name:job.service_name,work_address:job.work_address,estimated_duration_minutes:job.estimated_duration_minutes,actual_arrived_at:iso(job.actual_arrived_at),actual_started_at:iso(job.actual_started_at),actual_completed_at:iso(job.actual_completed_at),approved_extension_minutes:job.approved_extension_minutes||0,completed_at:iso(job.completed_at)}:null,
-      assignment:assignment?{status:assignment.status,scheduled_start:assignment.scheduled_start,scheduled_end:assignment.scheduled_end,provider_name:provider?.display_name||null,provider_title:provider?.public_title||null}:null,
+      assignment:assignment?{status:assignment.status,scheduled_start:assignment.scheduled_start,scheduled_end:assignment.scheduled_end,provider_name:provider?.display_name||null,provider_title:provider?.public_title||null,provider_photo_url:provider?.profile_photo_url||null}:null,
       schedule_change:scheduleChange?{status:scheduleChange.status,proposed_start:scheduleChange.proposed_start,proposed_end:scheduleChange.proposed_end}:null,
       extension_request:extensionRequest,
+      evidence:evidence.map(x=>({type:x.evidence_type,url:x.url,created_at:x.created_at})),
       invoice:invoice?{invoice_number:invoice.invoice_number,status:invoice.status,payment_status:invoice.payment_status,total_amount:invoice.total_amount,currency:invoice.currency||'CAD',public_token:invoice.public_token,due_date:invoice.due_date}:null,
       timeline
     });
