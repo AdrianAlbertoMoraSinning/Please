@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><link rel="icon" href="../../favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="../../images/favicon-32.png"><link rel="icon" type="image/png" sizes="16x16" href="../../images/favicon-16.png"><link rel="apple-touch-icon" sizes="180x180" href="../../images/apple-touch-icon.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Admin Appointments | PLEASE Services</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../../css/style.css" />
+  <link rel="stylesheet" href="agenda.css" />
+</head>
+
+<body class="agenda-page">
+  <header class="agenda-header">
+    <a class="agenda-back" href="../../index.html">← Back to Home</a>
+
+    <div>
+      <p class="eyebrow">Private Admin Panel</p>
+      <h1>Manage Service Requests</h1>
+      <p>Review, update, or cancel service requests submitted through the website.</p>
+    </div>
+  </header>
+
+  <main class="agenda-shell admin-shell">
+    <section class="agenda-card" id="loginCard">
+      <h2>Admin Access</h2>
+
+      <form id="adminLogin" class="booking-form">
+        <label>
+          Private PIN
+          <input id="adminPin" type="password" required placeholder="Enter PIN" />
+        </label>
+
+        <button class="btn primary" type="submit">
+          Enter
+        </button>
+
+        <p id="adminLoginMessage" class="booking-message"></p>
+      </form>
+    </section>
+
+    <section class="agenda-card admin-panel hidden" id="adminPanel">
+      <div class="agenda-toolbar">
+        <h2>Registered Appointments</h2>
+
+        <button class="agenda-nav" id="refreshBookings" type="button">
+          Refresh
+        </button>
+      </div>
+
+      <div id="adminBookings" class="admin-bookings"></div>
+    </section>
+  </main>
+
+  <script src="agenda-config.js"></script>
+  <script src="agenda-admin.js"></script>
+</body>
+</html>
