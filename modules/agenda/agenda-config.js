@@ -2,7 +2,7 @@ window.AGENDA_CONFIG = {
   companyName: "PLEASE Services",
   ownerEmail: "info@pleaseservice.ca",
   ownerWhatsapp: "15878362866",
-  adminPin: "PLEASE2026",
+  adminPin: "SET_SAME_VALUE_AS_PLEASE_ADMIN_PIN",
   appsScriptUrl: "PASTE_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE",
   workDays: [1, 2, 3, 4, 5, 6],
   startHour: 8,

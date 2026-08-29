@@ -39,6 +39,16 @@ function validEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function emailAddress(value) {
+  const match = String(value || '').trim().match(/<([^<>]+)>\s*$/);
+  return (match ? match[1] : String(value || '')).trim().toLowerCase();
+}
+
+function isPleaseEmail(value) {
+  const domain = (emailAddress(value).split('@')[1] || '');
+  return domain === 'pleaseservice.ca' || domain.endsWith('.pleaseservice.ca');
+}
+
 async function supabaseFetch(url, secret, path, options = {}) {
   return fetch(`${url}${path}`, {
     ...options,
@@ -151,7 +161,7 @@ exports.handler = async function(event) {
 
   const supabaseUrl = process.env.PLEASE_SUPABASE_URL;
   const supabaseSecret = process.env.PLEASE_SUPABASE_SECRET_KEY;
-  const resendApiKey = null; // External email intentionally deferred until PLEASE domain mail is configured.
+  const resendApiKey = process.env.RESEND_API_KEY;
   const emailFrom = process.env.PLEASE_EMAIL_FROM;
   const replyTo = process.env.PLEASE_EMAIL_REPLY_TO || 'info@pleaseservice.ca';
   const notifyEmail = process.env.PLEASE_APPLICATION_NOTIFY_EMAIL || 'info@pleaseservice.ca';
@@ -159,7 +169,13 @@ exports.handler = async function(event) {
 
   if (!supabaseUrl || !supabaseSecret) return json(503, { error: 'Application notification service is missing Supabase configuration.' });
   if (!resendApiKey || !emailFrom) {
-    return json(503, { error: 'Email delivery is prepared but not yet activated.', code: 'EMAIL_NOT_CONFIGURED' });
+    return json(503, { error: 'Email delivery is not configured yet.', code: 'EMAIL_NOT_CONFIGURED' });
+  }
+  if (!isPleaseEmail(emailFrom) || !isPleaseEmail(replyTo) || !isPleaseEmail(notifyEmail)) {
+    return json(503, {
+      error: 'Email delivery blocked because PLEASE email settings do not use the pleaseservice.ca domain.',
+      code: 'EMAIL_DOMAIN_MISMATCH'
+    });
   }
 
   let input = {};

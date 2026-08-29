@@ -5,6 +5,8 @@ const security=require('./_security-lib');
 const RESEND_ENDPOINT='https://api.resend.com/emails';
 const clean=(v,n=500)=>String(v??'').trim().slice(0,n);
 const emailOk=v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+function emailAddress(value){const m=String(value||'').trim().match(/<([^<>]+)>\s*$/);return (m?m[1]:String(value||'')).trim().toLowerCase();}
+function isPleaseEmail(value){const a=emailAddress(value),d=a.split('@')[1]||'';return d==='pleaseservice.ca'||d.endsWith('.pleaseservice.ca');}
 const FLEX=new Set(['EXACT','SAME_DAY','FLEXIBLE','ANYTIME']);
 function ref(){return `PLS-REQ-${new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).replaceAll('-','')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;}
 function hash(v){return crypto.createHash('sha256').update(v).digest('hex');}
@@ -83,10 +85,16 @@ exports.handler=async event=>{
 
     const trackingUrl=`${baseUrl(event)}/track-request.html?token=${encodeURIComponent(token)}`;
     let emailSent=false,emailWarning=null;
-    const resendApiKey=null; // Email delivery intentionally deferred until PLEASE domain mail is configured.
+    const resendApiKey=process.env.RESEND_API_KEY;
     const emailFrom=process.env.PLEASE_EMAIL_FROM;
     const replyTo=process.env.PLEASE_EMAIL_REPLY_TO||'info@pleaseservice.ca';
-    if(resendApiKey&&emailFrom){
+    if(resendApiKey&&emailFrom&&!isPleaseEmail(emailFrom)){
+      emailWarning='Email delivery blocked: PLEASE_EMAIL_FROM must use the pleaseservice.ca domain.';
+      console.error('public-service-request:tracking-email EMAIL_DOMAIN_MISMATCH');
+    }else if(resendApiKey&&emailFrom&&!isPleaseEmail(replyTo)){
+      emailWarning='Email delivery blocked: PLEASE_EMAIL_REPLY_TO must use the pleaseservice.ca domain.';
+      console.error('public-service-request:tracking-email REPLY_TO_DOMAIN_MISMATCH');
+    }else if(resendApiKey&&emailFrom){
       try{
         await sendResendEmail(resendApiKey,{
           from:emailFrom,to:[email],reply_to:replyTo,

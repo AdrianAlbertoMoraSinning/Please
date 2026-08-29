@@ -5,16 +5,27 @@
   1. Create a Google Sheet.
   2. Extensions > Apps Script.
   3. Paste this file.
-  4. Set SHEET_ID and OWNER_EMAIL.
+  4. In Project Settings > Script Properties set PLEASE_SHEET_ID, PLEASE_OWNER_EMAIL and PLEASE_ADMIN_PIN.
   5. Deploy > New deployment > Web app.
   6. Execute as: Me. Who has access: Anyone.
   7. Copy Web App URL into agenda-config.js > appsScriptUrl.
 */
 
-const SHEET_ID = '1SGt-Br7K-pMlfVDVxDEB219hYeBDUC3AEuf_DviL1s';
+function getConfig() {
+  const props = PropertiesService.getScriptProperties();
+  const sheetId = String(props.getProperty('PLEASE_SHEET_ID') || '').trim();
+  const ownerEmail = String(props.getProperty('PLEASE_OWNER_EMAIL') || 'info@pleaseservice.ca').trim().toLowerCase();
+  const adminPin = String(props.getProperty('PLEASE_ADMIN_PIN') || '').trim();
+
+  if (!sheetId) throw new Error('PLEASE_SHEET_ID is not configured in Apps Script Properties.');
+  if (!adminPin) throw new Error('PLEASE_ADMIN_PIN is not configured in Apps Script Properties.');
+  if (!/@(?:[a-z0-9-]+\.)*pleaseservice\.ca$/i.test(ownerEmail)) {
+    throw new Error('PLEASE_OWNER_EMAIL must use the pleaseservice.ca domain.');
+  }
+  return { sheetId, ownerEmail, adminPin };
+}
+
 const SHEET_NAME = 'appointments';
-const OWNER_EMAIL = 'abogadosasociadosap4@mail.com';
-const ADMIN_PIN = '3108030751';
 
 function doPost(e) {
   try {
@@ -38,7 +49,7 @@ function doPost(e) {
 }
 
 function getSheet() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ss = SpreadsheetApp.openById(getConfig().sheetId);
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
   if (sheet.getLastRow() === 0) {
@@ -91,7 +102,7 @@ function sendOwnerEmail(record, companyName) {
     ``,
     `Panel de administración: abre agenda-admin.html en la web.`
   ].join('\n');
-  MailApp.sendEmail(OWNER_EMAIL, subject, message);
+  MailApp.sendEmail(getConfig().ownerEmail, subject, message);
 }
 
 function updateStatus(sheet, id, status) {
@@ -115,7 +126,7 @@ function findRowById(sheet, id) {
 }
 
 function requireAdmin(body) {
-  if (body.adminPin !== ADMIN_PIN) throw new Error('Acceso no autorizado.');
+  if (body.adminPin !== getConfig().adminPin) throw new Error('Acceso no autorizado.');
 }
 
 function json(payload) {
