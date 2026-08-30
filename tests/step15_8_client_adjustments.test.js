@@ -20,5 +20,11 @@ ok(request.includes('name="dropoff_address"')&&request.includes('name="estimated
 ok(requestFn.includes('Drop-off address:')&&requestFn.includes('Estimated hours requested:'),'Booking uses existing service_requests architecture without new table');
 ok(requestFn.includes('15-minute increments')&&requestFn.includes('estimatedHours*4'),'Server validates 15-minute booking increments');
 ok(read('netlify/functions/provider-assignment-action.js').includes('if(accepted&&j?.customers?.email)'),'Provider declines stay internal and are not emailed to the customer');
+
+const serviceJs=read('js/service-request.js'),style=read('css/style.css');
+ok(style.includes('.request-selected-service[hidden]{display:none!important}'),'Selected-service panel stays hidden until a service is actually selected');
+ok(requestFn.includes('select=id,name&active=eq.true')&&!requestFn.includes('select=id,name,short_description&active=eq.true'),'Public booking service loader depends only on required service columns');
+ok(requestFn.includes('service-list-primary')&&requestFn.includes('order=name.asc'),'Public booking service loader has compatibility fallback ordering');
+ok(serviceJs.includes('Unable to load services — please refresh'),'Booking form shows a clear recovery message if service loading fails');
 ok(!fs.existsSync(path.join(root,'supabase/STEP15_8_CLIENT_ADJUSTMENTS.sql')),'STEP 15.8 requires no database migration');
 if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.8 client adjustment audit completed successfully.');

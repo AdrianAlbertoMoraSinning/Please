@@ -52,7 +52,17 @@ function trackingEmailText({firstName,reference,serviceName,preferredDate,prefer
 exports.handler=async event=>{
   try{
     if(event.httpMethod==='GET'){
-      const services=await lib.sbJson('/rest/v1/services?select=id,name,short_description&active=eq.true&order=sort_order.asc,name.asc');
+      // The booking form only needs service id + name. Do not depend on optional
+      // descriptive columns here: one missing optional column must never take the
+      // entire public booking form offline.
+      let services;
+      try{
+        services=await lib.sbJson('/rest/v1/services?select=id,name&active=eq.true&order=sort_order.asc,name.asc');
+      }catch(primaryError){
+        console.warn('public-service-request:service-list-primary',primaryError?.message||primaryError);
+        // Compatibility fallback for older service catalogs without sort_order.
+        services=await lib.sbJson('/rest/v1/services?select=id,name&active=eq.true&order=name.asc');
+      }
       return lib.json(200,{services:services||[]});
     }
     if(event.httpMethod!=='POST') return lib.json(405,{error:'Method not allowed'});

@@ -9,7 +9,7 @@
  function normName(v){return String(v||'').trim().toLowerCase().replace(/&amp;/g,'&').replace(/^handyman\s*&\s*/,'').replace(/\s+/g,' ');}function selectByName(name){const n=normName(name);let opt=[...service.options].find(o=>normName(o.textContent)===n);if(!opt&&n.includes('furniture assembly'))opt=[...service.options].find(o=>normName(o.textContent).includes('furniture assembly'));if(!opt&&n.includes('custom request'))opt=[...service.options].find(o=>/custom|other|any service/i.test(o.textContent));if(opt){service.value=opt.value;selectedWrap.hidden=false;fallback.hidden=true;selectedName.textContent=name||opt.textContent;service.required=true;return true;}return false;}
  async function init(){
    try{const d=await api();services=d.services||[];service.innerHTML='<option value="">Select service</option>'+services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');}
-   catch(e){service.innerHTML='<option value="">Services temporarily unavailable</option>';show(e.message);return;}
+   catch(e){selectedWrap.hidden=true;fallback.hidden=false;service.innerHTML='<option value="">Unable to load services — please refresh</option>';show(e.message||'Unable to load services. Please refresh the page.');return;}
    let prefill=null;try{prefill=JSON.parse(sessionStorage.getItem('please_request_prefill')||'null');}catch{}
    if(prefill){['first_name','email','phone','work_description'].forEach(k=>{if(prefill[k]&&form.elements[k])form.elements[k].value=prefill[k]});if(!selectByName(prefill.service_type)){fallback.hidden=false;selectedWrap.hidden=true;}sessionStorage.removeItem('please_request_prefill');}
    else {fallback.hidden=false;selectedWrap.hidden=true;}
