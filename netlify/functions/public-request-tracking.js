@@ -10,13 +10,13 @@ function publicRequestStatus(status){
     NEW:['REQUEST_RECEIVED','Request received'],
     REVIEWING:['UNDER_REVIEW','Under review'],
     READY_TO_ASSIGN:['SCHEDULING','Scheduling service'],
-    ASSIGNED:['ASSIGNED','Provider assignment in progress'],
+    ASSIGNED:['COORDINATING','Service coordination in progress'],
     CANCELLED:['CANCELLED','Request cancelled']
   })[status]||['REQUEST_RECEIVED','Request received'];
 }
 function publicJobStatus(status){
   return ({
-    PENDING_PROVIDER:['PROVIDER_CONFIRMATION','Awaiting provider confirmation'],
+    PENDING_PROVIDER:['SCHEDULING','Scheduling service'],
     NEEDS_ASSIGNMENT:['SCHEDULING','Scheduling service'],
     CONFIRMED:['SERVICE_CONFIRMED','Service confirmed'],
     SCHEDULED:['SERVICE_CONFIRMED','Service confirmed'],
@@ -55,9 +55,13 @@ exports.handler=async event=>{
       job=jobs?.[0]||null;
       if(job){
         const assignments=await lib.sbJson(`/rest/v1/job_assignments?select=id,provider_id,sequence_no,is_primary,scheduled_start,scheduled_end,status,assigned_at,responded_at,updated_at&job_id=eq.${encodeURIComponent(job.id)}&status=in.(PENDING,CONFIRMED,COMPLETED,CANCELLED,DECLINED)&order=sequence_no.asc,assigned_at.asc`);
-        const providerIds=[...new Set((assignments||[]).map(a=>a.provider_id).filter(Boolean))];
+        // Customer privacy rule (STEP 15.8): a Pleaser is never exposed in public tracking
+        // until that individual assignment has been confirmed. PENDING/DECLINED/CANCELLED
+        // assignments remain visible only inside Administration/Provider portals.
+        const publicAssignments=(assignments||[]).filter(a=>['CONFIRMED','COMPLETED'].includes(String(a.status||'').toUpperCase()));
+        const providerIds=[...new Set(publicAssignments.map(a=>a.provider_id).filter(Boolean))];
         let providerRows=[];if(providerIds.length){providerRows=await lib.sbJson(`/rest/v1/providers?select=id,display_name,public_title,status,profile_image_path,profile_image_url,updated_at&id=in.(${providerIds.map(encodeURIComponent).join(',')})`);}const pmap=new Map((providerRows||[]).map(x=>[x.id,x]));
-        team=[];for(const a of assignments||[]){const pr=pmap.get(a.provider_id)||null;if(pr)pr.profile_photo_url=pr.profile_image_path?`/.netlify/functions/provider-profile-photo?provider_id=${encodeURIComponent(pr.id)}&tracking_token=${encodeURIComponent(token)}&v=${encodeURIComponent(pr.updated_at||Date.now())}`:safePublicUrl(pr.profile_image_url);team.push({...a,provider_name:pr?.display_name||null,provider_title:pr?.public_title||null,provider_photo_url:pr?.profile_photo_url||null});}
+        team=[];for(const a of publicAssignments){const pr=pmap.get(a.provider_id)||null;if(pr)pr.profile_photo_url=pr.profile_image_path?`/.netlify/functions/provider-profile-photo?provider_id=${encodeURIComponent(pr.id)}&tracking_token=${encodeURIComponent(token)}&v=${encodeURIComponent(pr.updated_at||Date.now())}`:safePublicUrl(pr.profile_image_url);team.push({...a,provider_name:pr?.display_name||null,provider_title:pr?.public_title||null,provider_photo_url:pr?.profile_photo_url||null});}
         assignment=team.find(a=>a.is_primary)||team[0]||null;provider=assignment?{display_name:assignment.provider_name,public_title:assignment.provider_title,profile_photo_url:assignment.provider_photo_url}:null;
         if(assignment?.id){
           const changes=await lib.sbJson(`/rest/v1/assignment_schedule_change_requests?select=id,status,proposed_start,proposed_end,created_at,reviewed_at&assignment_id=eq.${encodeURIComponent(assignment.id)}&order=created_at.desc&limit=1`);
@@ -86,8 +90,8 @@ exports.handler=async event=>{
     push(req.created_at,'Request received',`Reference ${req.reference}`);
     push(req.reviewed_at,'PLEASE review started');
     push(req.ready_to_assign_at,'Scheduling started');
-    push(req.assigned_at,'Provider assignment created');
-    if(assignment?.responded_at&&assignment.status==='CONFIRMED')push(assignment.responded_at,'Provider confirmed the service');
+    push(req.assigned_at,'Service coordination started');
+    if(assignment?.responded_at&&assignment.status==='CONFIRMED')push(assignment.responded_at,'PLEASE professional confirmed the service');
     if(scheduleChange?.created_at)push(scheduleChange.created_at,'Schedule change proposed',scheduleChange.status==='PENDING'?'Awaiting PLEASE review':`Status: ${scheduleChange.status}`);
     if(scheduleChange?.reviewed_at)push(scheduleChange.reviewed_at,`Schedule change ${String(scheduleChange.status||'').toLowerCase()}`);
     for(const e of serviceEvents||[]){const labels={ARRIVED:'PLEASE professional arrived',STARTED:'Service started',EXTENSION_REQUESTED:'Additional time requested',EXTENSION_APPROVED:'Additional time approved',EXTENSION_REJECTED:'Additional time not approved',COMPLETED:'Primary professional completed work',JOB_COMPLETED:'Service team completed'};if(labels[e.event_type]&&(e.assignment_id===assignment?.id||e.event_type==='JOB_COMPLETED'))push(e.created_at,labels[e.event_type],e.customer_message||e.event_note);}

@@ -1,5 +1,22 @@
 const lib=require('./_admin-lib');
+const notify=require('./_notify-lib');
 const money=n=>Math.round((Number(n)||0)*100)/100;
+async function notifyAssignment(assignmentId,kind='NEW'){
+  try{
+    const a=await notify.assignmentContext(assignmentId);if(!a)return null;const j=a.jobs||{},p=a.providers||{};
+    const cancelled=kind==='CANCELLED';
+    return notify.sendProvider(a.provider_id,{subject:`PLEASE — ${cancelled?'Assignment Cancelled':'New Assignment'} (${j.reference||'Job'})`,title:cancelled?'PLEASE assignment cancelled':'New PLEASE service assignment',intro:cancelled?`Hello ${p.display_name||'Provider'}, this assignment has been cancelled by PLEASE Administration.`:`Hello ${p.display_name||'Provider'}, PLEASE has assigned a service for your confirmation.`,details:[['Job',j.reference],['Service',j.service_name],['Schedule',`${notify.formatDateTime(a.scheduled_start)} → ${notify.formatDateTime(a.scheduled_end)}`],['Address',j.work_address],['Status',a.status]],message:cancelled?'Do not proceed to the service unless PLEASE sends a new assignment.':(a.assignment_message||j.work_description||''),ctaLabel:'OPEN PROVIDER PORTAL',ctaUrl:`${notify.baseUrl()}/provider-login.html?next=assignments`,idempotencyKey:cancelled?`please-assignment-cancel-${assignmentId}`:`please-assignment-${assignmentId}`});
+  }catch(e){console.error('admin-job-action:provider-notify',e);return null;}
+}
+async function notifyCustomerJob(jobId,kind='SCHEDULED'){
+  try{
+    const j=await notify.jobContext(jobId);if(!j?.customers?.email)return null;
+    const c=j.customers,title=kind==='CANCELLED'?'PLEASE service update':'PLEASE is coordinating your service';
+    let intro=kind==='CANCELLED'?`Hi ${c.first_name||'there'}, this PLEASE service has been cancelled or returned for service coordination.`:`Hi ${c.first_name||'there'}, PLEASE is coordinating your service team and schedule.`;
+    return notify.send({to:c.email,subject:`PLEASE — ${title} (${j.reference})`,title,intro,details:[['Service Job',j.reference],['Service',j.service_name],['Status',kind==='CANCELLED'?'Cancelled':'Service coordination'],['Address',j.work_address]],message:kind==='CANCELLED'?'PLEASE Administration will contact you if a replacement schedule or service team is needed.':'Your secure tracking page shows only PLEASE professionals who have individually confirmed your service.',ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-job-${jobId}-${kind}`});
+  }catch(e){console.error('admin-job-action:customer-notify',e);return null;}
+}
+
 async function validateBillingItems(providerId,items,allowNonpositiveMargin=false){
   if(!Array.isArray(items)||!items.length)throw Object.assign(new Error('Add at least one Customer Billing item for every provider.'),{status:400});
   const clean=items.map((x,i)=>{const rateId=String(x?.provider_service_rate_id||''),qty=Number(x?.quantity),customerRate=Number(x?.customer_unit_rate??x?.unit_rate);if(!/^[0-9a-f-]{36}$/i.test(rateId)||!Number.isFinite(qty)||qty<=0||!Number.isFinite(customerRate)||customerRate<0)throw Object.assign(new Error(`Invalid Customer Billing item ${i+1}.`),{status:400});return{rateId,qty:money(qty),customerRate:money(customerRate)};});
@@ -43,6 +60,7 @@ exports.handler=async event=>{
       const result=await lib.sbJson('/rest/v1/rpc/please_create_multi_provider_job',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_payload:payload})});
       const value=Array.isArray(result)?result[0]:result;
       if(sourceRequest&&value?.job_id){const linked=await lib.sbJson('/rest/v1/rpc/please_link_service_request_to_job',{method:'POST',body:JSON.stringify({p_actor:auth.user.id,p_request_id:sourceRequest.id,p_job_id:value.job_id})});value.service_request_assigned=true;value.service_request_reference=sourceRequest.reference;value.service_request=Array.isArray(linked)?linked[0]:linked;}
+      const assignmentIds=value?.assignment_ids||[];const notices=[];for(const aid of assignmentIds)notices.push(await notifyAssignment(aid,'NEW'));if(value?.job_id)notices.push(await notifyCustomerJob(value.job_id,'SCHEDULED'));value.notifications_sent=notices.filter(x=>x?.sent).length;
       return lib.json(200,value||{ok:true});
     }
 
@@ -60,6 +78,11 @@ exports.handler=async event=>{
       await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(value.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({quoted_subtotal:subtotal,moving_bedrooms:sourceRequest?.moving_bedrooms??null,moving_square_feet:sourceRequest?.moving_square_feet??null,moving_inventory:sourceRequest?.moving_inventory??null,updated_at:new Date().toISOString()})});
       if(sourceRequest){const linked=await lib.sbJson('/rest/v1/rpc/please_link_service_request_to_job',{method:'POST',body:JSON.stringify({p_actor:auth.user.id,p_request_id:sourceRequest.id,p_job_id:value.job_id})});value.service_request_assigned=true;value.service_request_reference=sourceRequest.reference;value.service_request=Array.isArray(linked)?linked[0]:linked;}
     }
+    const notices=[];
+    if(value?.assignment_id){if(action==='CANCEL_ASSIGNMENT')notices.push(await notifyAssignment(value.assignment_id,'CANCELLED'));else notices.push(await notifyAssignment(value.assignment_id,'NEW'));}
+    if(value?.job_id){if(action==='CANCEL_ASSIGNMENT'||action==='CANCEL_JOB')notices.push(await notifyCustomerJob(value.job_id,'CANCELLED'));else if(['CREATE_AND_ASSIGN','ASSIGN_EXISTING'].includes(action))notices.push(await notifyCustomerJob(value.job_id,'SCHEDULED'));}
+    if(action==='CANCEL_JOB'&&value?.job_id){try{const as=await lib.sbJson(`/rest/v1/job_assignments?select=id&job_id=eq.${encodeURIComponent(value.job_id)}&status=eq.CANCELLED`);for(const a of as||[])notices.push(await notifyAssignment(a.id,'CANCELLED'));}catch(_){} }
+    if(value&&typeof value==='object')value.notifications_sent=notices.filter(x=>x?.sent).length;
     return lib.json(200,value||{ok:true});
   }catch(e){console.error('admin-job-action',e);let message=e.message||'Job action failed.';if(/exclusion|job_assignments_no_provider_overlap|conflict/i.test(message))message='One of the selected providers already has an assignment overlapping the selected time.';return lib.json(e.status||400,{error:message});}
 };

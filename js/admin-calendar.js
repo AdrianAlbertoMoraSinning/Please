@@ -58,6 +58,8 @@
   }
   function time12(t){if(!t)return '';const [hh,mm]=t.slice(0,5).split(':').map(Number);return `${((hh+11)%12)+1}:${String(mm).padStart(2,'0')} ${hh>=12?'PM':'AM'}`;}
   function durationLabel(min){if(!min)return '—';const h=Math.floor(min/60),m=min%60;return [h?`${h}h`:'',m?`${m}m`:''].filter(Boolean).join(' ');}
+  function requestBookingMeta(notes){const text=String(notes||'');const dropoff=text.match(/^Drop-off address:\s*(.+)$/mi)?.[1]?.trim()||'';const hours=Number(text.match(/^Estimated hours requested:\s*([0-9.]+)/mi)?.[1]||0);return{dropoff,hours:Number.isFinite(hours)&&hours>0?hours:0};}
+
   function money(n){return new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}).format(Number(n)||0);}
 
   function providerRates(pid){return (data.provider_rates||[]).filter(r=>r.provider_id===pid&&r.active);}
@@ -283,13 +285,15 @@
     if(r.preferred_start_time){
       const start=r.preferred_start_time.slice(0,5);
       $('job-start').value=start;
-      // Give Administration a usable default end time while still allowing edits.
-      const [hh,mm]=start.split(':').map(Number);
-      const total=((hh*60+mm+120)%(24*60));
+      // Use the customer's estimated hours when available; otherwise keep the 2-hour default.
+      const [hh,mm]=start.split(':').map(Number),meta=requestBookingMeta(r.customer_notes);
+      const requestedMinutes=meta.hours?Math.max(15,Math.round(meta.hours*4)*15):120;
+      const total=((hh*60+mm+requestedMinutes)%(24*60));
       $('job-end').value=`${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
     }
+    const bookingMeta=requestBookingMeta(r.customer_notes);
     $('job-address').value=[r.street_address,r.city,r.province,r.postal_code].filter(Boolean).join(', ');
-    $('job-description').value=r.work_description||'';
+    $('job-description').value=[r.work_description||'',bookingMeta.dropoff?`Drop-off Address: ${bookingMeta.dropoff}`:''].filter(Boolean).join('\n\n');
     $('job-message').value=r.customer_notes||'';
     $('job-internal-notes').value=r.internal_notes||'';
     const td=$('job-date').value,ts=$('job-start').value,te=$('job-end').value;teamAssignments=[teamDefault(td,ts,te)];renderTeam();
@@ -347,9 +351,9 @@
       const financialIssues=financialIntegrityIssues(teamAssignments);
       const assignments=teamAssignments.map(a=>({provider_id:a.provider_id,scheduled_start:localToIso(a.date,a.start),scheduled_end:localToIso(a.date,a.end),assignment_message:a.assignment_message||$('job-message').value.trim()||'',billing_items:a.billing_items.map(x=>({provider_service_rate_id:x.provider_service_rate_id,quantity:Number(x.quantity),customer_unit_rate:Number(x.customer_unit_rate)}))}));
       const payload={service_id:serviceId,assignments,allow_nonpositive_margin:financialIssues.length>0,customer_first_name:$('customer-first-name').value.trim(),customer_last_name:$('customer-last-name').value.trim(),customer_email:$('customer-email').value.trim(),customer_phone:$('customer-phone').value.trim(),work_address:$('job-address').value.trim(),work_description:$('job-description').value.trim(),internal_notes:$('job-internal-notes').value.trim()};if(sourceRequest){payload.service_request_id=sourceRequest.id;payload.customer_city=sourceRequest.city||'';payload.customer_province=sourceRequest.province||'AB';payload.customer_postal_code=sourceRequest.postal_code||'';payload.moving_bedrooms=sourceRequest.moving_bedrooms;payload.moving_square_feet=sourceRequest.moving_square_feet;payload.moving_inventory=sourceRequest.moving_inventory;}
-      submitBtn.disabled=true;submitBtn.textContent='SENDING ASSIGNMENTS…';try{const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'CREATE_MULTI_ASSIGN',payload})});closeDrawer();const first=teamAssignments[0];weekStart=startOfWeek(new Date(`${first.date}T12:00:00`));await loadCalendar();showAlert(`${result.job_reference||'Job'} created with ${result.provider_count||teamAssignments.length} Provider assignments. Each Provider must confirm independently.`,'success');for(const id of (result.assignment_ids||[])){api('/.netlify/functions/provider-assignment-notify',{method:'POST',body:JSON.stringify({assignment_id:id})}).catch(()=>{});}if(result.service_request_assigned)history.replaceState(null,'','admin-calendar.html');}catch(err){showAlert(err.message||'Could not create the multi-provider Job.');}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}return;
+      submitBtn.disabled=true;submitBtn.textContent='SENDING ASSIGNMENTS…';try{const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'CREATE_MULTI_ASSIGN',payload})});closeDrawer();const first=teamAssignments[0];weekStart=startOfWeek(new Date(`${first.date}T12:00:00`));await loadCalendar();showAlert(`${result.job_reference||'Job'} created with ${result.provider_count||teamAssignments.length} Provider assignments. Each Provider must confirm independently.`,'success');if(result.service_request_assigned)history.replaceState(null,'','admin-calendar.html');}catch(err){showAlert(err.message||'Could not create the multi-provider Job.');}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}return;
     }
-    const providerId=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value;if(!providerId||!date||!start||!end)return showAlert('Provider, date, start and end are required.');const payload={job_id:existing,provider_id:providerId,service_id:serviceId,scheduled_start:localToIso(date,start),scheduled_end:localToIso(date,end),assignment_message:$('job-message').value.trim()};submitBtn.disabled=true;submitBtn.textContent='SENDING…';try{const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'ASSIGN_EXISTING',payload})});closeDrawer();weekStart=startOfWeek(new Date(`${date}T12:00:00`));await loadCalendar();showAlert(`${result.job_reference||'Job'} assignment sent.`,'success');if(result.assignment_id)api('/.netlify/functions/provider-assignment-notify',{method:'POST',body:JSON.stringify({assignment_id:result.assignment_id})}).catch(()=>{});}catch(err){showAlert(err.message);}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}
+    const providerId=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value;if(!providerId||!date||!start||!end)return showAlert('Provider, date, start and end are required.');const payload={job_id:existing,provider_id:providerId,service_id:serviceId,scheduled_start:localToIso(date,start),scheduled_end:localToIso(date,end),assignment_message:$('job-message').value.trim()};submitBtn.disabled=true;submitBtn.textContent='SENDING…';try{const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'ASSIGN_EXISTING',payload})});closeDrawer();weekStart=startOfWeek(new Date(`${date}T12:00:00`));await loadCalendar();showAlert(`${result.job_reference||'Job'} assignment sent.`,'success');}catch(err){showAlert(err.message);}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}
   }
 
   function openAssignment(id){

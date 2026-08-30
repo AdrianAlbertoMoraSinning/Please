@@ -1,6 +1,7 @@
 const crypto=require('crypto');
 const lib=require('./_admin-lib');
 const security=require('./_security-lib');
+const notify=require('./_notify-lib');
 
 const RESEND_ENDPOINT='https://api.resend.com/emails';
 const clean=(v,n=500)=>String(v??'').trim().slice(0,n);
@@ -60,10 +61,12 @@ exports.handler=async event=>{
     if(!rl.allowed) return lib.json(429,{error:'Too many service requests were submitted from this connection. Please wait and try again.'},{'Retry-After':String(rl.retryAfter)});
     const p=JSON.parse(event.body||'{}');
     const first=clean(p.first_name,100), last=clean(p.last_name,100), email=clean(p.email,200).toLowerCase(), phone=clean(p.phone,80);
-    const serviceId=clean(p.service_id,60), address=clean(p.street_address,300), city=clean(p.city,120), province=clean(p.province,80), postal=clean(p.postal_code,30);
-    const desc=clean(p.work_description,4000), notes=clean(p.customer_notes,2000), flexibility=clean(p.scheduling_flexibility||'FLEXIBLE',30).toUpperCase();
-    if(!first||!email||!phone||!serviceId||!desc) return lib.json(400,{error:'Please complete all required fields.'});
+    const serviceId=clean(p.service_id,60), address=clean(p.street_address,300), city=clean(p.city,120), province=clean(p.province,80), postal=clean(p.postal_code,30), dropoff=clean(p.dropoff_address,500);
+    const desc=clean(p.work_description,4000), notes=clean(p.customer_notes,2000), flexibility=clean(p.scheduling_flexibility||'FLEXIBLE',30).toUpperCase(), estimatedHours=Number(p.estimated_hours);
+    if(!first||!last||!email||!phone||!serviceId||!desc||!address||!city||!province||!p.preferred_date||!p.preferred_start_time||!Number.isFinite(estimatedHours)||estimatedHours<0.25||estimatedHours>72) return lib.json(400,{error:'Please complete all required booking fields, including address, date, time and estimated hours.'});
     if(!emailOk(email)) return lib.json(400,{error:'Please enter a valid email address.'});
+    if(!/^\d{2}:(00|15|30|45)(?::\d{2})?$/.test(String(p.preferred_start_time||''))) return lib.json(400,{error:'Please choose a start time in 15-minute increments.'});
+    if(Math.abs(estimatedHours*4-Math.round(estimatedHours*4))>1e-9) return lib.json(400,{error:'Estimated hours must use 15-minute (0.25 hour) increments.'});
     if(!FLEX.has(flexibility)) return lib.json(400,{error:'Invalid scheduling flexibility.'});
     const services=await lib.sbJson(`/rest/v1/services?select=id,name&id=eq.${encodeURIComponent(serviceId)}&active=eq.true&limit=1`);
     const service=services?.[0]; if(!service) return lib.json(400,{error:'Selected service is not available.'});
@@ -72,7 +75,11 @@ exports.handler=async event=>{
     if(moving&&(!Number.isInteger(movingBedrooms)||movingBedrooms<0||!Number.isFinite(movingSquareFeet)||movingSquareFeet<=0||!movingInventory)) return lib.json(400,{error:'Please complete the Moving details.'});
     const token=crypto.randomBytes(24).toString('hex');
     const reference=ref();
-    const row={reference,tracking_token_hash:hash(token),first_name:first,last_name:last||null,email,phone,service_id:service.id,service_name:service.name,street_address:address||null,city:city||null,province:province||null,postal_code:postal||null,work_description:desc,moving_bedrooms:moving?movingBedrooms:null,moving_square_feet:moving?movingSquareFeet:null,moving_inventory:moving?movingInventory:null,preferred_date:p.preferred_date||null,preferred_start_time:p.preferred_start_time||null,scheduling_flexibility:flexibility,customer_notes:notes||null,status:'NEW'};
+    // Keep Book Your Service in the existing service_requests architecture. Drop-off
+    // and requested hours are stored as structured customer notes so this STEP does not
+    // require a second table or a database migration.
+    const bookingNotes=[dropoff?`Drop-off address: ${dropoff}`:'',`Estimated hours requested: ${estimatedHours}`,notes].filter(Boolean).join('\n');
+    const row={reference,tracking_token_hash:hash(token),first_name:first,last_name:last,email,phone,service_id:service.id,service_name:service.name,street_address:address,city,province,postal_code:postal||null,work_description:desc,moving_bedrooms:moving?movingBedrooms:null,moving_square_feet:moving?movingSquareFeet:null,moving_inventory:moving?movingInventory:null,preferred_date:p.preferred_date,preferred_start_time:p.preferred_start_time,scheduling_flexibility:flexibility,customer_notes:bookingNotes||null,status:'NEW'};
     const created=await lib.sbJson('/rest/v1/service_requests?select=id,reference,status,created_at',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
     const item=created?.[0];
     await lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:item.id,old_status:null,new_status:'NEW',note:'Customer service request submitted'})});
@@ -110,6 +117,17 @@ exports.handler=async event=>{
       console.warn('public-service-request:tracking-email EMAIL_NOT_CONFIGURED');
     }
 
-    return lib.json(201,{reference:item.reference,status:item.status,tracking_token:token,tracking_url:trackingUrl,email_sent:emailSent,email_warning:emailWarning,message:'Your request has been received by PLEASE.'});
+    const adminNotification=await notify.sendAdmins({
+      subject:`PLEASE — New Service Request (${item.reference})`,
+      title:'New service request received',
+      intro:`${first} ${last}`.trim()+' submitted a new PLEASE service request.',
+      details:[['Request',item.reference],['Service',service.name],['Customer',`${first} ${last}`.trim()],['Email',email],['Phone',phone],['Service / Pick-up',address],['Drop-off',dropoff||'Not applicable'],['Preferred date',p.preferred_date],['Preferred time',p.preferred_start_time],['Estimated hours',estimatedHours]],
+      message:desc,
+      ctaLabel:'Open Administration',
+      ctaUrl:`${notify.baseUrl()}/admin-service-requests.html`,
+      idempotencyKey:`please-admin-request-${item.id}`,
+      replyToOverride:email
+    });
+    return lib.json(201,{reference:item.reference,status:item.status,tracking_token:token,tracking_url:trackingUrl,email_sent:emailSent,email_warning:emailWarning,admin_notified:!!adminNotification?.sent,message:'Your request has been received by PLEASE.'});
   }catch(e){console.error('public-service-request',e);return lib.json(e.status||500,{error:e.message||'Unable to submit request.'});}
 };

@@ -15,5 +15,5 @@
     return nativeFetch(input,init);
   };
   const isLogin=/provider-login\.html$/i.test(location.pathname);
-  if(!isLogin && !get()) location.replace('provider-login.html?reason=tab-session');
+  if(!isLogin && !get()){const requested=location.hash.replace(/^#/,'');const allowed=new Set(['overview','assignments','calendar','services','availability','rates','documents','photos','history','profile','account','manual']);const next=allowed.has(requested)?requested:'overview';location.replace(`provider-login.html?reason=tab-session&next=${encodeURIComponent(next)}`);}
 })();

@@ -1,0 +1,24 @@
+const fs=require('fs'),path=require('path');
+const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+function ok(c,m){if(!c){console.error('FAIL:',m);process.exitCode=1}else console.log('PASS:',m)}
+const tracking=read('netlify/functions/public-request-tracking.js');
+ok(tracking.includes("filter(a=>['CONFIRMED','COMPLETED'].includes") ,'Public tracking filters team to CONFIRMED/COMPLETED only');
+ok(!tracking.includes("PENDING_PROVIDER:['PROVIDER_CONFIRMATION','Awaiting provider confirmation']"),'Public tracking no longer exposes awaiting provider confirmation status');
+ok(tracking.includes("PENDING_PROVIDER:['SCHEDULING','Scheduling service']"),'PENDING_PROVIDER maps to generic Scheduling service');
+ok(tracking.includes("Service coordination started")&&!tracking.includes("push(req.assigned_at,'Provider assignment created')"),'Timeline hides internal provider assignment state');
+const jobs=read('js/admin-jobs.js');
+ok(jobs.includes('pendingProviders(jobId)')&&jobs.includes('Waiting:'),'Administration shows exact pending Provider names');
+ok(jobs.includes('Customer Tracking Reference')&&jobs.includes('OPEN CUSTOMER TRACKING'),'Administration links PLS-JOB to PLS-REQ and tracking');
+ok(jobs.includes('notify_customer:false'),'Admin Job tracking preview does not email the customer just for opening the page');
+const providerMail=read('netlify/functions/admin-job-action.js')+read('netlify/functions/provider-assignment-notify.js');
+ok(providerMail.includes('provider-login.html?next=assignments')&&providerMail.includes('OPEN PROVIDER PORTAL'),'Provider assignment emails include direct portal CTA');
+const login=read('js/provider-login.js');
+ok(login.includes("requested=new URLSearchParams(location.search).get('next')")&&login.includes('provider.html#${next}'),'Provider login preserves Assignments destination');
+const home=read('index.html'),request=read('service-request.html'),requestFn=read('netlify/functions/public-service-request.js');
+ok(home.includes('BOOK YOUR SERVICE')&&home.includes('service-request.html?mode=book'),'Home includes Book Your Service CTA');
+ok(request.includes('name="dropoff_address"')&&request.includes('name="estimated_hours"')&&request.includes('name="street_address"'),'Booking form includes address, drop-off and estimated hours');
+ok(requestFn.includes('Drop-off address:')&&requestFn.includes('Estimated hours requested:'),'Booking uses existing service_requests architecture without new table');
+ok(requestFn.includes('15-minute increments')&&requestFn.includes('estimatedHours*4'),'Server validates 15-minute booking increments');
+ok(read('netlify/functions/provider-assignment-action.js').includes('if(accepted&&j?.customers?.email)'),'Provider declines stay internal and are not emailed to the customer');
+ok(!fs.existsSync(path.join(root,'supabase/STEP15_8_CLIENT_ADJUSTMENTS.sql')),'STEP 15.8 requires no database migration');
+if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.8 client adjustment audit completed successfully.');
