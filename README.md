@@ -4,7 +4,8 @@ Current build includes:
 - Public PLEASE website and Free Quote flow.
 - Work With Us / Professional Network application workflow.
 - Private Certification / Insurance / Portfolio uploads.
-- Resend-ready transactional notification backend.
+- Production Resend transactional notification backend with centralized Customer / Provider / Administration / Developer routing.
+- PLEASE favicon / app icon package applied across all public and restricted HTML pages.
 - PLEASE Admin Portal with custom authentication independent of Supabase Auth.
 - Developer-only Provider Onboarding / Provisioning Portal.
 - Provider draft, service assignment, weekly availability, custom provider credentials and activation workflow.
@@ -86,3 +87,15 @@ Customer Tracking now supports both secure-link access and recovery through Requ
 ## STEP 10.6 — Initial Tracking Email
 
 A newly submitted Customer Service Request now triggers a best-effort server-side Resend confirmation email containing the `PLS-REQ-...` reference and secure tracking link. Email credentials remain in Netlify environment variables only. Request creation never depends on email delivery success.
+
+## STEP 15.8.3 — Provider team status in Administration Jobs
+
+Administration > Jobs now shows the complete Provider team directly in the **Provider** column. Each assigned Provider is listed by name with the current individual assignment status, while the Primary Provider remains identified. Public Customer Tracking is unchanged and continues to expose only confirmed/completed Providers. See `STEP15_8_3_PROVIDER_TEAM_STATUS_COLUMN.md`. No SQL migration is required.
+
+## STEP 15.8.4 — Public booking runtime recovery
+
+The Book Your Service flow now uses the fresh `public-booking` Netlify endpoint. Public service catalog loading no longer depends on notification/security helper module initialization; POST security is loaded only when required, and admin notification is non-blocking after the request is saved. No database migration is required.
+
+
+## STEP 15.8.5 — Direct Mobile Camera & Photo Normalization
+Provider camera photos for live evidence, service portfolio and profile are now normalized client-side to optimized JPEG before upload, removing the normal need to save a camera photo to the phone gallery and re-select it. No database migration is required.
