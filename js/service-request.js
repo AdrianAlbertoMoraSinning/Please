@@ -3,7 +3,23 @@
  let services=[];
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function show(m,t='error'){alertBox.hidden=false;alertBox.className=`form-alert ${t}`;alertBox.textContent=m;}
- async function api(options={}){const r=await fetch('/.netlify/functions/public-service-request',{cache:'no-store',headers:{...(options.body?{'content-type':'application/json'}:{})},...options});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Request failed.');return d;}
+ async function api(options={}){
+   const method=String(options.method||'GET').toUpperCase();
+   const call=async endpoint=>{const r=await fetch(endpoint,{cache:'no-store',headers:{...(options.body?{'content-type':'application/json'}:{})},...options});const d=await r.json().catch(()=>({}));return {r,d};};
+   const primary='/.netlify/functions/public-booking',legacy='/.netlify/functions/public-service-request';
+   let out;
+   try{out=await call(primary);}catch(networkError){if(method!=='GET')throw networkError;out=null;}
+   // Catalog GET is safe to retry against the legacy route because it performs no write.
+   if(method==='GET'&&(!out||!out.r.ok)){
+     try{const fallbackResult=await call(legacy);if(fallbackResult.r.ok||!out)out=fallbackResult;}catch{}
+   }
+   // POST is retried only when the fresh route is genuinely absent (404), never after a
+   // 5xx/network response where the request might already have been stored.
+   if(method!=='GET'&&out?.r.status===404)out=await call(legacy);
+   if(!out)throw new Error('Unable to reach PLEASE booking service. Please refresh and try again.');
+   if(!out.r.ok)throw new Error(out.d.error||`Booking service unavailable (${out.r.status}). Please try again.`);
+   return out.d;
+ }
  function isMoving(){const opt=service.options[service.selectedIndex];return String(opt?.textContent||'').trim().toLowerCase()==='moving';}
  function syncMoving(){const on=isMoving();moving.hidden=!on;['moving_bedrooms','moving_square_feet','moving_inventory'].forEach(n=>{const el=form.elements[n];if(el)el.required=on;});}
  function normName(v){return String(v||'').trim().toLowerCase().replace(/&amp;/g,'&').replace(/^handyman\s*&\s*/,'').replace(/\s+/g,' ');}function selectByName(name){const n=normName(name);let opt=[...service.options].find(o=>normName(o.textContent)===n);if(!opt&&n.includes('furniture assembly'))opt=[...service.options].find(o=>normName(o.textContent).includes('furniture assembly'));if(!opt&&n.includes('custom request'))opt=[...service.options].find(o=>/custom|other|any service/i.test(o.textContent));if(opt){service.value=opt.value;selectedWrap.hidden=false;fallback.hidden=true;selectedName.textContent=name||opt.textContent;service.required=true;return true;}return false;}

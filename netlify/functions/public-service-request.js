@@ -1,7 +1,5 @@
 const crypto=require('crypto');
 const lib=require('./_admin-lib');
-const security=require('./_security-lib');
-const notify=require('./_notify-lib');
 
 const RESEND_ENDPOINT='https://api.resend.com/emails';
 const clean=(v,n=500)=>String(v??'').trim().slice(0,n);
@@ -67,7 +65,14 @@ exports.handler=async event=>{
     }
     if(event.httpMethod!=='POST') return lib.json(405,{error:'Method not allowed'});
     if(!lib.sameOrigin(event)) return lib.json(403,{error:'Invalid request origin'});
-    const rl=await security.checkRateLimit(event,{endpoint:'public-service-request',limit:10,windowSeconds:3600});
+    // STEP 15.8.4: keep public GET/catalog loading independent from optional
+    // notification/security modules. Load security only when a customer submits.
+    let security;
+    try{security=require('./_security-lib');}
+    catch(e){console.error('public-service-request:security-module',e);return lib.json(503,{error:'Booking security is temporarily unavailable. Please try again.'});}
+    let rl;
+    try{rl=await security.checkRateLimit(event,{endpoint:'public-service-request',limit:10,windowSeconds:3600});}
+    catch(e){console.error('public-service-request:rate-limit',e);return lib.json(503,{error:'Booking security is temporarily unavailable. Please try again.'});}
     if(!rl.allowed) return lib.json(429,{error:'Too many service requests were submitted from this connection. Please wait and try again.'},{'Retry-After':String(rl.retryAfter)});
     const p=JSON.parse(event.body||'{}');
     const first=clean(p.first_name,100), last=clean(p.last_name,100), email=clean(p.email,200).toLowerCase(), phone=clean(p.phone,80);
@@ -127,17 +132,23 @@ exports.handler=async event=>{
       console.warn('public-service-request:tracking-email EMAIL_NOT_CONFIGURED');
     }
 
-    const adminNotification=await notify.sendAdmins({
-      subject:`PLEASE — New Service Request (${item.reference})`,
-      title:'New service request received',
-      intro:`${first} ${last}`.trim()+' submitted a new PLEASE service request.',
-      details:[['Request',item.reference],['Service',service.name],['Customer',`${first} ${last}`.trim()],['Email',email],['Phone',phone],['Service / Pick-up',address],['Drop-off',dropoff||'Not applicable'],['Preferred date',p.preferred_date],['Preferred time',p.preferred_start_time],['Estimated hours',estimatedHours]],
-      message:desc,
-      ctaLabel:'Open Administration',
-      ctaUrl:`${notify.baseUrl()}/admin-service-requests.html`,
-      idempotencyKey:`please-admin-request-${item.id}`,
-      replyToOverride:email
-    });
+    // Admin notification is intentionally non-blocking for the booking itself. A missing
+    // notification helper must never take the public booking form offline or discard a request.
+    let adminNotification={sent:false};
+    try{
+      const notify=require('./_notify-lib');
+      adminNotification=await notify.sendAdmins({
+        subject:`PLEASE — New Service Request (${item.reference})`,
+        title:'New service request received',
+        intro:`${first} ${last}`.trim()+' submitted a new PLEASE service request.',
+        details:[['Request',item.reference],['Service',service.name],['Customer',`${first} ${last}`.trim()],['Email',email],['Phone',phone],['Service / Pick-up',address],['Drop-off',dropoff||'Not applicable'],['Preferred date',p.preferred_date],['Preferred time',p.preferred_start_time],['Estimated hours',estimatedHours]],
+        message:desc,
+        ctaLabel:'Open Administration',
+        ctaUrl:`${baseUrl(event)}/admin-service-requests.html`,
+        idempotencyKey:`please-admin-request-${item.id}`,
+        replyToOverride:email
+      });
+    }catch(e){console.error('public-service-request:admin-notification',e);}
     return lib.json(201,{reference:item.reference,status:item.status,tracking_token:token,tracking_url:trackingUrl,email_sent:emailSent,email_warning:emailWarning,admin_notified:!!adminNotification?.sent,message:'Your request has been received by PLEASE.'});
   }catch(e){console.error('public-service-request',e);return lib.json(e.status||500,{error:e.message||'Unable to submit request.'});}
 };
