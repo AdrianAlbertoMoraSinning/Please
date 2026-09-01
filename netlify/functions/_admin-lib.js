@@ -26,15 +26,29 @@ function config() {
 
 async function sbFetch(path, options = {}) {
   const { url, secret } = config();
-  const response = await fetch(`${url}${path}`, {
-    ...options,
-    headers: {
-      apikey: secret,
-      'content-type': 'application/json',
-      ...(options.headers || {})
+  const controller = new AbortController();
+  const timeoutMs = Math.max(1200, Math.min(8000, Number(process.env.PLEASE_SUPABASE_FETCH_TIMEOUT_MS || 3500)));
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(`${url}${path}`, {
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: {
+        apikey: secret,
+        'content-type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const err = new Error(`Supabase request timed out after ${timeoutMs} ms`);
+      err.status = 504;
+      throw err;
     }
-  });
-  return response;
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function sbJson(path, options = {}) {

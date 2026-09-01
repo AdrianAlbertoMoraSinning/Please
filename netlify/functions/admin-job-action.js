@@ -28,14 +28,13 @@ function cleanRateChanges(changes){
   return [...map.values()];
 }
 async function applyProviderRateChanges(changes){
-  const applied=[];
-  try{
-    for(const c of cleanRateChanges(changes)){
-      await lib.sbJson(`/rest/v1/provider_service_rates?id=eq.${encodeURIComponent(c.rate_id)}&provider_id=eq.${encodeURIComponent(c.provider_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({provider_compensation_method:c.method,provider_compensation:c.new_value,updated_at:new Date().toISOString()})});
-      applied.push(c);
-    }
-    return applied;
-  }catch(e){await rollbackProviderRateChanges(applied);throw Object.assign(new Error(`The Provider Rate could not be saved to the Provider profile. ${e.message||''}`.trim()),{status:e.status||409});}
+  const clean=cleanRateChanges(changes);
+  if(!clean.length)return[];
+  const results=await Promise.allSettled(clean.map(c=>lib.sbJson(`/rest/v1/provider_service_rates?id=eq.${encodeURIComponent(c.rate_id)}&provider_id=eq.${encodeURIComponent(c.provider_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({provider_compensation_method:c.method,provider_compensation:c.new_value,updated_at:new Date().toISOString()})})));
+  const applied=clean.filter((_,i)=>results[i].status==='fulfilled');
+  const failed=results.find(x=>x.status==='rejected');
+  if(failed){await rollbackProviderRateChanges(applied);const e=failed.reason||new Error('Provider Rate update failed.');throw Object.assign(new Error(`The Provider Rate could not be saved to the Provider profile. ${e.message||''}`.trim()),{status:e.status||409});}
+  return applied;
 }
 async function rollbackProviderRateChanges(changes){
   for(const c of [...(changes||[])].reverse()){
@@ -44,22 +43,17 @@ async function rollbackProviderRateChanges(changes){
   }
 }
 async function recordProviderRateChanges(changes,actorId,jobReference){
-  for(const c of cleanRateChanges(changes)){
-    try{
-      await lib.sbJson('/rest/v1/provider_technical_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({provider_id:c.provider_id,event_type:'ADMIN_RATE_CHANGED_DURING_ASSIGNMENT',event_label:'Provider Rate updated by PLEASE Administration',details:{rate_id:c.rate_id,rate_name:c.rate_name,billing_unit:c.billing_unit,old_method:c.old_method,old_value:c.old_value,new_method:c.method,new_value:c.new_value,job_reference:jobReference||null},actor_type:'ADMIN',actor_admin_user_id:actorId})});
-    }catch(e){console.warn('admin-job-action:rate-history',e?.message||e);}
-  }
+  const tasks=cleanRateChanges(changes).map(c=>lib.sbJson('/rest/v1/provider_technical_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({provider_id:c.provider_id,event_type:'ADMIN_RATE_CHANGED_DURING_ASSIGNMENT',event_label:'Provider Rate updated by PLEASE Administration',details:{rate_id:c.rate_id,rate_name:c.rate_name,billing_unit:c.billing_unit,old_method:c.old_method,old_value:c.old_value,new_method:c.method,new_value:c.new_value,job_reference:jobReference||null},actor_type:'ADMIN',actor_admin_user_id:actorId})}).catch(e=>{console.warn('admin-job-action:rate-history',e?.message||e);return null;}));
+  await Promise.all(tasks);
 }
 async function notifyProviderRateChanges(changes,jobReference){
   const groups=new Map();
   for(const c of cleanRateChanges(changes)){if(!groups.has(c.provider_id))groups.set(c.provider_id,[]);groups.get(c.provider_id).push(c);}
-  const sent=[];
-  for(const [providerId,items] of groups){
+  return Promise.all([...groups.entries()].map(async([providerId,items])=>{
     const lines=items.map(c=>[c.rate_name,c.method==='PERCENT'?`${Number(c.new_value).toFixed(2).replace(/\.00$/,'')}% of PLEASE customer price`:`${notify.money(c.new_value)} / ${String(c.billing_unit||'service').replace('_',' ')}`]);
-    try{sent.push(await notify.sendProvider(providerId,{subject:`PLEASE — Provider Rate Updated${jobReference?` (${jobReference})`:''}`,title:'Your Provider Rate was updated',intro:'PLEASE Administration updated a Provider Rate while coordinating a service assignment.',details:[...(jobReference?[['Service Job',jobReference]]:[]),...lines],message:'This updated rate is now saved to your Provider profile for future assignments using this Rate Item. The financial snapshot on previously created Jobs is not changed.',ctaLabel:'Open Provider Portal',ctaUrl:`${notify.baseUrl()}/provider.html#rates`,idempotencyKey:`please-provider-rate-${providerId}-${jobReference||Date.now()}`}));}
-    catch(e){console.warn('admin-job-action:rate-notify',e?.message||e);}
-  }
-  return sent;
+    try{return await notify.sendProvider(providerId,{subject:`PLEASE — Provider Rate Updated${jobReference?` (${jobReference})`:''}`,title:'Your Provider Rate was updated',intro:'PLEASE Administration updated a Provider Rate while coordinating a service assignment.',details:[...(jobReference?[['Service Job',jobReference]]:[]),...lines],message:'This updated rate is now saved to your Provider profile for future assignments using this Rate Item. The financial snapshot on previously created Jobs is not changed.',ctaLabel:'Open Provider Portal',ctaUrl:`${notify.baseUrl()}/provider.html#rates`,idempotencyKey:`please-provider-rate-${providerId}-${jobReference||Date.now()}`});}
+    catch(e){console.warn('admin-job-action:rate-notify',e?.message||e);return null;}
+  }));
 }
 
 async function validateBillingItems(providerId,items,allowNonpositiveMargin=false){
@@ -103,24 +97,24 @@ async function sourceRequestFromPayload(payload){
 async function linkSourceRequestSafely(authUserId,sourceRequest,jobId){
   if(!sourceRequest||!jobId)return {linked:false};
   try{
-    const linked=await lib.sbJson('/rest/v1/rpc/please_link_service_request_to_job',{method:'POST',body:JSON.stringify({p_actor:authUserId,p_request_id:sourceRequest.id,p_job_id:jobId})});
-    return{linked:true,request:Array.isArray(linked)?linked[0]:linked};
-  }catch(primaryError){
-    console.warn('admin-job-action:source-link-rpc',primaryError?.message||primaryError);
-    try{
-      const current=(await lib.sbJson(`/rest/v1/service_requests?select=id,reference,status,job_id&id=eq.${encodeURIComponent(sourceRequest.id)}&limit=1`))?.[0];
-      if(current?.status==='ASSIGNED'&&current?.job_id===jobId)return{linked:true,request:current,recovered:true};
-      const now=new Date().toISOString();
-      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({source_service_request_id:sourceRequest.id,updated_at:now})});
-      const rows=await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(sourceRequest.id)}&select=*`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'ASSIGNED',assigned_at:now,job_id:jobId,updated_at:now})});
-      await lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:sourceRequest.id,old_status:sourceRequest.status||'READY_TO_ASSIGN',new_status:'ASSIGNED',note:'Converted to Job by PLEASE Administration (link recovery)',changed_by_admin_portal_user:authUserId})}).catch(()=>{});
-      return{linked:true,request:rows?.[0]||current,recovered:true};
-    }catch(fallbackError){
-      console.error('admin-job-action:source-link-fallback',fallbackError);
-      return{linked:false,warning:`Job created, but the customer request link needs review: ${fallbackError.message||primaryError.message||'link failed'}`};
-    }
+    const current=(await lib.sbJson(`/rest/v1/service_requests?select=id,reference,status,job_id&id=eq.${encodeURIComponent(sourceRequest.id)}&limit=1`))?.[0];
+    if(current?.status==='ASSIGNED'&&current?.job_id===jobId)return{linked:true,request:current,recovered:true};
+    if(!current||current.status!=='READY_TO_ASSIGN'||current.job_id) return {linked:false,warning:'Job created, but the source Service Request changed before it could be linked.'};
+    const now=new Date().toISOString();
+    const [jobPatch,rows]=await Promise.all([
+      lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({source_service_request_id:sourceRequest.id,updated_at:now})}),
+      lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(sourceRequest.id)}&status=eq.READY_TO_ASSIGN&job_id=is.null&select=*`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'ASSIGNED',assigned_at:now,job_id:jobId,updated_at:now})})
+    ]);
+    const linked=rows?.[0];
+    if(!linked)return{linked:false,warning:'Job created, but the source Service Request could not be linked automatically. Refresh Service Requests before retrying.'};
+    lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:sourceRequest.id,old_status:sourceRequest.status||'READY_TO_ASSIGN',new_status:'ASSIGNED',note:'Converted to Job by PLEASE Administration',changed_by_admin_portal_user:authUserId})}).catch(e=>console.warn('admin-job-action:source-history',e?.message||e));
+    return{linked:true,request:linked};
+  }catch(e){
+    // source-link-fallback: preserve the Job even when the secondary request relationship cannot be completed.
+    console.error('admin-job-action:source-link',e);return{linked:false,warning:`Job created, but the customer request link needs review: ${e.message||'link failed'}`};
   }
 }
+
 
 exports.handler=async event=>{
   if(event.httpMethod!=='POST')return lib.json(405,{error:'Method not allowed'});
@@ -131,20 +125,22 @@ exports.handler=async event=>{
     if(action==='CREATE_MULTI_ASSIGN'){
       const payload=body.payload||{};sourceRequest=await sourceRequestFromPayload(payload);
       if(!Array.isArray(payload.assignments)||!payload.assignments.length)return lib.json(400,{error:'Add at least one provider assignment.'});
-      const seen=new Set(),rateChanges=[];
-      for(let i=0;i<payload.assignments.length;i++){
-        const a=payload.assignments[i]||{},pid=String(a.provider_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(pid))return lib.json(400,{error:`Select Provider ${i+1}.`});if(seen.has(pid))return lib.json(400,{error:'The same Provider cannot be added twice to one Job.'});seen.add(pid);
-        const validated=await validateBillingItems(pid,a.billing_items,Boolean(payload.allow_nonpositive_margin));
-        a.billing_items=validated.rows;rateChanges.push(...validated.rateChanges);
-      }
+      const seen=new Set();
+      for(let i=0;i<payload.assignments.length;i++){const pid=String(payload.assignments[i]?.provider_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(pid))return lib.json(400,{error:`Select Provider ${i+1}.`});if(seen.has(pid))return lib.json(400,{error:'The same Provider cannot be added twice to one Job.'});seen.add(pid);}
+      const validations=await Promise.all(payload.assignments.map(a=>validateBillingItems(String(a.provider_id||'').trim(),a.billing_items,Boolean(payload.allow_nonpositive_margin))));
+      const rateChanges=[];validations.forEach((validated,i)=>{payload.assignments[i].billing_items=validated.rows;rateChanges.push(...validated.rateChanges);});
       const appliedRates=await applyProviderRateChanges(rateChanges);
       let result;
       try{result=await lib.sbJson('/rest/v1/rpc/please_create_multi_provider_job',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_payload:payload})});}
       catch(createError){await rollbackProviderRateChanges(appliedRates);throw createError;}
       const value=Array.isArray(result)?result[0]:result;
       if(sourceRequest&&value?.job_id){const link=await linkSourceRequestSafely(auth.user.id,sourceRequest,value.job_id);value.service_request_assigned=link.linked;value.service_request_reference=sourceRequest.reference;value.service_request=link.request||null;if(link.warning)value.warning=link.warning;}
-      if(value?.job_id&&appliedRates.length){await recordProviderRateChanges(appliedRates,auth.user.id,value.job_reference);value.provider_rates_updated=appliedRates.length;}
-      const assignmentIds=value?.assignment_ids||[];const notices=[];for(const aid of assignmentIds)notices.push(await notifyAssignment(aid,'NEW'));if(value?.job_id)notices.push(await notifyCustomerJob(value.job_id,'SCHEDULED'));if(appliedRates.length)notices.push(...await notifyProviderRateChanges(appliedRates,value?.job_reference));value.notifications_sent=notices.filter(x=>x?.sent).length;
+      const assignmentIds=value?.assignment_ids||[];
+      const postTasks=[];
+      if(value?.job_id&&appliedRates.length){value.provider_rates_updated=appliedRates.length;postTasks.push(recordProviderRateChanges(appliedRates,auth.user.id,value.job_reference));}
+      const noticeTasks=[...assignmentIds.map(aid=>notifyAssignment(aid,'NEW'))];if(value?.job_id)noticeTasks.push(notifyCustomerJob(value.job_id,'SCHEDULED'));if(appliedRates.length)noticeTasks.push(notifyProviderRateChanges(appliedRates,value?.job_reference));
+      const results=await Promise.all([...postTasks,...noticeTasks]);
+      const flattened=results.flat?.(2)||results;value.notifications_sent=flattened.filter(x=>x?.sent).length;
       return lib.json(200,value||{ok:true});
     }
 
@@ -163,11 +159,12 @@ exports.handler=async event=>{
       if(sourceRequest){const link=await linkSourceRequestSafely(auth.user.id,sourceRequest,value.job_id);value.service_request_assigned=link.linked;value.service_request_reference=sourceRequest.reference;value.service_request=link.request||null;if(link.warning)value.warning=link.warning;}
       if(legacyAppliedRates.length){await recordProviderRateChanges(legacyAppliedRates,auth.user.id,value.job_reference);value.provider_rates_updated=legacyAppliedRates.length;}
     }
-    const notices=[];
-    if(value?.assignment_id){if(action==='CANCEL_ASSIGNMENT')notices.push(await notifyAssignment(value.assignment_id,'CANCELLED'));else notices.push(await notifyAssignment(value.assignment_id,'NEW'));}
-    if(value?.job_id){if(action==='CANCEL_ASSIGNMENT'||action==='CANCEL_JOB')notices.push(await notifyCustomerJob(value.job_id,'CANCELLED'));else if(['CREATE_AND_ASSIGN','ASSIGN_EXISTING'].includes(action))notices.push(await notifyCustomerJob(value.job_id,'SCHEDULED'));}
-    if(action==='CANCEL_JOB'&&value?.job_id){try{const as=await lib.sbJson(`/rest/v1/job_assignments?select=id&job_id=eq.${encodeURIComponent(value.job_id)}&status=eq.CANCELLED`);for(const a of as||[])notices.push(await notifyAssignment(a.id,'CANCELLED'));}catch(_){} }
-    if(legacyAppliedRates.length)notices.push(...await notifyProviderRateChanges(legacyAppliedRates,value?.job_reference));
+    const noticeTasks=[];
+    if(value?.assignment_id)noticeTasks.push(notifyAssignment(value.assignment_id,action==='CANCEL_ASSIGNMENT'?'CANCELLED':'NEW'));
+    if(value?.job_id){if(action==='CANCEL_ASSIGNMENT'||action==='CANCEL_JOB')noticeTasks.push(notifyCustomerJob(value.job_id,'CANCELLED'));else if(['CREATE_AND_ASSIGN','ASSIGN_EXISTING'].includes(action))noticeTasks.push(notifyCustomerJob(value.job_id,'SCHEDULED'));}
+    if(action==='CANCEL_JOB'&&value?.job_id){try{const as=await lib.sbJson(`/rest/v1/job_assignments?select=id&job_id=eq.${encodeURIComponent(value.job_id)}&status=eq.CANCELLED`);for(const a of as||[])noticeTasks.push(notifyAssignment(a.id,'CANCELLED'));}catch(_){} }
+    if(legacyAppliedRates.length)noticeTasks.push(notifyProviderRateChanges(legacyAppliedRates,value?.job_reference));
+    const notices=(await Promise.all(noticeTasks)).flat?.(2)||[];
     if(value&&typeof value==='object')value.notifications_sent=notices.filter(x=>x?.sent).length;
     return lib.json(200,value||{ok:true});
   }catch(e){console.error('admin-job-action',e);let message=e.message||'Job action failed.';if(/exclusion|job_assignments_no_provider_overlap|conflict/i.test(message))message='One of the selected providers already has an assignment overlapping the selected time.';return lib.json(e.status||400,{error:message});}

@@ -120,17 +120,18 @@ exports.handler=async event=>{
       if(actionAlreadyApplied(action,out.status)) return lib.json(200,{request:out,already_applied:true});
       return lib.json(409,{error:'This request changed in another session. Refresh and try again.',request:out});
     }
-    const historyRecorded=await recordHistory({requestId:current.id,oldStatus:current.status,newStatus:plan.newStatus,note:plan.note,actorId:auth.user.id});
-
     let title='PLEASE request update',intro=`Hi ${out.first_name||'there'}, your PLEASE request has been updated.`,message='';
     if(action==='START_REVIEW'){title='PLEASE is reviewing your request';intro=`Hi ${out.first_name||'there'}, our operations team has started reviewing your service request.`;}
     if(action==='READY_TO_ASSIGN'){title='Your request is ready for provider coordination';intro=`Hi ${out.first_name||'there'}, PLEASE has reviewed your request and is coordinating the right provider and schedule.`;}
     if(action==='CANCEL'){title='Your PLEASE request was cancelled';intro=`Hi ${out.first_name||'there'}, your service request has been marked cancelled.`;message=String(p.value||out.cancellation_reason||'').slice(0,1000);}
 
-    // Email delivery is deliberately non-blocking for the business transaction. notify.send
-    // catches delivery failures and returns sent:false, so a Resend issue cannot roll back a
-    // successful request transition or surface a false "Request failed" banner.
-    const n=await notify.send({to:out.email,subject:`PLEASE — ${title} (${out.reference})`,title,intro,details:[['Request',out.reference],['Service',out.service_name],['Status',out.status]],message,ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-request-${out.id}-${action}`});
+    // Email delivery is deliberately non-blocking for the business transition in the sense
+    // that it is bounded by the global Resend timeout and cannot roll back the database update.
+    // History + email run in parallel so Netlify is not forced through two sequential network waits.
+    const [historyRecorded,n]=await Promise.all([
+      recordHistory({requestId:current.id,oldStatus:current.status,newStatus:plan.newStatus,note:plan.note,actorId:auth.user.id}),
+      notify.send({to:out.email,subject:`PLEASE — ${title} (${out.reference})`,title,intro,details:[['Request',out.reference],['Service',out.service_name],['Status',out.status]],message,ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-request-${out.id}-${action}`})
+    ]);
     return lib.json(200,{request:out,notification_sent:!!n?.sent,history_recorded:historyRecorded});
   }catch(e){
     console.error('admin-service-request-action',e);

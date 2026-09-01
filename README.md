@@ -105,3 +105,6 @@ Book Your Service is now more compact and no longer requests Moving-specific bed
 
 ## STEP 15.8.6.1 — Service Request Transition Recovery
 Administration Service Request state changes (`START REVIEW`, `READY TO ASSIGN`, `CANCEL`) now execute directly through the authenticated Netlify backend instead of depending on the legacy transition RPC. Duplicate/retried actions are idempotent, concurrent admin updates are guarded, auxiliary drawer queries degrade gracefully, and a successful state change is no longer reported as failed merely because a subsequent screen refresh or email delivery has a problem. Internal note saves do not email the customer. No SQL migration is required. See `STEP15_8_6_1_SERVICE_REQUEST_TRANSITION_RECOVERY.md`.
+
+## STEP 15.8.6.2 — Administration 502 runtime recovery
+This release bounds Supabase/Resend network waits, parallelizes Master Calendar and multi-provider reads, gives the assignment drawer its own lightweight catalog endpoint, and separates successful Job creation from a later calendar-refresh failure. No SQL migration is required. See `STEP15_8_6_2_GATEWAY_TIMEOUT_RUNTIME_RECOVERY.md`.

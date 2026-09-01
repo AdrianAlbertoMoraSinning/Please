@@ -10,6 +10,7 @@
   let billingItems=[];
   let teamAssignments=[];
   let sourceRequest=null;
+  let assignmentCatalogLoaded=false;
   let weekStart=startOfWeek(new Date());
   let weekDates=[];
 
@@ -231,8 +232,16 @@
   function setMultiMode(on){$('multi-provider-section').hidden=!on;$('legacy-assignment-section').hidden=on;['job-provider','job-date','job-start','job-end'].forEach(id=>{const el=$(id);if(el)el.required=!on;});}
   async function loadCalendar(){
     clearAlert(); const from=ymd(weekStart),to=ymd(addDays(weekStart,6));
-    data=await api(`/.netlify/functions/admin-calendar-data?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-    renderFilters();renderPendingScheduleChanges();renderCalendar();renderUnassigned();if(data.warnings?.length)showAlert(`Master Calendar loaded with limited auxiliary data (${data.warnings.join(', ')}). Core scheduling remains available; refresh if needed.`);
+    const fresh=await api(`/.netlify/functions/admin-calendar-data?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    data={...data,...fresh};
+    if((fresh.providers||[]).length&&(fresh.services||[]).length)assignmentCatalogLoaded=true;
+    renderFilters();renderPendingScheduleChanges();renderCalendar();renderUnassigned();if(data.warnings?.length)showAlert(`Master Calendar loaded with limited auxiliary data (${data.warnings.join(', ')}). Assignment can still retry its catalog independently.`);
+  }
+  async function ensureAssignmentCatalog(force=false){
+    if(assignmentCatalogLoaded&&!force&&data.providers?.length&&data.services?.length)return;
+    const d=await api('/.netlify/functions/admin-assignment-form-data');
+    data.providers=d.providers||[];data.provider_services=d.provider_services||[];data.services=d.services||[];data.provider_rates=d.provider_rates||[];assignmentCatalogLoaded=true;
+    if(d.warnings?.length)showAlert(`Assignment catalog loaded with warnings (${d.warnings.join(', ')}).`);
   }
 
   function populateJobProviders(serviceId,preferred=''){
@@ -257,6 +266,9 @@
     if(!r)throw new Error('Service request not found.');
     if(r.status==='ASSIGNED'&&r.job_id){showAlert(`${r.reference} is already assigned to a Job.`);history.replaceState(null,'','admin-calendar.html');try{sessionStorage.removeItem('pleasePendingServiceRequest');}catch{}return;}
     if(r.status!=='READY_TO_ASSIGN')throw new Error(`${r.reference} must be Ready to Assign before a Job can be created.`);
+    // The assignment drawer has its own lightweight catalog endpoint. A calendar-side
+    // timeout must never prevent Administration from assigning a valid Service Request.
+    await ensureAssignmentCatalog(true);
 
     resetForm();
     sourceRequest=r;
@@ -345,7 +357,9 @@
   }
 
   async function submitJob(e){
-    e.preventDefault();clearAlert();const existing=$('job-existing-id').value,serviceId=$('job-service').value;if(!serviceId)return showAlert('Service is required.');
+    e.preventDefault();clearAlert();
+    try{await ensureAssignmentCatalog(false);}catch(err){return showAlert(err.message||'Unable to refresh assignment data.');}
+    const existing=$('job-existing-id').value,serviceId=$('job-service').value;if(!serviceId)return showAlert('Service is required.');
     if(!existing){
       if(!teamAssignments.length)return showAlert('Add at least one Provider.');const ids=new Set();
       for(let i=0;i<teamAssignments.length;i++){const a=teamAssignments[i];if(!a.provider_id||!a.date||!a.start||!a.end)return showAlert(`Provider ${i+1}: provider, date, start and end are required.`);if(ids.has(a.provider_id))return showAlert('The same Provider cannot be added twice to the same Job.');ids.add(a.provider_id);if(!a.billing_items?.length)return showAlert(`Provider ${i+1}: add at least one billing item.`);if(!['00','15','30','45'].includes(a.start.slice(3,5))||!['00','15','30','45'].includes(a.end.slice(3,5)))return showAlert('Provider schedules must use 15-minute increments.');}
@@ -353,9 +367,17 @@
       const financialIssues=financialIntegrityIssues(teamAssignments);
       const assignments=teamAssignments.map(a=>({provider_id:a.provider_id,scheduled_start:localToIso(a.date,a.start),scheduled_end:localToIso(a.date,a.end),assignment_message:a.assignment_message||$('job-message').value.trim()||'',billing_items:a.billing_items.map(x=>({provider_service_rate_id:x.provider_service_rate_id,quantity:Number(x.quantity),customer_unit_rate:Number(x.customer_unit_rate),provider_compensation_method:x.provider_compensation_method,provider_compensation_value:x.provider_compensation_value}))}));
       const payload={service_id:serviceId,assignments,allow_nonpositive_margin:financialIssues.length>0,customer_first_name:$('customer-first-name').value.trim(),customer_last_name:$('customer-last-name').value.trim(),customer_email:$('customer-email').value.trim(),customer_phone:$('customer-phone').value.trim(),work_address:$('job-address').value.trim(),work_description:$('job-description').value.trim(),internal_notes:$('job-internal-notes').value.trim()};if(sourceRequest){payload.service_request_id=sourceRequest.id;payload.customer_city=sourceRequest.city||'';payload.customer_province=sourceRequest.province||'AB';payload.customer_postal_code=sourceRequest.postal_code||'';}
-      submitBtn.disabled=true;submitBtn.textContent='SENDING ASSIGNMENTS…';try{const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'CREATE_MULTI_ASSIGN',payload})});closeDrawer();const first=teamAssignments[0];weekStart=startOfWeek(new Date(`${first.date}T12:00:00`));await loadCalendar();showAlert(`${result.job_reference||'Job'} created with ${result.provider_count||teamAssignments.length} Provider assignments.${result.provider_rates_updated?` ${result.provider_rates_updated} Provider Rate${result.provider_rates_updated===1?' was':'s were'} saved to the corresponding Provider profile${result.provider_rates_updated===1?'':'s'}.`:''} Each Provider must confirm independently.${result.warning?` WARNING: ${result.warning}`:''}`,result.warning?'error':'success');if(result.service_request_assigned)history.replaceState(null,'','admin-calendar.html');}catch(err){showAlert(err.message||'Could not create the multi-provider Job.');}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}return;
+      submitBtn.disabled=true;submitBtn.textContent='SENDING ASSIGNMENTS…';
+      try{
+        const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'CREATE_MULTI_ASSIGN',payload})});
+        closeDrawer();const first=teamAssignments[0];weekStart=startOfWeek(new Date(`${first.date}T12:00:00`));if(result.service_request_assigned)history.replaceState(null,'','admin-calendar.html');
+        const success=`${result.job_reference||'Job'} created with ${result.provider_count||teamAssignments.length} Provider assignments.${result.provider_rates_updated?` ${result.provider_rates_updated} Provider Rate${result.provider_rates_updated===1?' was':'s were'} saved to the corresponding Provider profile${result.provider_rates_updated===1?'':'s'}.`:''} Each Provider must confirm independently.${result.warning?` WARNING: ${result.warning}`:''}`;
+        try{await loadCalendar();showAlert(success,result.warning?'error':'success');}
+        catch(refreshError){showAlert(`${success} Calendar refresh failed after the Job was already created: ${refreshError.message}`,'success');}
+      }catch(err){showAlert(err.message||'Could not create the multi-provider Job.');}
+      finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}return;
     }
-    const providerId=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value;if(!providerId||!date||!start||!end)return showAlert('Provider, date, start and end are required.');const payload={job_id:existing,provider_id:providerId,service_id:serviceId,scheduled_start:localToIso(date,start),scheduled_end:localToIso(date,end),assignment_message:$('job-message').value.trim()};submitBtn.disabled=true;submitBtn.textContent='SENDING…';try{const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'ASSIGN_EXISTING',payload})});closeDrawer();weekStart=startOfWeek(new Date(`${date}T12:00:00`));await loadCalendar();showAlert(`${result.job_reference||'Job'} assignment sent.`,'success');}catch(err){showAlert(err.message);}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}
+    const providerId=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value;if(!providerId||!date||!start||!end)return showAlert('Provider, date, start and end are required.');const payload={job_id:existing,provider_id:providerId,service_id:serviceId,scheduled_start:localToIso(date,start),scheduled_end:localToIso(date,end),assignment_message:$('job-message').value.trim()};submitBtn.disabled=true;submitBtn.textContent='SENDING…';try{const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'ASSIGN_EXISTING',payload})});closeDrawer();weekStart=startOfWeek(new Date(`${date}T12:00:00`));try{await loadCalendar();showAlert(`${result.job_reference||'Job'} assignment sent.`,'success');}catch(refreshError){showAlert(`${result.job_reference||'Job'} assignment was sent, but the calendar refresh failed: ${refreshError.message}`,'success');}}catch(err){showAlert(err.message);}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}
   }
 
   function openAssignment(id){
@@ -395,10 +417,12 @@
       loading.textContent='Checking secure session…';
       await ensureSession();
       loading.textContent='Loading Master Calendar…';
-      await loadCalendar();
+      const requestId=new URLSearchParams(location.search).get('request');
+      let calendarWarning=null;
+      try{await loadCalendar();}catch(e){calendarWarning=e;}
       bindEvents();
       loading.hidden=true;loading.remove();app.hidden=false;
-      const requestId=new URLSearchParams(location.search).get('request');
+      if(calendarWarning)showAlert(`Master Calendar background data could not refresh (${calendarWarning.message}). You can still continue assigning the selected Service Request.`);
       if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}
     }catch(e){
       console.error('admin-calendar init',e);
