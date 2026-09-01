@@ -111,3 +111,6 @@ This release bounds Supabase/Resend network waits, parallelizes Master Calendar 
 
 ## STEP 15.8.6.3 — Editable Billing on Reassignment
 Jobs in NEEDS_ASSIGNMENT can now be corrected and reassigned without creating a duplicate Job. Administration can edit Provider, schedule, quantity, PLEASE Customer Rate and Provider Rate; the corrected billing snapshot replaces only the declined/cancelled assignment rows, while Provider Rate overrides continue to persist to that Provider Rate Item with audit history. No SQL migration is required.
+
+## STEP 15.8.6.3.1 — Unified Reassignment UI
+The NEEDS_ASSIGNMENT correction drawer now reuses the same **Service Team & Provider Billing** card used when a Job is created for the first time. The rejected/cancelled Provider slot, schedule and billing snapshot are prefilled in that single card; Administration can change Provider, Rate Item, Qty, PLEASE Customer Rate, Provider Rate and schedule without a second legacy Provider/Billing section. The replacement still updates the same PLS-JOB and preserves the original team position/Primary flag. Linked PLS-REQ information is shown again when available. No SQL migration is required.

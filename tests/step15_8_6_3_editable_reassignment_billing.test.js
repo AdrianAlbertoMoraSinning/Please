@@ -12,7 +12,7 @@ ok(calJs.includes("action:'REASSIGN_WITH_BILLING'")&&calJs.includes('replace_ass
 ok(calJs.includes('reassignment_assignments')&&calData.includes('status=in.(DECLINED,CANCELLED)'),'Master Calendar loads the prior declined/cancelled assignment so provider/order/schedule can be prefilled');
 ok(calData.includes('provider_compensation_method,provider_compensation_value'),'Frozen billing rows include their Provider compensation snapshot for editing');
 ok(calHtml.includes('job-billing-provider-cost')&&calHtml.includes('job-billing-profit'),'Reassignment shows Provider Cost and PLEASE Gross Profit before sending');
-ok(calHtml.includes('js/admin-calendar.js?v=15.8.6.3'),'Master Calendar cache-busts STEP 15.8.6.3');
+ok(calHtml.includes('js/admin-calendar.js?v=15.8.6.3.1'),'Master Calendar cache-busts STEP 15.8.6.3.1');
 
 ok(jobAction.includes("if(action==='REASSIGN_WITH_BILLING')"),'Backend has a dedicated billing-aware reassignment action');
 ok(jobAction.includes("p_action:'ASSIGN_EXISTING'")&&jobAction.includes('please_portal_job_action'),'Backend reuses the existing secure assignment lifecycle for the same Job');

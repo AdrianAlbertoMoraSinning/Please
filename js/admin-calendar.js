@@ -6,11 +6,12 @@
   const drawer=document.getElementById('job-drawer'), backdrop=document.getElementById('calendar-backdrop');
   const form=document.getElementById('job-form'), submitBtn=document.getElementById('job-submit');
   const unassignedBody=document.getElementById('unassigned-body'), unassignedEmpty=document.getElementById('unassigned-empty');
-  let data={providers:[],provider_services:[],services:[],availability:[],exceptions:[],assignments:[],needs_assignment:[],reassignment_assignments:[],provider_rates:[],job_billing_items:[],schedule_changes:[]};
+  let data={providers:[],provider_services:[],services:[],availability:[],exceptions:[],assignments:[],needs_assignment:[],reassignment_assignments:[],source_requests:[],provider_rates:[],job_billing_items:[],schedule_changes:[]};
   let billingItems=[];
   let teamAssignments=[];
   let sourceRequest=null;
   let reassignmentTargetAssignment=null;
+  let reassignmentMode=false;
   let assignmentCatalogLoaded=false;
   let weekStart=startOfWeek(new Date());
   let weekDates=[];
@@ -234,9 +235,11 @@
   function renderTeam(){
     const box=$('job-team-assignments');if(!box)return;const eligible=eligibleProviders($('job-service').value||'');
     box.innerHTML=teamAssignments.map((a,i)=>{
-      const rates=providerRates(a.provider_id),primary=i===0;
+      const rates=providerRates(a.provider_id),primary=a.is_primary==null?i===0:Boolean(a.is_primary),position=Number(a.sequence_no)||i+1;
       const bill=(a.billing_items||[]).map((x,j)=>{const r=rates.find(z=>z.id===x.provider_service_rate_id),q=Number(x.quantity)||0,cr=Number(x.customer_unit_rate)||0,pr=teamRateProviderCost(r,cr,x),method=String(x.provider_compensation_method||r?.provider_compensation_method||'NONE').toUpperCase(),pv=teamProviderRateValue(r,x);return `<div class="calendar-billing-row financial team-billing-row provider-rate-edit-row" data-ai="${i}" data-bi="${j}"><div class="calendar-billing-name"><strong>${esc(x.service_name||'Service')} · ${esc(x.description||'Rate')}</strong><small>${esc(String(x.unit||'service').replace('_',' '))}</small></div><label>Qty<input class="team-bill-qty" type="number" inputmode="decimal" min="${String(x.unit||'').toLowerCase()==='hour'?'0.25':'0.01'}" step="${String(x.unit||'').toLowerCase()==='hour'?'0.25':'0.01'}" value="${q.toFixed(2)}"></label><label>PLEASE Customer Rate<input class="team-bill-rate" type="number" min="0" step="0.01" value="${cr.toFixed(2)}"></label><label class="provider-rate-edit">${esc(teamProviderRateLabel(r,x))}<input class="team-provider-rate" type="number" inputmode="decimal" min="0" ${method==='PERCENT'?'max="100"':''} step="0.01" value="${pv===''?'':Number(pv).toFixed(2)}"><small>${method==='PERCENT'?'Percent of customer rate':'CAD per '+esc(String(x.unit||'service').replace('_',' '))} · saved to this Provider</small></label><div class="billing-financial-snapshot"><span>Customer <b>${money(q*cr)}</b></span><span>Provider <b>${pr==null?'Needs rate':money(q*pr)}</b></span><span>PLEASE Profit <b>${pr==null?'—':money(q*(cr-pr))}</b></span></div><button type="button" class="admin-danger-button team-bill-remove">×</button></div>`}).join('');
-      return `<article class="multi-provider-card" data-index="${i}"><div class="multi-provider-card-head"><div><span class="admin-reference">${primary?'PRIMARY PROVIDER':`PROVIDER ${i+1}`}</span><h4>${primary?'Shown first in Customer Tracking':'Additional service team member'}</h4></div>${teamAssignments.length>1?'<button type="button" class="admin-danger-button team-remove-provider">REMOVE</button>':''}</div><div class="calendar-form-grid two"><label>Provider *<select class="team-provider"><option value="">Select provider</option>${eligible.map(p=>`<option value="${p.id}" ${p.id===a.provider_id?'selected':''}>${esc(p.display_name)} — ${esc(p.public_title||p.company_name||'Provider')}</option>`).join('')}</select></label><label>Date *<input class="team-date" type="date" value="${esc(a.date)}"></label></div><div class="calendar-form-grid two"><label>Start *<input class="team-start" type="time" step="900" value="${esc(a.start)}"></label><label>End *<input class="team-end" type="time" step="900" value="${esc(a.end)}"></label></div><div class="calendar-availability-note ${teamAvailability(a).startsWith('NOT')?'calendar-availability-warning':''}">${esc(teamAvailability(a))}</div><label>Message to this Provider<textarea class="team-message" rows="2">${esc(a.assignment_message||'')}</textarea></label><div class="calendar-billing-picker"><label>Provider Service Rate<select class="team-rate-picker"><option value="">${a.provider_id?'Select provider rate item':'Select provider first'}</option>${rates.map(r=>`<option value="${r.id}">${esc(rateLabel(r))}</option>`).join('')}</select></label><button type="button" class="admin-outline-button team-add-rate">ADD BILLING ITEM</button></div>${bill||'<p class="admin-muted">No billing items added for this Provider.</p>'}</article>`;
+      const heading=primary?'PRIMARY PROVIDER':`PROVIDER ${position}`;
+      const subheading=reassignmentMode?(primary?'Replacing the Primary Provider assignment':'Replacing this Provider assignment'):(primary?'Shown first in Customer Tracking':'Additional service team member');
+      return `<article class="multi-provider-card" data-index="${i}"><div class="multi-provider-card-head"><div><span class="admin-reference">${heading}</span><h4>${subheading}</h4></div>${teamAssignments.length>1&&!reassignmentMode?'<button type="button" class="admin-danger-button team-remove-provider">REMOVE</button>':''}</div><div class="calendar-form-grid two"><label>Provider *<select class="team-provider"><option value="">Select provider</option>${eligible.map(p=>`<option value="${p.id}" ${p.id===a.provider_id?'selected':''}>${esc(p.display_name)} — ${esc(p.public_title||p.company_name||'Provider')}</option>`).join('')}</select></label><label>Date *<input class="team-date" type="date" value="${esc(a.date)}"></label></div><div class="calendar-form-grid two"><label>Start *<input class="team-start" type="time" step="900" value="${esc(a.start)}"></label><label>End *<input class="team-end" type="time" step="900" value="${esc(a.end)}"></label></div><div class="calendar-availability-note ${teamAvailability(a).startsWith('NOT')?'calendar-availability-warning':''}">${esc(teamAvailability(a))}</div><label>Message to this Provider<textarea class="team-message" rows="2">${esc(a.assignment_message||'')}</textarea></label><div class="calendar-billing-picker"><label>Provider Service Rate<select class="team-rate-picker"><option value="">${a.provider_id?'Select provider rate item':'Select provider first'}</option>${rates.map(r=>`<option value="${r.id}">${esc(rateLabel(r))}</option>`).join('')}</select></label><button type="button" class="admin-outline-button team-add-rate">ADD BILLING ITEM</button></div>${bill||'<p class="admin-muted">No billing items added for this Provider.</p>'}</article>`;
     }).join('');
     box.querySelectorAll('.multi-provider-card').forEach(card=>{const i=Number(card.dataset.index),a=teamAssignments[i];
       card.querySelector('.team-provider').onchange=e=>{a.provider_id=e.target.value;a.billing_items=[];renderTeam();};
@@ -272,7 +275,7 @@
     $('job-billing-rate-picker').disabled=false;$('job-add-billing-item').disabled=false;
     $('customer-section').classList.toggle('calendar-section-readonly',existing);
   }
-  function resetForm(){form.reset();billingItems=[];teamAssignments=[teamDefault()];sourceRequest=null;reassignmentTargetAssignment=null;$('job-existing-id').value='';$('job-source-request-id').value='';$('job-source-request-panel').hidden=true;$('job-drawer-title').textContent='Create & Assign Job';$('job-drawer-eyebrow').textContent='NEW SERVICE REQUEST';setExistingMode(false);setMultiMode(true);$('job-date').value=ymd(new Date());$('job-start').value='09:00';$('job-end').value='11:00';$('job-service').innerHTML='<option value="">Select service</option>'+data.services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');populateJobProviders('');renderBillingPicker();renderTeam();}
+  function resetForm(){form.reset();billingItems=[];teamAssignments=[teamDefault()];sourceRequest=null;reassignmentTargetAssignment=null;reassignmentMode=false;$('job-existing-id').value='';$('job-source-request-id').value='';$('job-source-request-panel').hidden=true;$('job-drawer-title').textContent='Create & Assign Job';$('job-drawer-eyebrow').textContent='NEW SERVICE REQUEST';setExistingMode(false);setMultiMode(true);$('job-add-provider').hidden=false;$('job-date').value=ymd(new Date());$('job-start').value='09:00';$('job-end').value='11:00';$('job-service').innerHTML='<option value="">Select service</option>'+data.services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');populateJobProviders('');renderBillingPicker();renderTeam();}
   function openDrawer(){drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');backdrop.hidden=false;document.body.classList.add('admin-drawer-open');}
   function closeDrawer(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');backdrop.hidden=true;document.body.classList.remove('admin-drawer-open');}
   function openNewJob(prefill={}){resetForm();if(prefill.date){$('job-date').value=prefill.date;teamAssignments[0].date=prefill.date;}if(prefill.provider_id){teamAssignments[0].provider_id=prefill.provider_id;const ids=[...providerServiceIds(prefill.provider_id)];if(serviceFilter.value!=='ALL'&&ids.includes(serviceFilter.value))$('job-service').value=serviceFilter.value;else if(ids.length===1)$('job-service').value=ids[0];populateJobProviders($('job-service').value,prefill.provider_id);renderTeam();}openDrawer();updateAvailabilityNote();}
@@ -335,20 +338,39 @@
     updateAvailabilityNote();
   }
   function openExistingJob(j){
-    resetForm();setMultiMode(false);$('job-existing-id').value=j.id;$('job-drawer-title').textContent=`Correct & Reassign ${j.reference}`;$('job-drawer-eyebrow').textContent='NEEDS ASSIGNMENT · EDITABLE BILLING';
-    const c=j.customers||{};$('customer-first-name').value=c.first_name||'';$('customer-last-name').value=c.last_name||'';$('customer-email').value=c.email||'';$('customer-phone').value=c.phone||'';$('job-service').value=j.service_id||'';$('job-address').value=j.work_address||'';$('job-description').value=j.work_description||'';$('job-internal-notes').value='';
+    resetForm();
+    reassignmentMode=true;
+    setMultiMode(true);
+    $('job-add-provider').hidden=true;
+    $('job-existing-id').value=j.id;
+    $('job-drawer-title').textContent=`Correct & Reassign ${j.reference}`;
+    $('job-drawer-eyebrow').textContent='NEEDS ASSIGNMENT · EDITABLE BILLING';
+    const c=j.customers||{};
+    $('customer-first-name').value=c.first_name||'';$('customer-last-name').value=c.last_name||'';$('customer-email').value=c.email||'';$('customer-phone').value=c.phone||'';$('job-service').value=j.service_id||'';$('job-address').value=j.work_address||'';$('job-description').value=j.work_description||'';$('job-internal-notes').value='';
+
+    const linkedRequest=(data.source_requests||[]).find(r=>r.id===j.source_service_request_id||r.job_id===j.id)||null;
+    if(linkedRequest){
+      sourceRequest=linkedRequest;
+      $('job-source-request-id').value=linkedRequest.id||'';
+      $('job-source-request-panel').hidden=false;
+      $('job-source-request-reference').textContent=linkedRequest.reference||'Service Request';
+      $('job-source-request-preference').textContent=[linkedRequest.preferred_date||'Flexible date',linkedRequest.preferred_start_time?.slice(0,5)||'Flexible time',linkedRequest.scheduling_flexibility].filter(Boolean).join(' · ');
+    }
+
     const failed=(data.reassignment_assignments||[]).filter(a=>a.job_id===j.id&&['DECLINED','CANCELLED'].includes(a.status)).sort((a,b)=>new Date(b.responded_at||b.assigned_at||0)-new Date(a.responded_at||a.assigned_at||0))[0]||null;
     reassignmentTargetAssignment=failed;
     const allBilling=billingForJob(j.id),targetBilling=failed?allBilling.filter(x=>x.assignment_id===failed.id||(!x.assignment_id&&x.provider_id===failed.provider_id)):allBilling;
     const sourceBilling=(targetBilling.length?targetBilling:allBilling).map(x=>({...x}));
     const preferred=failed?.provider_id||sourceBilling.find(x=>x.provider_id)?.provider_id||'';
-    // Reassignment starts from the Provider's current catalog compensation so an old frozen
-    // Job snapshot never silently overwrites a newer Provider profile rate. Quantity and
-    // PLEASE Customer Rate remain the Job values and can be corrected by Administration.
-    billingItems=sourceBilling.map(x=>{const r=providerRates(preferred).find(z=>z.id===x.provider_service_rate_id);return r?{...x,provider_compensation_method:r.provider_compensation_method,provider_compensation_value:r.provider_compensation}:x;});
-    if(failed?.scheduled_start&&failed?.scheduled_end){const st=localParts(failed.scheduled_start),en=localParts(failed.scheduled_end);$('job-date').value=st.date;$('job-start').value=st.time;$('job-end').value=en.time;$('job-message').value=failed.assignment_message||'';}
-    setExistingMode(true);populateJobProviders(j.service_id||'',preferred);renderBillingPicker();renderBillingItems();openDrawer();updateAvailabilityNote();
-    showAlert(`Editing ${j.reference} before reassignment. Provider, schedule, quantity, PLEASE Customer Rate and Provider Rate can be corrected here. Historical completed/confirmed team members are not changed.`,'success');
+    let date=ymd(new Date()),start='09:00',end='11:00';
+    if(failed?.scheduled_start&&failed?.scheduled_end){const st=localParts(failed.scheduled_start),en=localParts(failed.scheduled_end);date=st.date;start=st.time;end=en.time;}
+    const editableBilling=sourceBilling.map(x=>{const r=providerRates(preferred).find(z=>z.id===x.provider_service_rate_id);return {...x,customer_unit_rate:Number(x.customer_unit_rate??x.unit_rate??0),provider_compensation_method:r?.provider_compensation_method||x.provider_compensation_method,provider_compensation_value:r?.provider_compensation??x.provider_compensation_value};});
+    teamAssignments=[{provider_id:preferred,date,start,end,assignment_message:failed?.assignment_message||'',billing_items:editableBilling,is_primary:failed?.is_primary??true,sequence_no:Number(failed?.sequence_no)||1,replacement:true}];
+    $('job-message').value=failed?.assignment_message||'';
+    setExistingMode(true);
+    renderTeam();
+    openDrawer();
+    showAlert(`Editing ${j.reference} before reassignment. The same Provider/Billing card used for a new Job is used here, with the rejected assignment prefilled for correction.`,'success');
   }
 
   function updateAvailabilityNote(){
@@ -411,12 +433,13 @@
       }catch(err){showAlert(err.message||'Could not create the multi-provider Job.');}
       finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}return;
     }
-    const providerId=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value;
+    const replacement=teamAssignments[0]||teamDefault();
+    const providerId=replacement.provider_id,date=replacement.date,start=replacement.start,end=replacement.end;
     if(!providerId||!date||!start||!end)return showAlert('Provider, date, start and end are required.');
     if(!['00','15','30','45'].includes(start.slice(3,5))||!['00','15','30','45'].includes(end.slice(3,5)))return showAlert('Provider schedules must use 15-minute increments.');
-    if(!billingItems.length)return showAlert('Add at least one billing item before reassigning this Job.');
-    const reassignment=[{provider_id:providerId,billing_items:billingItems}];if(!confirmFinancialIntegrity(reassignment))return;const financialIssues=financialIntegrityIssues(reassignment);
-    const payload={job_id:existing,replace_assignment_id:reassignmentTargetAssignment?.id||null,provider_id:providerId,service_id:serviceId,scheduled_start:localToIso(date,start),scheduled_end:localToIso(date,end),assignment_message:$('job-message').value.trim(),allow_nonpositive_margin:financialIssues.length>0,billing_items:billingItems.map(x=>({provider_service_rate_id:x.provider_service_rate_id,quantity:Number(x.quantity),customer_unit_rate:Number(x.customer_unit_rate??x.unit_rate),provider_compensation_method:x.provider_compensation_method,provider_compensation_value:x.provider_compensation_value}))};
+    if(!replacement.billing_items?.length)return showAlert('Add at least one billing item before reassigning this Job.');
+    const reassignment=[replacement];if(!confirmFinancialIntegrity(reassignment))return;const financialIssues=financialIntegrityIssues(reassignment);
+    const payload={job_id:existing,replace_assignment_id:reassignmentTargetAssignment?.id||null,provider_id:providerId,service_id:serviceId,scheduled_start:localToIso(date,start),scheduled_end:localToIso(date,end),assignment_message:replacement.assignment_message||$('job-message').value.trim(),allow_nonpositive_margin:financialIssues.length>0,billing_items:replacement.billing_items.map(x=>({provider_service_rate_id:x.provider_service_rate_id,quantity:Number(x.quantity),customer_unit_rate:Number(x.customer_unit_rate??x.unit_rate),provider_compensation_method:x.provider_compensation_method,provider_compensation_value:x.provider_compensation_value}))};
     submitBtn.disabled=true;submitBtn.textContent='SAVING & REASSIGNING…';
     try{
       const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'REASSIGN_WITH_BILLING',payload})});
@@ -450,7 +473,7 @@
     on('job-provider','change',()=>{updateAvailabilityNote();const pid=$('job-provider').value;if(billingItems.some(x=>!providerRates(pid).some(r=>r.id===x.provider_service_rate_id)))billingItems=[];renderBillingPicker();});
     on('job-date','change',updateAvailabilityNote);on('job-start','change',updateAvailabilityNote);on('job-end','change',updateAvailabilityNote);
     on('job-add-billing-item','click',addBillingItem);
-    on('job-add-provider','click',()=>{const base=teamAssignments[0]||teamDefault();teamAssignments.push(teamDefault(base.date,base.start,base.end));renderTeam();});
+    on('job-add-provider','click',()=>{if(reassignmentMode)return;const base=teamAssignments[0]||teamDefault();teamAssignments.push(teamDefault(base.date,base.start,base.end));renderTeam();});
     on('job-drawer-close','click',closeDrawer);backdrop?.addEventListener('click',closeDrawer);form?.addEventListener('submit',submitJob);
     on('assignment-modal-close','click',()=>{if($('assignment-modal'))$('assignment-modal').hidden=true;});
     $('assignment-modal')?.addEventListener('click',e=>{if(e.target===$('assignment-modal'))$('assignment-modal').hidden=true;});

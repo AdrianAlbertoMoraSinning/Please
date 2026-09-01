@@ -33,26 +33,28 @@ exports.handler=async event=>{
       optional('availability',()=>lib.sbJson('/rest/v1/provider_availability?select=id,provider_id,weekday,start_time,end_time,active&active=eq.true&order=provider_id.asc,weekday.asc,start_time.asc'),warnings),
       optional('availability-exceptions',()=>lib.sbJson(`/rest/v1/provider_availability_exceptions?select=id,provider_id,exception_date,start_time,end_time,exception_type,reason&exception_date=gte.${fromEnc}&exception_date=lte.${toEnc}&order=exception_date.asc,start_time.asc`),warnings),
       optional('assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=${ASSIGN_SELECT}&scheduled_start=gte.${startEnc}&scheduled_start=lt.${endEnc}&status=in.(PENDING,CONFIRMED)&order=scheduled_start.asc`),warnings),
-      optional('needs-assignment',()=>lib.sbJson('/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,estimated_duration_minutes,status,customer_id,created_at,customers(first_name,last_name,phone,email)&status=eq.NEEDS_ASSIGNMENT&order=created_at.asc'),warnings),
+      optional('needs-assignment',()=>lib.sbJson('/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,estimated_duration_minutes,status,customer_id,source_service_request_id,created_at,customers(first_name,last_name,phone,email)&status=eq.NEEDS_ASSIGNMENT&order=created_at.asc'),warnings),
       optional('provider-rates',()=>activeProviderRates(),warnings),
       optional('schedule-changes',()=>lib.sbJson('/rest/v1/assignment_schedule_change_requests?select=id,assignment_id,job_id,provider_id,current_start,current_end,proposed_start,proposed_end,provider_reason,status,admin_note,created_at,updated_at&status=eq.PENDING&order=created_at.asc'),warnings)
     ]);
 
     const have=new Set((assignments||[]).map(x=>x.id));
     const missing=[...new Set((scheduleChanges||[]).map(x=>x.assignment_id).filter(id=>id&&!have.has(id)))];
-    let extraPromise=Promise.resolve([]),billingPromise=Promise.resolve([]);
+    let extraPromise=Promise.resolve([]),billingPromise=Promise.resolve([]),sourceRequestsPromise=Promise.resolve([]);
     if(missing.length){const ids=missing.map(encodeURIComponent).join(',');extraPromise=optional('schedule-change-assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=${ASSIGN_SELECT}&id=in.(${ids})`),warnings);}
     const jobIds=[...new Set([...(assignments||[]).map(a=>a.job_id),...(needsAssignment||[]).map(j=>j.id)].filter(Boolean))];
     let reassignmentPromise=Promise.resolve([]);
+    const sourceRequestIds=[...new Set((needsAssignment||[]).map(j=>j.source_service_request_id).filter(Boolean))];
+    if(sourceRequestIds.length){const sourceList=sourceRequestIds.map(x=>encodeURIComponent(x)).join(',');sourceRequestsPromise=optional('source-requests',()=>lib.sbJson(`/rest/v1/service_requests?select=id,reference,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id&id=in.(${sourceList})`),warnings);}
     if(jobIds.length){
       const list=jobIds.map(x=>encodeURIComponent(x)).join(',');
       billingPromise=optional('job-billing',()=>lib.sbJson(`/rest/v1/job_billing_items?select=id,job_id,assignment_id,provider_id,provider_service_rate_id,service_id,service_name,description,quantity,unit,customer_unit_rate,customer_line_total,provider_compensation_method,provider_compensation_value,provider_unit_rate,provider_line_total,gross_profit,unit_rate,line_total,sort_order&job_id=in.(${list})&order=sort_order.asc,id.asc`),warnings);
       const needsIds=(needsAssignment||[]).map(j=>j.id).filter(Boolean);
       if(needsIds.length){const needsList=needsIds.map(x=>encodeURIComponent(x)).join(',');reassignmentPromise=optional('reassignment-assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,sequence_no,is_primary,scheduled_start,scheduled_end,status,assignment_message,assigned_at,responded_at&job_id=in.(${needsList})&status=in.(DECLINED,CANCELLED)&order=assigned_at.desc`),warnings);}
     }
-    const [extra,billing,reassignmentAssignments]=await Promise.all([extraPromise,billingPromise,reassignmentPromise]);
+    const [extra,billing,reassignmentAssignments,sourceRequests]=await Promise.all([extraPromise,billingPromise,reassignmentPromise,sourceRequestsPromise]);
     if(extra?.length)assignments=[...(assignments||[]),...extra];
-    return lib.json(200,{from,to,providers:providers||[],provider_services:providerServices||[],services:services||[],availability:availability||[],exceptions:exceptions||[],assignments:assignments||[],needs_assignment:needsAssignment||[],reassignment_assignments:reassignmentAssignments||[],provider_rates:providerRates||[],job_billing_items:billing||[],schedule_changes:scheduleChanges||[],warnings,duration_ms:Date.now()-started});
+    return lib.json(200,{from,to,providers:providers||[],provider_services:providerServices||[],services:services||[],availability:availability||[],exceptions:exceptions||[],assignments:assignments||[],needs_assignment:needsAssignment||[],reassignment_assignments:reassignmentAssignments||[],source_requests:sourceRequests||[],provider_rates:providerRates||[],job_billing_items:billing||[],schedule_changes:scheduleChanges||[],warnings,duration_ms:Date.now()-started});
   }catch(e){
     console.error('admin-calendar-data',e);
     const status=e.status||500;
