@@ -122,6 +122,67 @@ exports.handler=async event=>{
     if(!lib.sameOrigin(event))return lib.json(403,{error:'Forbidden'});
     const auth=await lib.requireAdmin(event);let body={};try{body=JSON.parse(event.body||'{}');}catch{return lib.json(400,{error:'Invalid JSON'});}const action=String(body.action||'').trim().toUpperCase();if(!action)return lib.json(400,{error:'Action is required'});
     let sourceRequest=null;
+    if(action==='REASSIGN_WITH_BILLING'){
+      const payload=body.payload||{},jobId=String(payload.job_id||'').trim(),providerId=String(payload.provider_id||'').trim();
+      if(!/^[0-9a-f-]{36}$/i.test(jobId))return lib.json(400,{error:'Valid Job ID is required.'});
+      if(!/^[0-9a-f-]{36}$/i.test(providerId))return lib.json(400,{error:'Select a Provider.'});
+      const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,status,service_id,service_name,required_provider_count&id=eq.${encodeURIComponent(jobId)}&limit=1`),job=jobs?.[0];
+      if(!job)return lib.json(404,{error:'Job not found.'});
+      if(job.status!=='NEEDS_ASSIGNMENT')return lib.json(409,{error:`${job.reference} is no longer waiting for reassignment.`});
+      payload.service_id=job.service_id;
+
+      let replaceAssignment=null;
+      const requestedReplace=String(payload.replace_assignment_id||'').trim();
+      if(requestedReplace&&/^[0-9a-f-]{36}$/i.test(requestedReplace)){
+        replaceAssignment=(await lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,sequence_no,is_primary,status,scheduled_start,scheduled_end&id=eq.${encodeURIComponent(requestedReplace)}&job_id=eq.${encodeURIComponent(jobId)}&status=in.(DECLINED,CANCELLED)&limit=1`))?.[0]||null;
+      }
+      if(!replaceAssignment){
+        replaceAssignment=(await lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,sequence_no,is_primary,status,scheduled_start,scheduled_end&job_id=eq.${encodeURIComponent(jobId)}&status=in.(DECLINED,CANCELLED)&order=assigned_at.desc&limit=1`))?.[0]||null;
+      }
+      if(!replaceAssignment)return lib.json(409,{error:'No declined or cancelled Provider assignment was found to replace. Refresh the Master Calendar and try again.'});
+
+      const [oldAssignedBilling,oldLegacyBilling]=await Promise.all([
+        lib.sbJson(`/rest/v1/job_billing_items?select=id,assignment_id,provider_id&job_id=eq.${encodeURIComponent(jobId)}&assignment_id=eq.${encodeURIComponent(replaceAssignment.id)}`),
+        lib.sbJson(`/rest/v1/job_billing_items?select=id,assignment_id,provider_id&job_id=eq.${encodeURIComponent(jobId)}&assignment_id=is.null&provider_id=eq.${encodeURIComponent(replaceAssignment.provider_id)}`)
+      ]);
+      const oldBilling=[...(oldAssignedBilling||[]),...(oldLegacyBilling||[])].filter((x,i,a)=>a.findIndex(y=>y.id===x.id)===i);
+      const validated=await validateBillingItems(providerId,payload.billing_items,Boolean(payload.allow_nonpositive_margin));
+      const appliedRates=await applyProviderRateChanges(validated.rateChanges);
+      let value=null,newBilling=[];
+      try{
+        const rpcPayload={job_id:jobId,provider_id:providerId,service_id:job.service_id,scheduled_start:payload.scheduled_start,scheduled_end:payload.scheduled_end,assignment_message:payload.assignment_message||''};
+        const result=await lib.sbJson('/rest/v1/rpc/please_portal_job_action',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_action:'ASSIGN_EXISTING',p_payload:rpcPayload})});
+        value=Array.isArray(result)?result[0]:result;
+        if(!value?.assignment_id)throw Object.assign(new Error('The replacement assignment was not created.'),{status:500});
+
+        // Preserve the replaced team member's position/primary flag so Customer Tracking
+        // keeps the intended service-team order after reassignment.
+        await lib.sbJson(`/rest/v1/job_assignments?id=eq.${encodeURIComponent(value.assignment_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({sequence_no:Number(replaceAssignment.sequence_no)||1,is_primary:Boolean(replaceAssignment.is_primary),updated_at:new Date().toISOString()})});
+
+        const rows=validated.rows.map(x=>({...x,job_id:jobId,assignment_id:value.assignment_id,provider_id:providerId}));
+        newBilling=await lib.sbJson('/rest/v1/job_billing_items',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(rows)})||[];
+        if(oldBilling?.length){
+          const ids=oldBilling.map(x=>x.id).filter(Boolean).map(encodeURIComponent).join(',');
+          if(ids)await lib.sbJson(`/rest/v1/job_billing_items?id=in.(${ids})`,{method:'DELETE',headers:{Prefer:'return=minimal'}});
+        }
+      }catch(reassignError){
+        if(newBilling?.length){try{const ids=newBilling.map(x=>x.id).filter(Boolean).map(encodeURIComponent).join(',');if(ids)await lib.sbJson(`/rest/v1/job_billing_items?id=in.(${ids})`,{method:'DELETE',headers:{Prefer:'return=minimal'}});}catch(e){console.error('admin-job-action:reassign-new-billing-rollback',e);}}
+        if(value?.assignment_id){try{await lib.sbJson('/rest/v1/rpc/please_portal_job_action',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_action:'CANCEL_ASSIGNMENT',p_payload:{assignment_id:value.assignment_id,note:'Automatic rollback: billing correction could not be saved'}})});}catch(e){console.error('admin-job-action:reassign-assignment-rollback',e);}}
+        if(appliedRates.length)await rollbackProviderRateChanges(appliedRates);
+        throw reassignError;
+      }
+
+      const allBilling=await lib.sbJson(`/rest/v1/job_billing_items?select=customer_line_total&job_id=eq.${encodeURIComponent(jobId)}`);
+      const subtotal=money((allBilling||[]).reduce((n,x)=>n+Number(x.customer_line_total||0),0));
+      const startMs=new Date(payload.scheduled_start).getTime(),endMs=new Date(payload.scheduled_end).getTime();
+      const durationMinutes=Number.isFinite(startMs)&&Number.isFinite(endMs)&&endMs>startMs?Math.max(1,Math.round((endMs-startMs)/60000)):null;
+      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({quoted_subtotal:subtotal,...(durationMinutes?{estimated_duration_minutes:durationMinutes}:{}),updated_at:new Date().toISOString()})});
+      lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:jobId,old_status:'NEEDS_ASSIGNMENT',new_status:'PENDING_PROVIDER',changed_by_admin_portal_user:auth.user.id,note:`Billing/schedule corrected before reassignment. Replaced ${replaceAssignment.status} assignment ${replaceAssignment.id}.`})}).catch(e=>console.warn('admin-job-action:reassign-history',e?.message||e));
+      if(appliedRates.length)await recordProviderRateChanges(appliedRates,auth.user.id,job.reference);
+      const notices=await Promise.all([notifyAssignment(value.assignment_id,'NEW'),notifyCustomerJob(jobId,'SCHEDULED'),...(appliedRates.length?[notifyProviderRateChanges(appliedRates,job.reference)]:[])]);
+      return lib.json(200,{...value,job_reference:job.reference,billing_items_replaced:oldBilling?.length||0,billing_items_created:newBilling?.length||validated.rows.length,provider_rates_updated:appliedRates.length,notifications_sent:(notices.flat?.(2)||notices).filter(x=>x?.sent).length,replaced_assignment_id:replaceAssignment.id});
+    }
+
     if(action==='CREATE_MULTI_ASSIGN'){
       const payload=body.payload||{};sourceRequest=await sourceRequestFromPayload(payload);
       if(!Array.isArray(payload.assignments)||!payload.assignments.length)return lib.json(400,{error:'Add at least one provider assignment.'});

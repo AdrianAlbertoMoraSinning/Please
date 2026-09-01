@@ -108,3 +108,6 @@ Administration Service Request state changes (`START REVIEW`, `READY TO ASSIGN`,
 
 ## STEP 15.8.6.2 — Administration 502 runtime recovery
 This release bounds Supabase/Resend network waits, parallelizes Master Calendar and multi-provider reads, gives the assignment drawer its own lightweight catalog endpoint, and separates successful Job creation from a later calendar-refresh failure. No SQL migration is required. See `STEP15_8_6_2_GATEWAY_TIMEOUT_RUNTIME_RECOVERY.md`.
+
+## STEP 15.8.6.3 — Editable Billing on Reassignment
+Jobs in NEEDS_ASSIGNMENT can now be corrected and reassigned without creating a duplicate Job. Administration can edit Provider, schedule, quantity, PLEASE Customer Rate and Provider Rate; the corrected billing snapshot replaces only the declined/cancelled assignment rows, while Provider Rate overrides continue to persist to that Provider Rate Item with audit history. No SQL migration is required.

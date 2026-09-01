@@ -13,10 +13,10 @@ ok(notify.includes('PLEASE_EMAIL_FETCH_TIMEOUT_MS')&&notify.includes('AbortContr
 ok(calData.includes('all independent calendar reads execute in one parallel wave')&&calData.includes("optional('providers'")&&calData.includes("optional('provider-rates'"),'Master Calendar parallelizes and isolates all independent catalog/operational reads');
 ok(fs.existsSync(path.join(root,'netlify/functions/admin-assignment-form-data.js')),'Assignment drawer has an independent lightweight catalog endpoint');
 ok(calJs.includes("admin-assignment-form-data")&&calJs.includes('ensureAssignmentCatalog(true)'),'Service Request assignment retries its catalog independently of calendar background data');
-ok(calJs.includes('Calendar refresh failed after the Job was already created')&&calJs.includes('assignment was sent, but the calendar refresh failed'),'Post-create refresh failure can no longer masquerade as Job creation failure');
+ok(calJs.includes('Calendar refresh failed after the Job was already created')&&(calJs.includes('assignment was sent, but the calendar refresh failed')||calJs.includes('Calendar refresh failed after the reassignment was already saved')),'Post-create/reassignment refresh failure can no longer masquerade as transaction failure');
 ok(calJs.includes('You can still continue assigning the selected Service Request'),'A calendar background error no longer blocks the Service Request assignment drawer');
 ok(reqAction.includes('Promise.all([')&&reqAction.includes('recordHistory({requestId:current.id')&&reqAction.includes('notify.send({to:out.email'),'Service Request history and email run in parallel after the state change');
 ok(jobAction.includes('const validations=await Promise.all')&&jobAction.includes('const results=await Promise.all([...postTasks,...noticeTasks])'),'Multi-provider validation and post-create work are parallelized to stay within function runtime');
-ok(calHtml.includes('js/admin-calendar.js?v=15.8.6.2'),'Master Calendar cache-busts the runtime recovery JavaScript');
+ok(/js\/admin-calendar\.js\?v=15\.8\.6\.[2-9]/.test(calHtml),'Master Calendar cache-busts STEP 15.8.6.2 or newer runtime recovery JavaScript');
 ok(!fs.existsSync(path.join(root,'supabase/STEP15_8_6_2.sql')),'STEP 15.8.6.2 requires no database migration');
 if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.8.6.2 gateway timeout recovery audit completed successfully.');

@@ -164,7 +164,7 @@
             <div id="provider-availability-note" class="calendar-availability-note"></div>
           </section>
           <section class="admin-detail-section"><h3>Schedule</h3><div class="calendar-form-grid three"><label>Date *<input id="job-date" type="date"></label><label>Start *<input id="job-start" type="time"></label><label>End *<input id="job-end" type="time"></label></div><small>Times are Calgary local time.</small></section>
-          <section class="admin-detail-section" id="billing-section"><h3>Customer Billing</h3><div class="calendar-billing-picker"><label>Provider Service Rate<select id="job-billing-rate-picker"><option value="">Select provider first</option></select></label><button id="job-add-billing-item" type="button" class="admin-outline-button">ADD BILLING ITEM</button></div><div id="job-billing-empty" class="admin-muted">No billing items added.</div><div id="job-billing-items" class="calendar-billing-items"></div><div class="calendar-billing-totals"><div><span>Subtotal</span><strong id="job-billing-subtotal">$0.00</strong></div><div><span>GST 5%</span><strong id="job-billing-gst">$0.00</strong></div><div class="grand"><span>Estimated Customer Total</span><strong id="job-billing-total">$0.00</strong></div></div></section>
+          <section class="admin-detail-section" id="billing-section"><h3>Customer & Provider Billing</h3><p class="admin-muted">For a Job returned to Needs Assignment, Administration can correct quantity, PLEASE Customer Rate and Provider Rate before sending the replacement assignment. A changed Provider Rate is saved only to the selected Provider Rate Item.</p><div class="calendar-billing-picker"><label>Provider Service Rate<select id="job-billing-rate-picker"><option value="">Select provider first</option></select></label><button id="job-add-billing-item" type="button" class="admin-outline-button">ADD BILLING ITEM</button></div><div id="job-billing-empty" class="admin-muted">No billing items added.</div><div id="job-billing-items" class="calendar-billing-items"></div><div class="calendar-billing-totals"><div><span>Customer Quote Subtotal</span><strong id="job-billing-subtotal">$0.00</strong></div><div><span>Total Provider Cost</span><strong id="job-billing-provider-cost">$0.00</strong></div><div><span>PLEASE Gross Profit</span><strong id="job-billing-profit">$0.00</strong></div><div><span>GST 5%</span><strong id="job-billing-gst">$0.00</strong></div><div class="grand"><span>Estimated Customer Total</span><strong id="job-billing-total">$0.00</strong></div></div></section>
         </div>
 
         <section class="admin-detail-section">
@@ -187,6 +187,6 @@
       </div>
     </div>
   </div>
-  <script src="js/admin-calendar.js?v=15.8.6.2"></script>
+  <script src="js/admin-calendar.js?v=15.8.6.3"></script>
 </body>
 </html>

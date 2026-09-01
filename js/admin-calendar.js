@@ -6,10 +6,11 @@
   const drawer=document.getElementById('job-drawer'), backdrop=document.getElementById('calendar-backdrop');
   const form=document.getElementById('job-form'), submitBtn=document.getElementById('job-submit');
   const unassignedBody=document.getElementById('unassigned-body'), unassignedEmpty=document.getElementById('unassigned-empty');
-  let data={providers:[],provider_services:[],services:[],availability:[],exceptions:[],assignments:[],needs_assignment:[],provider_rates:[],job_billing_items:[],schedule_changes:[]};
+  let data={providers:[],provider_services:[],services:[],availability:[],exceptions:[],assignments:[],needs_assignment:[],reassignment_assignments:[],provider_rates:[],job_billing_items:[],schedule_changes:[]};
   let billingItems=[];
   let teamAssignments=[];
   let sourceRequest=null;
+  let reassignmentTargetAssignment=null;
   let assignmentCatalogLoaded=false;
   let weekStart=startOfWeek(new Date());
   let weekDates=[];
@@ -65,7 +66,16 @@
 
   function providerRates(pid){return (data.provider_rates||[]).filter(r=>r.provider_id===pid&&r.active);}
   function billingForJob(jobId){return (data.job_billing_items||[]).filter(x=>x.job_id===jobId).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));}
-  function providerCostPreview(r,customerRate){const method=String(r?.provider_compensation_method||'NONE').toUpperCase(),v=r?.provider_compensation==null?null:Number(r.provider_compensation);if(method==='FIXED_CAD'&&Number.isFinite(v))return v;if(method==='PERCENT'&&Number.isFinite(v))return Number(customerRate||0)*v/100;return null;}
+  function providerCostPreview(r,customerRate,item=null){
+    const method=String(item?.provider_compensation_method||r?.provider_compensation_method||'NONE').toUpperCase();
+    const raw=item?.provider_compensation_value??r?.provider_compensation;
+    const v=raw==null?null:Number(raw);
+    if(method==='FIXED_CAD'&&Number.isFinite(v))return v;
+    if(method==='PERCENT'&&Number.isFinite(v))return Number(customerRate||0)*v/100;
+    return null;
+  }
+  function providerRateEditValue(r,item){const raw=item?.provider_compensation_value??r?.provider_compensation;return raw==null?'':Number(raw);}
+  function providerRateEditLabel(r,item){const method=String(item?.provider_compensation_method||r?.provider_compensation_method||'NONE').toUpperCase();return method==='PERCENT'?'Provider %':'Provider Rate';}
   function rateLabel(r){const sn=data.services.find(s=>s.id===r.service_id)?.name||'Service',method=String(r.provider_compensation_method||'NONE').toUpperCase(),v=r.provider_compensation==null?null:Number(r.provider_compensation),unit=String(r.billing_unit||'service').replace('_',' ');let cost='Provider rate not set';if(method==='FIXED_CAD'&&Number.isFinite(v))cost=`Provider ${money(v)} / ${unit}`;else if(method==='PERCENT'&&Number.isFinite(v))cost=`Provider ${v.toFixed(2).replace(/\.00$/,'')}% of customer price`;return `${sn} — ${r.rate_name} — ${cost}`;}
   function defaultQtyForRate(r){if(r?.billing_unit!=='hour')return 1;const start=$('job-start')?.value,end=$('job-end')?.value;if(!start||!end)return 1;const [sh,sm]=start.split(':').map(Number),[eh,em]=end.split(':').map(Number);return Math.max(.25,((eh*60+em)-(sh*60+sm))/60);}
   function renderBillingPicker(){const pid=$('job-provider')?.value,picker=$('job-billing-rate-picker');if(!picker)return;const rates=providerRates(pid);picker.innerHTML='<option value="">Select provider rate item</option>'+rates.map(r=>`<option value="${r.id}">${esc(rateLabel(r))}</option>`).join('');if(!pid)picker.innerHTML='<option value="">Select provider first</option>';else if(!rates.length)picker.innerHTML='<option value="">Provider has no active Service Rates</option>';renderBillingItems();}
@@ -73,7 +83,7 @@
     const x=billingItems[i]; if(!x||!row)return;
     const qty=Math.max(0,Number(x.quantity)||0),customerRate=Math.max(0,Number(x.customer_unit_rate??x.unit_rate)||0);
     const r=providerRates($('job-provider')?.value).find(r=>r.id===x.provider_service_rate_id);
-    const providerRate=x.provider_unit_rate??providerCostPreview(r,customerRate);
+    const providerRate=providerCostPreview(r,customerRate,x);
     const customerTotal=qty*customerRate,providerTotal=providerRate==null?null:qty*providerRate,profit=providerTotal==null?null:customerTotal-providerTotal;
     const values=row.querySelectorAll('.billing-financial-snapshot b');
     if(values[0])values[0].textContent=money(customerTotal);
@@ -81,42 +91,49 @@
     if(values[2])values[2].textContent=profit==null?'—':money(profit);
   }
   function renderBillingItems(){
-    const box=$('job-billing-items'),empty=$('job-billing-empty'),readonly=!!$('job-existing-id')?.value;if(!box)return;
+    const box=$('job-billing-items'),empty=$('job-billing-empty');if(!box)return;
     empty.hidden=billingItems.length>0;
+    const selectedProvider=$('job-provider')?.value||'';
     box.innerHTML=billingItems.map((x,i)=>{
       const qty=Number(x.quantity)||0,customerRate=Number(x.customer_unit_rate??x.unit_rate)||0;
-      return `<div class="calendar-billing-row financial" data-index="${i}"><div class="calendar-billing-name"><strong>${esc(x.service_name||'Service')} · ${esc(x.description)}</strong><small>${esc(String(x.unit||'service').replace('_',' '))}</small></div><label>Qty<input class="billing-qty" data-index="${i}" type="number" inputmode="decimal" min="0.01" step="0.01" value="${qty.toFixed(2)}" ${readonly?'disabled':''}></label><label>PLEASE Customer Rate<input class="billing-rate" data-index="${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${customerRate.toFixed(2)}" ${readonly?'disabled':''}></label><div class="billing-financial-snapshot"><span>Customer <b>${money(0)}</b></span><span>Provider <b>—</b></span><span>PLEASE Profit <b>—</b></span></div>${readonly?'':`<button type="button" class="admin-danger-button billing-remove" data-index="${i}">×</button>`}</div>`;
+      const r=providerRates(selectedProvider).find(z=>z.id===x.provider_service_rate_id);
+      const method=String(x.provider_compensation_method||r?.provider_compensation_method||'NONE').toUpperCase();
+      const pv=providerRateEditValue(r,x);
+      return `<div class="calendar-billing-row financial provider-rate-edit-row" data-index="${i}"><div class="calendar-billing-name"><strong>${esc(x.service_name||'Service')} · ${esc(x.description||r?.rate_name||'Rate')}</strong><small>${esc(String(x.unit||r?.billing_unit||'service').replace('_',' '))}</small></div><label>Qty<input class="billing-qty" data-index="${i}" type="number" inputmode="decimal" min="${String(x.unit||r?.billing_unit||'').toLowerCase()==='hour'?'0.25':'0.01'}" step="${String(x.unit||r?.billing_unit||'').toLowerCase()==='hour'?'0.25':'0.01'}" value="${qty.toFixed(2)}"></label><label>PLEASE Customer Rate<input class="billing-rate" data-index="${i}" type="number" inputmode="decimal" min="0" step="0.01" value="${customerRate.toFixed(2)}"></label><label class="provider-rate-edit">${esc(providerRateEditLabel(r,x))}<input class="billing-provider-rate" data-index="${i}" type="number" inputmode="decimal" min="0" ${method==='PERCENT'?'max="100"':''} step="0.01" value="${pv===''?'':Number(pv).toFixed(2)}"><small>${method==='PERCENT'?'Percent of customer rate':'CAD per '+esc(String(x.unit||r?.billing_unit||'service').replace('_',' '))} · saved to this Provider</small></label><div class="billing-financial-snapshot"><span>Customer <b>${money(0)}</b></span><span>Provider <b>—</b></span><span>PLEASE Profit <b>—</b></span></div><button type="button" class="admin-danger-button billing-remove" data-index="${i}">×</button></div>`;
     }).join('');
     box.querySelectorAll('.calendar-billing-row').forEach((row,i)=>updateBillingRow(row,i));
-    box.querySelectorAll('.billing-qty,.billing-rate').forEach(el=>{
+    box.querySelectorAll('.billing-qty,.billing-rate,.billing-provider-rate').forEach(el=>{
       el.addEventListener('input',()=>{
-        const i=Number(el.dataset.index),raw=el.value;
-        // Do not rebuild the row while the user is typing. Re-rendering caused focus/caret loss
-        // and made direct decimal entry nearly impossible.
-        if(el.classList.contains('billing-qty')){
-          if(raw!=='')billingItems[i].quantity=Math.max(0,Number(raw)||0);
-        }else if(raw!==''){
-          billingItems[i].customer_unit_rate=Math.max(0,Number(raw)||0);
-          billingItems[i].unit_rate=billingItems[i].customer_unit_rate;
-        }
+        const i=Number(el.dataset.index),raw=el.value,x=billingItems[i];if(!x)return;
+        if(el.classList.contains('billing-qty')){if(raw!=='')x.quantity=Math.max(0,Number(raw)||0);}
+        else if(el.classList.contains('billing-rate')){if(raw!==''){x.customer_unit_rate=Math.max(0,Number(raw)||0);x.unit_rate=x.customer_unit_rate;}}
+        else if(raw!==''){x.provider_compensation_value=Math.max(0,Number(raw)||0);}
         updateBillingRow(el.closest('.calendar-billing-row'),i);renderBillingTotals();
       });
       el.addEventListener('focus',()=>{requestAnimationFrame(()=>el.select());});
       el.addEventListener('blur',()=>{
-        const i=Number(el.dataset.index);
-        if(el.classList.contains('billing-qty')){
-          const v=Math.max(.01,Number(el.value)||.01);billingItems[i].quantity=v;el.value=v.toFixed(2);
-        }else{
-          const v=Math.max(0,Number(el.value)||0);billingItems[i].customer_unit_rate=v;billingItems[i].unit_rate=v;el.value=v.toFixed(2);
-        }
+        const i=Number(el.dataset.index),x=billingItems[i];if(!x)return;
+        if(el.classList.contains('billing-qty')){const min=String(x.unit||'').toLowerCase()==='hour'?.25:.01,v=Math.max(min,Number(el.value)||min);x.quantity=v;el.value=v.toFixed(2);}
+        else if(el.classList.contains('billing-rate')){const v=Math.max(0,Number(el.value)||0);x.customer_unit_rate=v;x.unit_rate=v;el.value=v.toFixed(2);}
+        else {const r=providerRates($('job-provider')?.value).find(z=>z.id===x.provider_service_rate_id),method=String(x.provider_compensation_method||r?.provider_compensation_method||'NONE').toUpperCase();let v=Math.max(0,Number(el.value)||0);if(method==='PERCENT')v=Math.min(100,v);x.provider_compensation_method=method;x.provider_compensation_value=v;el.value=v.toFixed(2);}
         updateBillingRow(el.closest('.calendar-billing-row'),i);renderBillingTotals();
       });
     });
     box.querySelectorAll('.billing-remove').forEach(b=>b.onclick=()=>{billingItems.splice(Number(b.dataset.index),1);renderBillingItems();});
     renderBillingTotals();
   }
-  function renderBillingTotals(){const subtotal=billingItems.reduce((n,x)=>n+(Number(x.quantity)||0)*Number((x.customer_unit_rate??x.unit_rate)??0),0),gst=subtotal*.05;if($('job-billing-subtotal'))$('job-billing-subtotal').textContent=money(subtotal);if($('job-billing-gst'))$('job-billing-gst').textContent=money(gst);if($('job-billing-total'))$('job-billing-total').textContent=money(subtotal+gst);}
-  function addBillingItem(){const id=$('job-billing-rate-picker')?.value,r=providerRates($('job-provider')?.value).find(x=>x.id===id);if(!r)return showAlert('Select an active Provider Service Rate first.');const method=String(r.provider_compensation_method||'NONE').toUpperCase();if(method==='NONE'||r.provider_compensation==null)return showAlert('This Provider Service Rate does not have a Provider Charge configured.');const defaultCustomer=Number(r.customer_rate)>0?Number(r.customer_rate):0;billingItems.push({provider_service_rate_id:r.id,service_id:r.service_id,service_name:data.services.find(s=>s.id===r.service_id)?.name||'Service',description:r.rate_name,quantity:defaultQtyForRate(r),unit:r.billing_unit,customer_unit_rate:defaultCustomer,unit_rate:defaultCustomer});renderBillingItems();}
+  function renderBillingTotals(){
+    let subtotal=0,provider=0;
+    const pid=$('job-provider')?.value||'';
+    for(const x of billingItems){const q=Number(x.quantity)||0,cr=Number((x.customer_unit_rate??x.unit_rate)??0),r=providerRates(pid).find(z=>z.id===x.provider_service_rate_id),pr=providerCostPreview(r,cr,x);subtotal+=q*cr;if(pr!=null)provider+=q*pr;}
+    const gst=subtotal*.05;
+    if($('job-billing-subtotal'))$('job-billing-subtotal').textContent=money(subtotal);
+    if($('job-billing-provider-cost'))$('job-billing-provider-cost').textContent=money(provider);
+    if($('job-billing-profit'))$('job-billing-profit').textContent=money(subtotal-provider);
+    if($('job-billing-gst'))$('job-billing-gst').textContent=money(gst);
+    if($('job-billing-total'))$('job-billing-total').textContent=money(subtotal+gst);
+  }
+  function addBillingItem(){const id=$('job-billing-rate-picker')?.value,r=providerRates($('job-provider')?.value).find(x=>x.id===id);if(!r)return showAlert('Select an active Provider Service Rate first.');const method=String(r.provider_compensation_method||'NONE').toUpperCase();if(method==='NONE'||r.provider_compensation==null)return showAlert('This Provider Service Rate does not have a Provider Charge configured.');const defaultCustomer=Number(r.customer_rate)>0?Number(r.customer_rate):0;billingItems.push({provider_service_rate_id:r.id,service_id:r.service_id,service_name:data.services.find(s=>s.id===r.service_id)?.name||'Service',description:r.rate_name,quantity:defaultQtyForRate(r),unit:r.billing_unit,customer_unit_rate:defaultCustomer,unit_rate:defaultCustomer,provider_compensation_method:method,provider_compensation_value:Number(r.provider_compensation)});renderBillingItems();}
   function scheduleChangeFor(assignmentId){return (data.schedule_changes||[]).find(r=>r.assignment_id===assignmentId&&r.status==='PENDING');}
   function statusLabel(s){return ({PENDING:'Pending',CONFIRMED:'Confirmed',DECLINED:'Declined',CANCELLED:'Cancelled',COMPLETED:'Completed'})[s]||s;}
 
@@ -249,11 +266,13 @@
   }
   function setExistingMode(existing){
     ['customer-first-name','customer-last-name','customer-email','customer-phone','job-service','job-address','job-description','job-internal-notes'].forEach(id=>$(id).disabled=existing);
-    $('billing-section').classList.toggle('calendar-section-readonly',existing);
-    $('job-billing-rate-picker').disabled=existing;$('job-add-billing-item').disabled=existing;
+    // STEP 15.8.6.3: NEEDS_ASSIGNMENT is a controlled correction point. Customer/work
+    // identity stays read-only, while Provider, schedule and billing are intentionally editable.
+    $('billing-section').classList.remove('calendar-section-readonly');
+    $('job-billing-rate-picker').disabled=false;$('job-add-billing-item').disabled=false;
     $('customer-section').classList.toggle('calendar-section-readonly',existing);
   }
-  function resetForm(){form.reset();billingItems=[];teamAssignments=[teamDefault()];sourceRequest=null;$('job-existing-id').value='';$('job-source-request-id').value='';$('job-source-request-panel').hidden=true;$('job-drawer-title').textContent='Create & Assign Job';$('job-drawer-eyebrow').textContent='NEW SERVICE REQUEST';setExistingMode(false);setMultiMode(true);$('job-date').value=ymd(new Date());$('job-start').value='09:00';$('job-end').value='11:00';$('job-service').innerHTML='<option value="">Select service</option>'+data.services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');populateJobProviders('');renderBillingPicker();renderTeam();}
+  function resetForm(){form.reset();billingItems=[];teamAssignments=[teamDefault()];sourceRequest=null;reassignmentTargetAssignment=null;$('job-existing-id').value='';$('job-source-request-id').value='';$('job-source-request-panel').hidden=true;$('job-drawer-title').textContent='Create & Assign Job';$('job-drawer-eyebrow').textContent='NEW SERVICE REQUEST';setExistingMode(false);setMultiMode(true);$('job-date').value=ymd(new Date());$('job-start').value='09:00';$('job-end').value='11:00';$('job-service').innerHTML='<option value="">Select service</option>'+data.services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');populateJobProviders('');renderBillingPicker();renderTeam();}
   function openDrawer(){drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');backdrop.hidden=false;document.body.classList.add('admin-drawer-open');}
   function closeDrawer(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');backdrop.hidden=true;document.body.classList.remove('admin-drawer-open');}
   function openNewJob(prefill={}){resetForm();if(prefill.date){$('job-date').value=prefill.date;teamAssignments[0].date=prefill.date;}if(prefill.provider_id){teamAssignments[0].provider_id=prefill.provider_id;const ids=[...providerServiceIds(prefill.provider_id)];if(serviceFilter.value!=='ALL'&&ids.includes(serviceFilter.value))$('job-service').value=serviceFilter.value;else if(ids.length===1)$('job-service').value=ids[0];populateJobProviders($('job-service').value,prefill.provider_id);renderTeam();}openDrawer();updateAvailabilityNote();}
@@ -315,7 +334,22 @@
     openDrawer();
     updateAvailabilityNote();
   }
-  function openExistingJob(j){resetForm();setMultiMode(false);$('job-existing-id').value=j.id;$('job-drawer-title').textContent=`Assign ${j.reference}`;$('job-drawer-eyebrow').textContent='NEEDS ASSIGNMENT';const c=j.customers||{};$('customer-first-name').value=c.first_name||'';$('customer-last-name').value=c.last_name||'';$('customer-email').value=c.email||'';$('customer-phone').value=c.phone||'';$('job-service').value=j.service_id||'';$('job-address').value=j.work_address||'';$('job-description').value=j.work_description||'';$('job-internal-notes').value='';billingItems=billingForJob(j.id).map(x=>({...x}));setExistingMode(true);populateJobProviders(j.service_id||'');renderBillingPicker();openDrawer();updateAvailabilityNote();}
+  function openExistingJob(j){
+    resetForm();setMultiMode(false);$('job-existing-id').value=j.id;$('job-drawer-title').textContent=`Correct & Reassign ${j.reference}`;$('job-drawer-eyebrow').textContent='NEEDS ASSIGNMENT · EDITABLE BILLING';
+    const c=j.customers||{};$('customer-first-name').value=c.first_name||'';$('customer-last-name').value=c.last_name||'';$('customer-email').value=c.email||'';$('customer-phone').value=c.phone||'';$('job-service').value=j.service_id||'';$('job-address').value=j.work_address||'';$('job-description').value=j.work_description||'';$('job-internal-notes').value='';
+    const failed=(data.reassignment_assignments||[]).filter(a=>a.job_id===j.id&&['DECLINED','CANCELLED'].includes(a.status)).sort((a,b)=>new Date(b.responded_at||b.assigned_at||0)-new Date(a.responded_at||a.assigned_at||0))[0]||null;
+    reassignmentTargetAssignment=failed;
+    const allBilling=billingForJob(j.id),targetBilling=failed?allBilling.filter(x=>x.assignment_id===failed.id||(!x.assignment_id&&x.provider_id===failed.provider_id)):allBilling;
+    const sourceBilling=(targetBilling.length?targetBilling:allBilling).map(x=>({...x}));
+    const preferred=failed?.provider_id||sourceBilling.find(x=>x.provider_id)?.provider_id||'';
+    // Reassignment starts from the Provider's current catalog compensation so an old frozen
+    // Job snapshot never silently overwrites a newer Provider profile rate. Quantity and
+    // PLEASE Customer Rate remain the Job values and can be corrected by Administration.
+    billingItems=sourceBilling.map(x=>{const r=providerRates(preferred).find(z=>z.id===x.provider_service_rate_id);return r?{...x,provider_compensation_method:r.provider_compensation_method,provider_compensation_value:r.provider_compensation}:x;});
+    if(failed?.scheduled_start&&failed?.scheduled_end){const st=localParts(failed.scheduled_start),en=localParts(failed.scheduled_end);$('job-date').value=st.date;$('job-start').value=st.time;$('job-end').value=en.time;$('job-message').value=failed.assignment_message||'';}
+    setExistingMode(true);populateJobProviders(j.service_id||'',preferred);renderBillingPicker();renderBillingItems();openDrawer();updateAvailabilityNote();
+    showAlert(`Editing ${j.reference} before reassignment. Provider, schedule, quantity, PLEASE Customer Rate and Provider Rate can be corrected here. Historical completed/confirmed team members are not changed.`,'success');
+  }
 
   function updateAvailabilityNote(){
     const pid=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value,note=$('provider-availability-note');
@@ -377,7 +411,19 @@
       }catch(err){showAlert(err.message||'Could not create the multi-provider Job.');}
       finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}return;
     }
-    const providerId=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value;if(!providerId||!date||!start||!end)return showAlert('Provider, date, start and end are required.');const payload={job_id:existing,provider_id:providerId,service_id:serviceId,scheduled_start:localToIso(date,start),scheduled_end:localToIso(date,end),assignment_message:$('job-message').value.trim()};submitBtn.disabled=true;submitBtn.textContent='SENDING…';try{const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'ASSIGN_EXISTING',payload})});closeDrawer();weekStart=startOfWeek(new Date(`${date}T12:00:00`));try{await loadCalendar();showAlert(`${result.job_reference||'Job'} assignment sent.`,'success');}catch(refreshError){showAlert(`${result.job_reference||'Job'} assignment was sent, but the calendar refresh failed: ${refreshError.message}`,'success');}}catch(err){showAlert(err.message);}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}
+    const providerId=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value;
+    if(!providerId||!date||!start||!end)return showAlert('Provider, date, start and end are required.');
+    if(!['00','15','30','45'].includes(start.slice(3,5))||!['00','15','30','45'].includes(end.slice(3,5)))return showAlert('Provider schedules must use 15-minute increments.');
+    if(!billingItems.length)return showAlert('Add at least one billing item before reassigning this Job.');
+    const reassignment=[{provider_id:providerId,billing_items:billingItems}];if(!confirmFinancialIntegrity(reassignment))return;const financialIssues=financialIntegrityIssues(reassignment);
+    const payload={job_id:existing,replace_assignment_id:reassignmentTargetAssignment?.id||null,provider_id:providerId,service_id:serviceId,scheduled_start:localToIso(date,start),scheduled_end:localToIso(date,end),assignment_message:$('job-message').value.trim(),allow_nonpositive_margin:financialIssues.length>0,billing_items:billingItems.map(x=>({provider_service_rate_id:x.provider_service_rate_id,quantity:Number(x.quantity),customer_unit_rate:Number(x.customer_unit_rate??x.unit_rate),provider_compensation_method:x.provider_compensation_method,provider_compensation_value:x.provider_compensation_value}))};
+    submitBtn.disabled=true;submitBtn.textContent='SAVING & REASSIGNING…';
+    try{
+      const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'REASSIGN_WITH_BILLING',payload})});
+      closeDrawer();weekStart=startOfWeek(new Date(`${date}T12:00:00`));
+      const success=`${result.job_reference||'Job'} corrected and reassigned.${result.billing_items_replaced!=null?` ${result.billing_items_replaced} prior billing item${result.billing_items_replaced===1?'':'s'} replaced.`:''}${result.provider_rates_updated?` ${result.provider_rates_updated} Provider Rate${result.provider_rates_updated===1?' was':'s were'} saved to the Provider profile.`:''}`;
+      try{await loadCalendar();showAlert(success,'success');}catch(refreshError){showAlert(`${success} Calendar refresh failed after the reassignment was already saved: ${refreshError.message}`,'success');}
+    }catch(err){showAlert(err.message);}finally{submitBtn.disabled=false;submitBtn.textContent='SEND ASSIGNMENTS →';}
   }
 
   function openAssignment(id){
@@ -401,7 +447,7 @@
     on('refresh-calendar','click',()=>loadCalendar().catch(e=>showAlert(e.message)));
     serviceFilter?.addEventListener('change',renderCalendar);providerFilter?.addEventListener('change',renderCalendar);
     on('job-service','change',()=>{populateJobProviders($('job-service').value);teamAssignments.forEach(a=>{if(a.provider_id&&!eligibleProviders($('job-service').value).some(p=>p.id===a.provider_id)){a.provider_id='';a.billing_items=[];}});renderTeam();});
-    on('job-provider','change',()=>{updateAvailabilityNote();if(!$('job-existing-id')?.value)billingItems=[];renderBillingPicker();});
+    on('job-provider','change',()=>{updateAvailabilityNote();const pid=$('job-provider').value;if(billingItems.some(x=>!providerRates(pid).some(r=>r.id===x.provider_service_rate_id)))billingItems=[];renderBillingPicker();});
     on('job-date','change',updateAvailabilityNote);on('job-start','change',updateAvailabilityNote);on('job-end','change',updateAvailabilityNote);
     on('job-add-billing-item','click',addBillingItem);
     on('job-add-provider','click',()=>{const base=teamAssignments[0]||teamDefault();teamAssignments.push(teamDefault(base.date,base.start,base.end));renderTeam();});
