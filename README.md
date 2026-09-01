@@ -99,3 +99,6 @@ The Book Your Service flow now uses the fresh `public-booking` Netlify endpoint.
 
 ## STEP 15.8.5 — Direct Mobile Camera & Photo Normalization
 Provider camera photos for live evidence, service portfolio and profile are now normalized client-side to optimized JPEG before upload, removing the normal need to save a camera photo to the phone gallery and re-select it. No database migration is required.
+
+## STEP 15.8.6 — Booking, Tracking Relationship, Calendar Recovery & Provider Rate Editing
+Book Your Service is now more compact and no longer requests Moving-specific bedrooms/square-footage/inventory. Administration can locate a service using either the customer's `PLS-REQ` tracking reference or the internal `PLS-JOB` reference. Master Calendar data loading has compatibility fallbacks to prevent optional query/schema differences from producing a generic 502. During Job creation, PLEASE Administration may edit the Provider Rate for a selected Rate Item; after a successful assignment that value is saved to the corresponding Provider profile while the Job keeps its own frozen financial snapshot. No new SQL migration is required. See `STEP15_8_6_CLIENT_ADJUSTMENTS_BOOKING_TRACKING_RATES.md`.

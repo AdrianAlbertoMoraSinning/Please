@@ -85,16 +85,13 @@ exports.handler=async event=>{
     if(!FLEX.has(flexibility)) return lib.json(400,{error:'Invalid scheduling flexibility.'});
     const services=await lib.sbJson(`/rest/v1/services?select=id,name&id=eq.${encodeURIComponent(serviceId)}&active=eq.true&limit=1`);
     const service=services?.[0]; if(!service) return lib.json(400,{error:'Selected service is not available.'});
-    const moving=String(service.name||'').trim().toLowerCase()==='moving';
-    const movingBedrooms=moving?Number(p.moving_bedrooms):null,movingSquareFeet=moving?Number(p.moving_square_feet):null,movingInventory=moving?clean(p.moving_inventory,5000):null;
-    if(moving&&(!Number.isInteger(movingBedrooms)||movingBedrooms<0||!Number.isFinite(movingSquareFeet)||movingSquareFeet<=0||!movingInventory)) return lib.json(400,{error:'Please complete the Moving details.'});
     const token=crypto.randomBytes(24).toString('hex');
     const reference=ref();
     // Keep Book Your Service in the existing service_requests architecture. Drop-off
     // and requested hours are stored as structured customer notes so this STEP does not
     // require a second table or a database migration.
     const bookingNotes=[dropoff?`Drop-off address: ${dropoff}`:'',`Estimated hours requested: ${estimatedHours}`,notes].filter(Boolean).join('\n');
-    const row={reference,tracking_token_hash:hash(token),first_name:first,last_name:last,email,phone,service_id:service.id,service_name:service.name,street_address:address,city,province,postal_code:postal||null,work_description:desc,moving_bedrooms:moving?movingBedrooms:null,moving_square_feet:moving?movingSquareFeet:null,moving_inventory:moving?movingInventory:null,preferred_date:p.preferred_date,preferred_start_time:p.preferred_start_time,scheduling_flexibility:flexibility,customer_notes:bookingNotes||null,status:'NEW'};
+    const row={reference,tracking_token_hash:hash(token),first_name:first,last_name:last,email,phone,service_id:service.id,service_name:service.name,street_address:address,city,province,postal_code:postal||null,work_description:desc,moving_bedrooms:null,moving_square_feet:null,moving_inventory:null,preferred_date:p.preferred_date,preferred_start_time:p.preferred_start_time,scheduling_flexibility:flexibility,customer_notes:bookingNotes||null,status:'NEW'};
     const created=await lib.sbJson('/rest/v1/service_requests?select=id,reference,status,created_at',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
     const item=created?.[0];
     await lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:item.id,old_status:null,new_status:'NEW',note:'Customer service request submitted'})});

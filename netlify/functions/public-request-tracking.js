@@ -33,11 +33,11 @@ async function requestFromToken(token){
   try{
     const links=await lib.sbJson(`/rest/v1/service_request_tracking_tokens?select=service_request_id&token_hash=eq.${encodeURIComponent(tokenHash)}&revoked_at=is.null&or=(expires_at.is.null,expires_at.gt.${encodeURIComponent(new Date().toISOString())})&limit=1`);
     if(links?.[0]?.service_request_id){
-      const rows=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,first_name,service_id,service_name,street_address,city,province,postal_code,moving_bedrooms,moving_square_feet,moving_inventory,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,reviewed_at,ready_to_assign_at,assigned_at,cancelled_at,cancellation_reason&id=eq.${encodeURIComponent(links[0].service_request_id)}&limit=1`);
+      const rows=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,first_name,service_id,service_name,street_address,city,province,postal_code,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,reviewed_at,ready_to_assign_at,assigned_at,cancelled_at,cancellation_reason&id=eq.${encodeURIComponent(links[0].service_request_id)}&limit=1`);
       if(rows?.[0]) return rows[0];
     }
   }catch(e){console.error('public-request-tracking:token-table',e);}
-  const rows=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,first_name,service_id,service_name,street_address,city,province,postal_code,moving_bedrooms,moving_square_feet,moving_inventory,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,reviewed_at,ready_to_assign_at,assigned_at,cancelled_at,cancellation_reason&tracking_token_hash=eq.${encodeURIComponent(tokenHash)}&limit=1`);
+  const rows=await lib.sbJson(`/rest/v1/service_requests?select=id,reference,first_name,service_id,service_name,street_address,city,province,postal_code,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,reviewed_at,ready_to_assign_at,assigned_at,cancelled_at,cancellation_reason&tracking_token_hash=eq.${encodeURIComponent(tokenHash)}&limit=1`);
   return rows?.[0]||null;
 }
 
@@ -103,7 +103,7 @@ exports.handler=async event=>{
     timeline.sort((a,b)=>new Date(a.when)-new Date(b.when));
 
     return lib.json(200,{
-      request:{reference:req.reference,first_name:req.first_name,service_name:req.service_name,status:req.status,moving_bedrooms:req.moving_bedrooms,moving_square_feet:req.moving_square_feet,moving_inventory:req.moving_inventory,preferred_date:req.preferred_date,preferred_start_time:req.preferred_start_time,scheduling_flexibility:req.scheduling_flexibility,created_at:req.created_at},
+      request:{reference:req.reference,first_name:req.first_name,service_name:req.service_name,status:req.status,preferred_date:req.preferred_date,preferred_start_time:req.preferred_start_time,scheduling_flexibility:req.scheduling_flexibility,created_at:req.created_at},
       public_status:{code,label},
       job:job?{reference:job.reference,status:job.status,service_name:job.service_name,work_address:job.work_address,estimated_duration_minutes:job.estimated_duration_minutes,actual_arrived_at:iso(job.actual_arrived_at),actual_started_at:iso(job.actual_started_at),actual_completed_at:iso(job.actual_completed_at),approved_extension_minutes:job.approved_extension_minutes||0,completed_at:iso(job.completed_at)}:null,
       assignment:assignment?{id:assignment.id,status:assignment.live_status||assignment.status,scheduled_start:assignment.scheduled_start,scheduled_end:assignment.scheduled_end,provider_name:assignment.provider_name||null,provider_title:assignment.provider_title||null,provider_photo_url:assignment.provider_photo_url||null}:null,
