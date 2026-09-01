@@ -7,20 +7,20 @@ const calData=read('netlify/functions/admin-calendar-data.js');
 const jobAction=read('netlify/functions/admin-job-action.js');
 
 ok(calJs.includes("NEEDS ASSIGNMENT · EDITABLE BILLING")&&calJs.includes('Correct & Reassign'),'Needs Assignment opens an explicit correction/reassignment workflow');
-ok(calJs.includes('billing-provider-rate')&&calJs.includes('PLEASE Customer Rate')&&calJs.includes('Qty'),'Reassignment billing exposes quantity, customer rate and provider rate');
-ok(calJs.includes("action:'REASSIGN_WITH_BILLING'")&&calJs.includes('replace_assignment_id'),'Reassignment submits a billing-aware replacement action tied to the declined/cancelled assignment');
+ok(calJs.includes('team-provider-rate')&&calJs.includes('PLEASE Customer Rate')&&calJs.includes('Qty'),'Reassignment billing exposes quantity, customer rate and provider rate');
+ok(calJs.includes("action:'REASSIGN_MULTI_WITH_BILLING'")&&calJs.includes('replace_assignment_id'),'Reassignment submits a billing-aware multi-provider correction tied to the declined/cancelled assignment');
 ok(calJs.includes('reassignment_assignments')&&calData.includes('status=in.(DECLINED,CANCELLED)'),'Master Calendar loads the prior declined/cancelled assignment so provider/order/schedule can be prefilled');
 ok(calData.includes('provider_compensation_method,provider_compensation_value'),'Frozen billing rows include their Provider compensation snapshot for editing');
-ok(calHtml.includes('job-billing-provider-cost')&&calHtml.includes('job-billing-profit'),'Reassignment shows Provider Cost and PLEASE Gross Profit before sending');
-ok(calHtml.includes('js/admin-calendar.js?v=15.8.6.3.1'),'Master Calendar cache-busts STEP 15.8.6.3.1');
+ok(calHtml.includes('team-provider-cost')&&calHtml.includes('team-profit'),'Reassignment uses the same team totals for Provider Cost and PLEASE Gross Profit as original Job creation');
+ok(calHtml.includes('js/admin-calendar.js?v=15.8.6.3.2'),'Master Calendar cache-busts STEP 15.8.6.3.2');
 
-ok(jobAction.includes("if(action==='REASSIGN_WITH_BILLING')"),'Backend has a dedicated billing-aware reassignment action');
-ok(jobAction.includes("p_action:'ASSIGN_EXISTING'")&&jobAction.includes('please_portal_job_action'),'Backend reuses the existing secure assignment lifecycle for the same Job');
-ok(jobAction.includes('sequence_no:Number(replaceAssignment.sequence_no)||1')&&jobAction.includes('is_primary:Boolean(replaceAssignment.is_primary)'),'Replacement Provider preserves team order and primary status');
-ok(jobAction.includes("/rest/v1/job_billing_items',{method:'POST'")&&jobAction.includes("method:'DELETE'"),'Backend writes the corrected billing snapshot then removes the replaced assignment billing snapshot');
-ok(jobAction.includes('applyProviderRateChanges(validated.rateChanges)')&&jobAction.includes('recordProviderRateChanges(appliedRates'),'Changed Provider Rate persists to the selected Provider profile and remains audited');
-ok(jobAction.includes('quoted_subtotal:subtotal')&&jobAction.includes('estimated_duration_minutes:durationMinutes'),'Job subtotal and duration are synchronized after correction');
-ok(jobAction.includes('Automatic rollback: billing correction could not be saved')&&jobAction.includes('rollbackProviderRateChanges(appliedRates)'),'Partial reassignment failures attempt to rollback the replacement assignment and Provider Rate change');
-ok(!fs.existsSync(path.join(root,'supabase/STEP15_8_6_3.sql')),'STEP 15.8.6.3 requires no new Supabase migration');
+ok(jobAction.includes("if(action==='REASSIGN_MULTI_WITH_BILLING')"),'Backend has a dedicated billing-aware multi-provider reassignment action');
+ok(jobAction.includes('sequence_no:replacementSeq')&&jobAction.includes('is_primary:Boolean(replaceAssignment.is_primary)'),'Replacement Provider preserves team order and primary status');
+ok(jobAction.includes('activeExisting.length+newAssignments.length')&&jobAction.includes('required_provider_count:requiredProviderCount'),'Adding Providers expands the required team count on the same Job');
+ok(jobAction.includes("/rest/v1/job_billing_items',{method:'POST'")&&jobAction.includes("method:'DELETE'"),'Backend writes corrected/new billing snapshots and removes only the replaced assignment billing snapshot');
+ok(jobAction.includes('applyProviderRateChanges(rateChanges)')&&jobAction.includes('recordProviderRateChanges(appliedRates'),'Changed Provider Rates persist to their selected Provider profiles and remain audited');
+ok(jobAction.includes('quoted_subtotal:subtotal')&&jobAction.includes('estimated_duration_minutes:durationMinutes'),'Job subtotal and duration are synchronized after multi-provider correction');
+ok(jobAction.includes('multi-reassign-new-billing-rollback')&&jobAction.includes('rollbackProviderRateChanges(appliedRates)'),'Partial multi-provider reassignment failures attempt rollback of new assignments/billing and Provider Rate changes');
+ok(!fs.existsSync(path.join(root,'supabase/STEP15_8_6_3_2.sql')),'STEP 15.8.6.3.2 requires no new Supabase migration');
 
-if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.8.6.3 editable reassignment billing audit completed successfully.');
+if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.8.6.3 multi-provider compatible editable billing audit completed successfully.');

@@ -116,12 +116,112 @@ async function linkSourceRequestSafely(authUserId,sourceRequest,jobId){
 }
 
 
+function validUuid(v){return /^[0-9a-f-]{36}$/i.test(String(v||'').trim());}
+function validQuarterHourIso(v){const d=new Date(v);return !Number.isNaN(d.getTime())&&d.getUTCSeconds()===0&&d.getUTCMilliseconds()===0&&(d.getUTCMinutes()%15)===0;}
+function rpcBoolean(v){if(v===true)return true;if(Array.isArray(v))return v[0]===true||v[0]?.provider_is_available_for_window===true;return v?.provider_is_available_for_window===true;}
+async function validateExistingAssignmentCandidate(providerId,serviceId,start,end){
+  if(!validUuid(providerId))throw Object.assign(new Error('Select a Provider.'),{status:400});
+  const sd=new Date(start),ed=new Date(end);
+  if(Number.isNaN(sd.getTime())||Number.isNaN(ed.getTime())||ed<=sd)throw Object.assign(new Error('Each Provider requires a valid start and end time.'),{status:400});
+  if(!validQuarterHourIso(start)||!validQuarterHourIso(end))throw Object.assign(new Error('Provider schedules must use 15-minute increments.'),{status:400});
+  const [providers,links,available,overlap]=await Promise.all([
+    lib.sbJson(`/rest/v1/providers?select=id,status&id=eq.${encodeURIComponent(providerId)}&status=eq.ACTIVE&limit=1`),
+    lib.sbJson(`/rest/v1/provider_services?select=provider_id,service_id,active&provider_id=eq.${encodeURIComponent(providerId)}&service_id=eq.${encodeURIComponent(serviceId)}&active=eq.true&limit=1`),
+    lib.sbJson('/rest/v1/rpc/provider_is_available_for_window',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_provider_id:providerId,p_start:start,p_end:end})}),
+    lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,status&provider_id=eq.${encodeURIComponent(providerId)}&status=in.(PENDING,CONFIRMED)&scheduled_start=lt.${encodeURIComponent(end)}&scheduled_end=gt.${encodeURIComponent(start)}&limit=1`)
+  ]);
+  if(!providers?.length||!links?.length)throw Object.assign(new Error('Provider is not active for this Job service.'),{status:409});
+  if(!rpcBoolean(available))throw Object.assign(new Error('Provider is not available for the selected time.'),{status:409});
+  if(overlap?.length)throw Object.assign(new Error('One of the selected Providers already has an assignment overlapping the selected time.'),{status:409});
+}
+function insertableBillingRow(x){return {id:x.id,job_id:x.job_id,assignment_id:x.assignment_id,provider_id:x.provider_id,provider_service_rate_id:x.provider_service_rate_id,service_id:x.service_id,service_name:x.service_name,description:x.description,quantity:x.quantity,unit:x.unit,customer_unit_rate:x.customer_unit_rate,customer_line_total:x.customer_line_total,unit_rate:x.unit_rate,line_total:x.line_total,provider_compensation_method:x.provider_compensation_method,provider_compensation_value:x.provider_compensation_value,provider_unit_rate:x.provider_unit_rate,provider_line_total:x.provider_line_total,gross_profit:x.gross_profit,sort_order:x.sort_order};}
+
+
 exports.handler=async event=>{
   if(event.httpMethod!=='POST')return lib.json(405,{error:'Method not allowed'});
   try{
     if(!lib.sameOrigin(event))return lib.json(403,{error:'Forbidden'});
     const auth=await lib.requireAdmin(event);let body={};try{body=JSON.parse(event.body||'{}');}catch{return lib.json(400,{error:'Invalid JSON'});}const action=String(body.action||'').trim().toUpperCase();if(!action)return lib.json(400,{error:'Action is required'});
     let sourceRequest=null;
+    if(action==='REASSIGN_MULTI_WITH_BILLING'){
+      const payload=body.payload||{},jobId=String(payload.job_id||'').trim(),incoming=Array.isArray(payload.assignments)?payload.assignments:[];
+      if(!validUuid(jobId))return lib.json(400,{error:'Valid Job ID is required.'});
+      if(!incoming.length)return lib.json(400,{error:'Add at least one Provider assignment.'});
+      const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,status,service_id,service_name,required_provider_count,quoted_subtotal,estimated_duration_minutes&id=eq.${encodeURIComponent(jobId)}&limit=1`),job=jobs?.[0];
+      if(!job)return lib.json(404,{error:'Job not found.'});
+      if(job.status!=='NEEDS_ASSIGNMENT')return lib.json(409,{error:`${job.reference} is no longer waiting for reassignment.`});
+      if(!validUuid(job.service_id))return lib.json(409,{error:`${job.reference} does not have a valid service.`});
+
+      let replaceAssignment=null;
+      const requestedReplace=String(payload.replace_assignment_id||'').trim();
+      if(validUuid(requestedReplace))replaceAssignment=(await lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,sequence_no,is_primary,status,scheduled_start,scheduled_end,assignment_message&id=eq.${encodeURIComponent(requestedReplace)}&job_id=eq.${encodeURIComponent(jobId)}&status=in.(DECLINED,CANCELLED)&limit=1`))?.[0]||null;
+      const allAssignments=await lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,sequence_no,is_primary,status,scheduled_start,scheduled_end,assignment_message,assigned_at,responded_at&job_id=eq.${encodeURIComponent(jobId)}&order=sequence_no.asc,assigned_at.asc`);
+      if(!replaceAssignment)replaceAssignment=(allAssignments||[]).filter(a=>['DECLINED','CANCELLED'].includes(a.status)).sort((a,b)=>new Date(b.responded_at||b.assigned_at||0)-new Date(a.responded_at||a.assigned_at||0))[0]||null;
+      if(!replaceAssignment)return lib.json(409,{error:'No declined or cancelled Provider assignment was found to replace. Refresh the Master Calendar and try again.'});
+
+      const activeExisting=(allAssignments||[]).filter(a=>!['DECLINED','CANCELLED'].includes(a.status));
+      const activeProviderIds=new Set(activeExisting.map(a=>a.provider_id).filter(Boolean)),seen=new Set();
+      for(let i=0;i<incoming.length;i++){
+        const pid=String(incoming[i]?.provider_id||'').trim();
+        if(!validUuid(pid))return lib.json(400,{error:`Select Provider ${i+1}.`});
+        if(seen.has(pid))return lib.json(400,{error:'The same Provider cannot be added twice to the same Job.'});
+        if(activeProviderIds.has(pid))return lib.json(409,{error:`Provider ${i+1} is already an active team member on this Job.`});
+        seen.add(pid);
+      }
+
+      await Promise.all(incoming.map(a=>validateExistingAssignmentCandidate(String(a.provider_id||'').trim(),job.service_id,a.scheduled_start,a.scheduled_end)));
+      const validations=await Promise.all(incoming.map(a=>validateBillingItems(String(a.provider_id||'').trim(),a.billing_items,Boolean(payload.allow_nonpositive_margin))));
+      const rateChanges=[];validations.forEach(v=>rateChanges.push(...v.rateChanges));
+      const appliedRates=await applyProviderRateChanges(rateChanges);
+
+      const oldBillingSelect='id,job_id,assignment_id,provider_id,provider_service_rate_id,service_id,service_name,description,quantity,unit,customer_unit_rate,customer_line_total,unit_rate,line_total,provider_compensation_method,provider_compensation_value,provider_unit_rate,provider_line_total,gross_profit,sort_order';
+      const [oldAssignedBilling,oldLegacyBilling]=await Promise.all([
+        lib.sbJson(`/rest/v1/job_billing_items?select=${oldBillingSelect}&job_id=eq.${encodeURIComponent(jobId)}&assignment_id=eq.${encodeURIComponent(replaceAssignment.id)}`),
+        lib.sbJson(`/rest/v1/job_billing_items?select=${oldBillingSelect}&job_id=eq.${encodeURIComponent(jobId)}&assignment_id=is.null&provider_id=eq.${encodeURIComponent(replaceAssignment.provider_id)}`)
+      ]);
+      const oldBilling=[...(oldAssignedBilling||[]),...(oldLegacyBilling||[])].filter((x,i,a)=>a.findIndex(y=>y.id===x.id)===i);
+      const usedSeq=new Set(activeExisting.map(a=>Number(a.sequence_no)||0).filter(n=>n>0));
+      const replacementSeq=Number(replaceAssignment.sequence_no)||1;usedSeq.add(replacementSeq);
+      let cursor=1;const plan=incoming.map((a,i)=>{
+        if(i===0)return{...a,sequence_no:replacementSeq,is_primary:Boolean(replaceAssignment.is_primary),replacement:true};
+        while(usedSeq.has(cursor))cursor++;const seq=cursor;usedSeq.add(seq);cursor++;
+        return{...a,sequence_no:seq,is_primary:false,replacement:false};
+      });
+      let newAssignments=[],newBilling=[],oldBillingDeleted=false,jobPatched=false;
+      try{
+        for(let i=0;i<plan.length;i++){
+          const a=plan[i];
+          const rows=await lib.sbJson('/rest/v1/job_assignments',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({job_id:jobId,provider_id:a.provider_id,scheduled_start:a.scheduled_start,scheduled_end:a.scheduled_end,status:'PENDING',assignment_message:a.assignment_message||null,assigned_by_admin_portal_user:auth.user.id,sequence_no:a.sequence_no,is_primary:Boolean(a.is_primary)})});
+          const row=rows?.[0];if(!row?.id)throw Object.assign(new Error(`Provider ${i+1} assignment could not be created.`),{status:500});newAssignments.push(row);
+        }
+        const billingRows=[];
+        validations.forEach((validated,i)=>validated.rows.forEach(x=>billingRows.push({...x,job_id:jobId,assignment_id:newAssignments[i].id,provider_id:plan[i].provider_id,sort_order:(Number(plan[i].sequence_no)||i+1)*1000+(Number(x.sort_order)||10)})));
+        newBilling=await lib.sbJson('/rest/v1/job_billing_items',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(billingRows)})||[];
+        if(oldBilling.length){const ids=oldBilling.map(x=>encodeURIComponent(x.id)).join(',');await lib.sbJson(`/rest/v1/job_billing_items?id=in.(${ids})`,{method:'DELETE',headers:{Prefer:'return=minimal'}});oldBillingDeleted=true;}
+        const allBilling=await lib.sbJson(`/rest/v1/job_billing_items?select=customer_line_total&job_id=eq.${encodeURIComponent(jobId)}`);
+        const subtotal=money((allBilling||[]).reduce((n,x)=>n+Number(x.customer_line_total||0),0));
+        const durations=[...activeExisting.map(a=>[a.scheduled_start,a.scheduled_end]),...plan.map(a=>[a.scheduled_start,a.scheduled_end])].map(([st,en])=>{const sm=new Date(st).getTime(),em=new Date(en).getTime();return Number.isFinite(sm)&&Number.isFinite(em)&&em>sm?Math.round((em-sm)/60000):0;});
+        const durationMinutes=Math.max(1,...durations);
+        const requiredProviderCount=activeExisting.length+newAssignments.length;
+        await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'PENDING_PROVIDER',required_provider_count:requiredProviderCount,quoted_subtotal:subtotal,estimated_duration_minutes:durationMinutes,updated_at:new Date().toISOString()})});
+        jobPatched=true;
+      }catch(reassignError){
+        if(jobPatched){try{await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:job.status,required_provider_count:job.required_provider_count,quoted_subtotal:job.quoted_subtotal,estimated_duration_minutes:job.estimated_duration_minutes,updated_at:new Date().toISOString()})});}catch(e){console.error('admin-job-action:multi-reassign-job-rollback',e);}}
+        if(oldBillingDeleted&&oldBilling.length){try{await lib.sbJson('/rest/v1/job_billing_items',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(oldBilling.map(insertableBillingRow))});}catch(e){console.error('admin-job-action:multi-reassign-old-billing-restore',e);}}
+        if(newBilling.length){try{const ids=newBilling.map(x=>x.id).filter(Boolean).map(encodeURIComponent).join(',');if(ids)await lib.sbJson(`/rest/v1/job_billing_items?id=in.(${ids})`,{method:'DELETE',headers:{Prefer:'return=minimal'}});}catch(e){console.error('admin-job-action:multi-reassign-new-billing-rollback',e);}}
+        for(const a of [...newAssignments].reverse()){try{await lib.sbJson(`/rest/v1/job_assignments?id=eq.${encodeURIComponent(a.id)}&status=eq.PENDING`,{method:'DELETE',headers:{Prefer:'return=minimal'}});}catch(e){console.error('admin-job-action:multi-reassign-assignment-rollback',a.id,e);}}
+        if(appliedRates.length)await rollbackProviderRateChanges(appliedRates);
+        throw reassignError;
+      }
+
+      const historyTasks=newAssignments.map((a,i)=>lib.sbJson('/rest/v1/assignment_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({assignment_id:a.id,old_status:null,new_status:'PENDING',changed_by_admin_portal_user:auth.user.id,note:i===0?'Provider assignment corrected/replaced by PLEASE':'Additional Provider added during reassignment by PLEASE'})}).catch(e=>console.warn('admin-job-action:multi-reassign-assignment-history',e?.message||e)));
+      historyTasks.push(lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:jobId,old_status:'NEEDS_ASSIGNMENT',new_status:'PENDING_PROVIDER',changed_by_admin_portal_user:auth.user.id,note:`Corrected ${replaceAssignment.status} assignment ${replaceAssignment.id} and sent ${newAssignments.length} Provider assignment${newAssignments.length===1?'':'s'} on the same Job.`})}).catch(e=>console.warn('admin-job-action:multi-reassign-job-history',e?.message||e)));
+      if(appliedRates.length)historyTasks.push(recordProviderRateChanges(appliedRates,auth.user.id,job.reference));
+      const notices=[...newAssignments.map(a=>notifyAssignment(a.id,'NEW')),notifyCustomerJob(jobId,'SCHEDULED'),...(appliedRates.length?[notifyProviderRateChanges(appliedRates,job.reference)]:[])];
+      const results=await Promise.all([...historyTasks,...notices]);const flattened=results.flat?.(2)||results;
+      return lib.json(200,{ok:true,job_id:jobId,job_reference:job.reference,assignment_ids:newAssignments.map(a=>a.id),provider_count:newAssignments.length,added_provider_count:Math.max(0,newAssignments.length-1),active_team_count:activeExisting.length+newAssignments.length,billing_items_replaced:oldBilling.length,billing_items_created:newBilling.length||validations.reduce((n,v)=>n+v.rows.length,0),provider_rates_updated:appliedRates.length,notifications_sent:flattened.filter(x=>x?.sent).length,replaced_assignment_id:replaceAssignment.id});
+    }
+
     if(action==='REASSIGN_WITH_BILLING'){
       const payload=body.payload||{},jobId=String(payload.job_id||'').trim(),providerId=String(payload.provider_id||'').trim();
       if(!/^[0-9a-f-]{36}$/i.test(jobId))return lib.json(400,{error:'Valid Job ID is required.'});
