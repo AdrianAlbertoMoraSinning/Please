@@ -19,6 +19,10 @@ async function addJobReferences(requests){
   }catch(e){console.warn('admin-service-requests:job-reference-link',e?.message||e);}
   return rows;
 }
+async function optional(label,task,fallback){
+  try{return await task();}
+  catch(e){console.warn(`admin-service-requests:${label}`,e?.message||e);return fallback;}
+}
 exports.handler=async event=>{
   if(event.httpMethod!=='GET') return lib.json(405,{error:'Method not allowed'});
   try{
@@ -28,13 +32,17 @@ exports.handler=async event=>{
       const rows=await lib.sbJson(`/rest/v1/service_requests?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
       if(!rows?.[0]) return lib.json(404,{error:'Service request not found'});
       await addJobReferences(rows);
-      const history=await lib.sbJson(`/rest/v1/service_request_status_history?select=id,old_status,new_status,note,created_at,admin_portal_users(display_name,email)&service_request_id=eq.${encodeURIComponent(id)}&order=created_at.asc`);
-      const services=await activeServices();
+      // History and service catalog help the drawer but are not required to view or transition
+      // the request. A temporary auxiliary-query problem must not collapse the whole drawer.
+      const [history,services]=await Promise.all([
+        optional('history',()=>lib.sbJson(`/rest/v1/service_request_status_history?select=id,old_status,new_status,note,created_at,admin_portal_users(display_name,email)&service_request_id=eq.${encodeURIComponent(id)}&order=created_at.asc`),[]),
+        optional('services',()=>activeServices(),[])
+      ]);
       return lib.json(200,{request:rows[0],history:history||[],services:services||[]});
     }
     const requests=await lib.sbJson('/rest/v1/service_requests?select=id,reference,first_name,last_name,email,phone,service_id,service_name,city,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,updated_at&order=created_at.desc');
     await addJobReferences(requests);
-    const services=await activeServices();
-    return lib.json(200,{requests:requests||[],services:services||[]});
+    // The list view does not need the service catalog. Avoid making the queue depend on it.
+    return lib.json(200,{requests:requests||[],services:[]});
   }catch(e){console.error('admin-service-requests',e);return lib.json(e.status||500,{error:e.status===401?'Unauthorized':(e.message||'Unable to load service requests.')});}
 };
