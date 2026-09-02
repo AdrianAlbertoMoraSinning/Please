@@ -17,6 +17,6 @@ ok(calJs.includes('Calendar refresh failed after the Job was already created')&&
 ok(calJs.includes('You can still continue assigning the selected Service Request'),'A calendar background error no longer blocks the Service Request assignment drawer');
 ok(reqAction.includes('Promise.all([')&&reqAction.includes('recordHistory({requestId:current.id')&&reqAction.includes('notify.send({to:out.email'),'Service Request history and email run in parallel after the state change');
 ok(jobAction.includes('const validations=await Promise.all')&&jobAction.includes('const results=await Promise.all([...postTasks,...noticeTasks])'),'Multi-provider validation and post-create work are parallelized to stay within function runtime');
-ok(/js\/admin-calendar\.js\?v=15\.8\.6\.[2-9]/.test(calHtml),'Master Calendar cache-busts STEP 15.8.6.2 or newer runtime recovery JavaScript');
+ok(/js\/admin-calendar\.js\?v=(?:15\.8\.6\.[2-9](?:\.\d+)*|15\.(?:9|\d{2,}))/.test(calHtml),'Master Calendar cache-busts STEP 15.8.6.2 or newer runtime recovery JavaScript');
 ok(!fs.existsSync(path.join(root,'supabase/STEP15_8_6_2.sql')),'STEP 15.8.6.2 requires no database migration');
 if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.8.6.2 gateway timeout recovery audit completed successfully.');

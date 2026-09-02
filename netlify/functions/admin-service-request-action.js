@@ -1,5 +1,6 @@
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
+const customerLib=require('./_customer-lib');
 
 function actionAlreadyApplied(action,status){
   const a=String(action||'').toUpperCase();
@@ -93,9 +94,22 @@ exports.handler=async event=>{
       if(!serviceId) return lib.json(400,{error:'Service is required.'});
       const sr=await lib.sbJson(`/rest/v1/services?select=id,name&id=eq.${encodeURIComponent(serviceId)}&active=eq.true&limit=1`),svc=sr?.[0];
       if(!svc) return lib.json(400,{error:'Selected service is not available.'});
-      const patch={service_id:svc.id,service_name:svc.name,street_address:String(v.street_address||'').trim()||null,city:String(v.city||'').trim()||null,province:String(v.province||'').trim()||null,postal_code:String(v.postal_code||'').trim()||null,work_description:String(v.work_description||'').trim(),customer_notes:String(v.customer_notes||'').trim()||null,updated_at:new Date().toISOString()};
+      const preferredDate=String(v.preferred_date||'').trim();
+      const preferredTime=String(v.preferred_start_time||'').trim().slice(0,5);
+      const estimatedHours=Number(v.estimated_hours);
+      const flexibility=String(v.scheduling_flexibility||'FLEXIBLE').trim().toUpperCase();
+      if(!preferredDate||!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate)) return lib.json(400,{error:'Preferred Date is required.'});
+      if(!/^\d{2}:(00|15|30|45)$/.test(preferredTime)) return lib.json(400,{error:'Preferred Time must use 15-minute increments.'});
+      if(!Number.isFinite(estimatedHours)||estimatedHours<0.25||estimatedHours>72||Math.abs(estimatedHours*4-Math.round(estimatedHours*4))>1e-9) return lib.json(400,{error:'Estimated Hours must use 0.25-hour increments between 0.25 and 72.'});
+      if(!['EXACT','SAME_DAY','FLEXIBLE','ANYTIME'].includes(flexibility)) return lib.json(400,{error:'Invalid scheduling flexibility.'});
+      const dropoff=String(v.dropoff_address||'').trim();
+      const customerFreeNotes=String(v.customer_notes||'').trim();
+      const legacyNotes=[dropoff?`Drop-off address: ${dropoff}`:'',`Estimated hours requested: ${estimatedHours}`,customerFreeNotes].filter(Boolean).join('\n');
+      const patch={service_id:svc.id,service_name:svc.name,street_address:String(v.street_address||'').trim()||null,city:String(v.city||'').trim()||null,province:String(v.province||'').trim()||null,postal_code:String(v.postal_code||'').trim()||null,dropoff_address:dropoff||null,estimated_hours:estimatedHours,preferred_date:preferredDate,preferred_start_time:preferredTime,scheduling_flexibility:flexibility,work_description:String(v.work_description||'').trim(),customer_notes:legacyNotes||null,updated_at:new Date().toISOString()};
       if(!patch.work_description) return lib.json(400,{error:'Work Description is required.'});
       if(!patch.street_address||!patch.city||!patch.province) return lib.json(400,{error:'Complete the service location before scheduling the Job.'});
+      const customerId=await customerLib.upsertCustomer({first_name:current.first_name,last_name:current.last_name,email:current.email,phone:current.phone,street_address:patch.street_address,city:patch.city,province:patch.province,postal_code:patch.postal_code},{incrementRequest:false});
+      if(customerId)patch.customer_id=customerId;
       const updated=await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(current.id)}&select=*`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(patch)});
       await lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:current.id,old_status:current.status,new_status:current.status,note:'Request details updated by PLEASE Administration',changed_by_admin_portal_user:auth.user.id})}).catch(e=>console.error('admin-service-request-action:details-history-warning',e));
       const out=updated?.[0]||current;

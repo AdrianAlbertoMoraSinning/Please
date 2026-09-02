@@ -1,5 +1,6 @@
 const crypto=require('crypto');
 const lib=require('./_admin-lib');
+const customerLib=require('./_customer-lib');
 
 const RESEND_ENDPOINT='https://api.resend.com/emails';
 const clean=(v,n=500)=>String(v??'').trim().slice(0,n);
@@ -87,13 +88,20 @@ exports.handler=async event=>{
     const service=services?.[0]; if(!service) return lib.json(400,{error:'Selected service is not available.'});
     const token=crypto.randomBytes(24).toString('hex');
     const reference=ref();
-    // Keep Book Your Service in the existing service_requests architecture. Drop-off
-    // and requested hours are stored as structured customer notes so this STEP does not
-    // require a second table or a database migration.
+    // STEP 15.9: Customer Master begins at the first Service Request. Matching is
+    // server-side by normalized email first, then phone; no customer data is exposed publicly.
+    const customerIdentity={first_name:first,last_name:last,email,phone,street_address:address,city,province,postal_code:postal};
+    const customerId=await customerLib.upsertCustomer(customerIdentity,{incrementRequest:false});
+    // Preserve the legacy text markers for old readers while also writing the new structured fields.
     const bookingNotes=[dropoff?`Drop-off address: ${dropoff}`:'',`Estimated hours requested: ${estimatedHours}`,notes].filter(Boolean).join('\n');
-    const row={reference,tracking_token_hash:hash(token),first_name:first,last_name:last,email,phone,service_id:service.id,service_name:service.name,street_address:address,city,province,postal_code:postal||null,work_description:desc,moving_bedrooms:null,moving_square_feet:null,moving_inventory:null,preferred_date:p.preferred_date,preferred_start_time:p.preferred_start_time,scheduling_flexibility:flexibility,customer_notes:bookingNotes||null,status:'NEW'};
+    const row={reference,tracking_token_hash:hash(token),first_name:first,last_name:last,email,phone,service_id:service.id,service_name:service.name,street_address:address,city,province,postal_code:postal||null,dropoff_address:dropoff||null,estimated_hours:estimatedHours,work_description:desc,moving_bedrooms:null,moving_square_feet:null,moving_inventory:null,preferred_date:p.preferred_date,preferred_start_time:p.preferred_start_time,scheduling_flexibility:flexibility,customer_notes:bookingNotes||null,status:'NEW'};
+    if(customerId)row.customer_id=customerId;
     const created=await lib.sbJson('/rest/v1/service_requests?select=id,reference,status,created_at',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
     const item=created?.[0];
+    if(!item?.id)throw new Error('The service request could not be created.');
+    // Increment Customer Master activity only after the request itself exists.
+    // This avoids counting a request that failed before persistence.
+    if(customerId)await customerLib.upsertCustomer(customerIdentity,{incrementRequest:true}).catch(e=>console.warn('public-service-request:customer-counter',e?.message||e));
     await lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:item.id,old_status:null,new_status:'NEW',note:'Customer service request submitted'})});
 
     // STEP 10.4.3 token table. Keep request submission successful even if a legacy

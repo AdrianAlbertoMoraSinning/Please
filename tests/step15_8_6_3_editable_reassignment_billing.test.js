@@ -12,7 +12,7 @@ ok(calJs.includes("action:'REASSIGN_MULTI_WITH_BILLING'")&&calJs.includes('repla
 ok(calJs.includes('reassignment_assignments')&&calData.includes('status=in.(DECLINED,CANCELLED)'),'Master Calendar loads the prior declined/cancelled assignment so provider/order/schedule can be prefilled');
 ok(calData.includes('provider_compensation_method,provider_compensation_value'),'Frozen billing rows include their Provider compensation snapshot for editing');
 ok(calHtml.includes('team-provider-cost')&&calHtml.includes('team-profit'),'Reassignment uses the same team totals for Provider Cost and PLEASE Gross Profit as original Job creation');
-ok(calHtml.includes('js/admin-calendar.js?v=15.8.6.3.2'),'Master Calendar cache-busts STEP 15.8.6.3.2');
+ok(/js\/admin-calendar\.js\?v=(?:15\.8\.6\.3\.2|15\.(?:9|\d{2,}))/.test(calHtml),'Master Calendar cache-busts STEP 15.8.6.3.2 or newer');
 
 ok(jobAction.includes("if(action==='REASSIGN_MULTI_WITH_BILLING')"),'Backend has a dedicated billing-aware multi-provider reassignment action');
 ok(jobAction.includes('sequence_no:replacementSeq')&&jobAction.includes('is_primary:Boolean(replaceAssignment.is_primary)'),'Replacement Provider preserves team order and primary status');

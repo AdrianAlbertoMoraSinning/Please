@@ -15,7 +15,7 @@ ok(action.includes('history_recorded:historyRecorded')&&action.includes('history
 ok(action.includes('notify.send')&&action.includes('Email delivery is deliberately non-blocking'),'Email delivery remains non-blocking after the business transition');
 ok(list.includes("optional('history'")&&list.includes("optional('services'")&&list.includes('The list view does not need the service catalog'),'Auxiliary drawer queries no longer collapse the Service Request queue');
 ok(ui.includes('Request failed (HTTP ${r.status}).')&&ui.includes('Request updated successfully, but the screen could not refresh automatically'),'Administration surfaces useful HTTP errors and distinguishes refresh failure from transaction failure');
-ok(html.includes('js/admin-service-requests.js?v=15.8.6.1'),'Service Request page cache-busts the repaired browser code');
+ok(/js\/admin-service-requests\.js\?v=(?:15\.8\.6(?:\.\d+)?|15\.(?:9|\d{2,}))/.test(html),'Service Request page cache-busts the repaired browser code');
 ok(!fs.existsSync(path.join(root,'supabase/STEP15_8_6_1.sql')),'STEP 15.8.6.1 requires no new SQL migration');
 
 if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.8.6.1 transition recovery audit completed successfully.');

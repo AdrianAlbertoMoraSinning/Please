@@ -60,16 +60,17 @@ exports.handler=async function(event){
 
     // These datasets are supporting panels. One stale optional table/column should
     // not prevent the Provider Account drawer itself from opening.
-    const [account,services,availability,exceptions,documents,history,allServices]=await Promise.all([
+    const [account,services,availability,exceptions,documents,history,allServices,rates]=await Promise.all([
       optional('account',()=>lib.sbJson(`/rest/v1/provider_portal_users?select=id,email,display_name,active,last_login_at,password_changed_at,created_at,updated_at&provider_id=eq.${id}&limit=1`).then(x=>x?.[0]||null),null),
       optional('services',()=>lib.sbJson(`/rest/v1/provider_services?select=service_id,active,developer_authorized,provider_enabled,provider_notes,services(id,name,short_description)&provider_id=eq.${id}`),[]),
       optional('availability',()=>lib.sbJson(`/rest/v1/provider_availability?select=id,weekday,start_time,end_time,active&provider_id=eq.${id}&order=weekday.asc,start_time.asc`),[]),
       optional('exceptions',()=>lib.sbJson(`/rest/v1/provider_availability_exceptions?select=id,exception_date,start_time,end_time,exception_type,reason,created_at&provider_id=eq.${id}&order=exception_date.asc,start_time.asc`),[]),
       optional('documents',()=>lib.sbJson(`/rest/v1/provider_documents?select=id,document_type,document_name,storage_path,mime_type,file_size_bytes,verification_status,expires_on,active,review_note,created_at,updated_at&provider_id=eq.${id}&active=eq.true&order=created_at.desc`),[]),
       optional('history',()=>lib.sbJson(`/rest/v1/provider_technical_history?select=id,event_type,event_label,details,actor_type,created_at&provider_id=eq.${id}&order=created_at.desc&limit=100`),[]),
-      optional('all-services',()=>lib.sbJson('/rest/v1/services?select=id,name,short_description,active&active=eq.true&order=sort_order.asc'),[])
+      optional('all-services',()=>lib.sbJson('/rest/v1/services?select=id,name,short_description,active&active=eq.true&order=sort_order.asc'),[]),
+      optional('rates',()=>lib.sbJson(`/rest/v1/provider_service_rates?select=id,provider_id,service_id,rate_name,description,billing_unit,customer_rate,provider_compensation_method,provider_compensation,active,sort_order,created_at,updated_at&provider_id=eq.${id}&order=active.desc,sort_order.asc,rate_name.asc`),[])
     ]);
-    provider.profile_photo_url=provider.profile_image_path?`/.netlify/functions/provider-profile-photo?provider_id=${encodeURIComponent(provider.id)}&v=${encodeURIComponent(provider.updated_at||Date.now())}`:safePublicUrl(provider.profile_image_url);return lib.json(200,{provider,account,services,availability,exceptions,documents,history,all_services:allServices});
+    provider.profile_photo_url=provider.profile_image_path?`/.netlify/functions/provider-profile-photo?provider_id=${encodeURIComponent(provider.id)}&v=${encodeURIComponent(provider.updated_at||Date.now())}`:safePublicUrl(provider.profile_image_url);return lib.json(200,{provider,account,services,availability,exceptions,documents,history,all_services:allServices,rates:rates||[]});
   }catch(e){
     console.error('admin-providers',e);
     return lib.json(e.status===401?401:500,{error:e.status===401?'Unauthorized':'Unable to load provider accounts.'});

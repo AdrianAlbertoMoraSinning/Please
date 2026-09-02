@@ -7,7 +7,7 @@ ok(js.includes('replacement:Boolean(a.replacement)')&&js.includes("action:'REASS
 ok(js.includes("const replacing=Boolean(reassignmentMode&&a.replacement)")&&js.includes("'Additional service team member'"),'Only the failed slot is labelled as a replacement; extra Providers are labelled as additions');
 ok(js.includes("(!reassignmentMode||!a.replacement)")&&js.includes('team-remove-provider'),'Newly added reassignment Providers can be removed without removing the required replacement slot');
 ok(html.includes('+ ADD ANOTHER PROVIDER')&&html.includes('expand the team without creating a second Job'),'UI explains that team expansion remains inside the same Job');
-ok(html.includes('js/admin-calendar.js?v=15.8.6.3.2'),'STEP 15.8.6.3.2 cache-bust is active');
+ok(/js\/admin-calendar\.js\?v=(?:15\.8\.6\.3\.2|15\.(?:9|\d{2,}))/.test(html),'STEP 15.8.6.3.2-or-newer cache-bust is active');
 ok(backend.includes("if(action==='REASSIGN_MULTI_WITH_BILLING')")&&backend.includes('const plan=incoming.map'),'Backend plans one replacement plus zero or more additional Provider assignments');
 ok(backend.includes('activeProviderIds.has(pid)')&&backend.includes('seen.has(pid)'),'Backend blocks duplicate Providers against both current active team and new selections');
 ok(backend.includes('provider_is_available_for_window')&&backend.includes('status=in.(PENDING,CONFIRMED)&scheduled_start=lt.'),'Every new/replacement Provider is checked for published availability and overlap');

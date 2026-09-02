@@ -23,7 +23,7 @@
   async function redirectIfAuthorized() {
     try {
       const response = await fetch('/.netlify/functions/admin-session', { credentials: 'same-origin', cache: 'no-store' });
-      if (response.ok) window.location.replace('admin.html');
+      if (response.ok) window.location.replace('admin-dashboard.html');
     } catch (_) {}
   }
 
@@ -40,7 +40,7 @@
           password: document.getElementById('login-password').value
         })
       });
-      window.location.replace('admin.html');
+      window.location.replace('admin-dashboard.html');
     } catch (error) {
       show(error.message || 'Unable to sign in.');
       submit.disabled = false;

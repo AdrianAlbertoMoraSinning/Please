@@ -1,0 +1,30 @@
+const fs=require('fs'),path=require('path');
+const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+function ok(c,m){if(!c){console.error('FAIL:',m);process.exitCode=1}else console.log('PASS:',m)}
+const css=read('css/style.css'),reqHtml=read('admin-service-requests.html'),reqJs=read('js/admin-service-requests.js'),reqAction=read('netlify/functions/admin-service-request-action.js');
+const customerHtml=read('admin-customers.html'),customerJs=read('js/admin-customers.js'),customerFn=read('netlify/functions/admin-customers.js'),customerLib=read('netlify/functions/_customer-lib.js'),publicReq=read('netlify/functions/public-service-request.js');
+const assignmentAction=read('netlify/functions/provider-assignment-action.js');
+const dashHtml=read('admin-dashboard.html'),dashJs=read('js/admin-dashboard.js'),dashFn=read('netlify/functions/admin-dashboard-data.js');
+const calHtml=read('admin-calendar.html'),calJs=read('js/admin-calendar.js');
+const providersHtml=read('admin-providers.html'),providersJs=read('js/admin-providers.js'),providerAccount=read('netlify/functions/admin-provider-account-action.js'),providerRate=read('netlify/functions/admin-provider-rate-action.js');
+const providerHtml=read('provider.html'),providerJs=read('js/provider.js'),liveFn=read('netlify/functions/provider-live-service-action.js'),evidenceFn=read('netlify/functions/provider-service-evidence-upload.js'),trackingFn=read('netlify/functions/public-request-tracking.js');
+const maintHtml=read('admin-service-maintenance.html'),maintJs=read('js/admin-service-maintenance.js'),maintFn=read('netlify/functions/admin-service-maintenance.js'),sql=read('supabase/STEP15_9_CLIENT_OPERATIONS_CONTROL.sql'),sw=read('service-worker.js');
+
+ok(css.includes('.service-request-drawer{width:50vw')&&reqHtml.includes('id="detail-edit-date"')&&reqHtml.includes('id="detail-edit-time"'),'Service Request drawer is half-width on desktop and exposes editable date/time');
+ok(reqHtml.includes('detail-edit-street')&&reqJs.includes("['Service / Pick-up Address'")&&reqAction.includes("action==='UPDATE_DETAILS'"),'Service Request address is visible and editable before Job creation');
+ok(customerHtml.includes('Customer Master')&&customerJs.includes('admin-customers')&&customerFn.includes('/rest/v1/customers'),'Administration has a Customer Master with customer detail/history data');
+ok(publicReq.includes('customerLib.upsertCustomer')&&publicReq.includes('row.customer_id=customerId')&&customerLib.includes('please_upsert_customer'),'Public Service Requests link to the Customer Master server-side');
+ok(sql.includes('must never overwrite an established Customer Master')&&sql.includes('first_name=coalesce(first_name'),'Returning public intake fills blanks instead of overwriting established Customer Master data');
+ok(assignmentAction.includes('notify.sendAdmins')&&assignmentAction.includes("action==='CONFIRM'")&&assignmentAction.includes("accepted?'Confirmed':'Declined'"),'Provider Confirm/Decline responses notify Administration');
+ok(dashHtml.includes('Operations Dashboard')&&dashHtml.includes('ACTION REQUIRED')&&dashJs.includes('admin-dashboard-data')&&dashFn.includes("label:'Jobs Need Assignment'")&&dashFn.includes("label:'Provider Responses Pending'"),'Administration has an operational priority Dashboard');
+ok(!calJs.includes('providerServiceNames')&&calJs.includes("<div class=\"calendar-provider-label\"><strong>${esc(p.display_name)}</strong><span>${esc(p.public_title||p.company_name||'Service Provider')}</span></div>"),'Master Calendar Provider rows no longer print the complete authorized-service list');
+ok(calHtml.includes('calendar-view-month')&&calJs.includes("calendarView==='MONTH'")&&calJs.includes("${count} ${count===1?'Service':'Services'}"),'Master Calendar has MONTH view with daily service counts');
+ok(providersHtml.includes('Provider Service Rates')&&providersJs.includes('admin-provider-rate-action')&&providerRate.includes('provider_service_rates'),'Administration can maintain Provider Service Rates');
+ok(providerAccount.includes("WORKER_TYPES=new Set(['INDEPENDENT_PROVIDER','PLEASE_STAFF'])")&&providerAccount.includes('verified_worker_type')&&providerAccount.includes('ADMIN_WORKER_TYPE_CHANGED'),'Worker Type is restricted, persisted, re-read and audited');
+ok(evidenceFn.includes("TYPES=new Set(['CHECK_IN','ARRIVAL','COMPLETION','CHECK_OUT'])")&&liveFn.includes("action==='CHECK_IN'")&&liveFn.includes("action==='CHECK_OUT'")&&sql.includes("v_worker_type='PLEASE_STAFF'"),'PLEASE Staff four-photo lifecycle is enforced client/backend/database');
+ok(providerJs.includes("worker_type==='PLEASE_STAFF'")&&providerHtml.includes('PLEASE Staff: Check In + Photo')&&providerHtml.includes('PLEASE Staff: Check Out + Photo'),'Provider UI/manual exposes the four-photo flow only for PLEASE Staff');
+ok(trackingFn.includes('evidence_type=in.(ARRIVAL,COMPLETION)')&&!trackingFn.includes('evidence_type=in.(CHECK_IN,ARRIVAL,COMPLETION,CHECK_OUT)'),'Public Customer Tracking excludes internal Check In/Check Out photos');
+ok(maintHtml.includes('Service Maintenance')&&maintJs.includes('confirm(`Are you sure')&&maintFn.includes("action==='DELETE'")&&sql.includes('admin_service_maintenance_audit'),'Service Maintenance supports confirmed audited deletion');
+ok(sw.includes("please-provider-v15-9"),'Provider PWA cache advances for STEP 15.9');
+ok(fs.existsSync(path.join(root,'STEP15_9_CLIENT_OPERATIONS_CONTROL.md')),'STEP 15.9 deployment/manual documentation is included');
+if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.9 client operations control audit completed successfully.');

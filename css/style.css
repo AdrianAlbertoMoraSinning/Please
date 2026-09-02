@@ -1392,3 +1392,52 @@ body.provider-portal-page .admin-sidebar a span{
 .provider-rate-edit input{border-color:#f0b85c;background:#fffdf7}
 @media(max-width:1100px){.calendar-billing-row.financial.provider-rate-edit-row{grid-template-columns:1fr 1fr 1fr}.calendar-billing-row.financial.provider-rate-edit-row .calendar-billing-name,.calendar-billing-row.financial.provider-rate-edit-row .billing-financial-snapshot{grid-column:1/-1}}
 @media(max-width:760px){.calendar-billing-row.financial.provider-rate-edit-row{grid-template-columns:1fr}.calendar-billing-row.financial.provider-rate-edit-row .calendar-billing-name,.calendar-billing-row.financial.provider-rate-edit-row .billing-financial-snapshot{grid-column:auto}}
+
+
+/* STEP 15.9 — Client Operations Control */
+/* Wider, information-dense Administration drawers. */
+.service-request-drawer{width:50vw;max-width:none;min-width:760px}
+.service-request-drawer .admin-drawer-scroll{padding:20px 22px}
+.service-request-drawer .admin-detail-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin:14px 0 18px}
+.service-request-drawer .admin-detail-section{padding-top:16px;margin-top:16px}
+.service-request-drawer .developer-form-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+.service-request-drawer .admin-drawer-actions{position:sticky;bottom:0;z-index:3;box-shadow:0 -8px 20px rgba(15,23,42,.06)}
+@media(max-width:1450px){.service-request-drawer{width:58vw;min-width:700px}.service-request-drawer .admin-detail-grid,.service-request-drawer .developer-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1050px){.service-request-drawer{width:78vw;min-width:0}}
+@media(max-width:760px){.service-request-drawer{width:100vw}.service-request-drawer .admin-detail-grid,.service-request-drawer .developer-form-grid{grid-template-columns:1fr}.service-request-drawer .admin-drawer-head{padding:16px 18px}.service-request-drawer .admin-drawer-scroll{padding:16px 18px}}
+
+/* Administration Dashboard — action-first operational overview. */
+.admin-section-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.admin-section-title-row h2,.admin-section-title-row h3{margin:0}.admin-section-title-row p{margin:4px 0 0}
+.dashboard-priority-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:22px}
+.dashboard-priority-card{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--line);border-radius:16px;padding:17px 18px;background:#fff;color:#15263a;box-shadow:0 6px 18px rgba(15,23,42,.04);transition:.15s ease}
+.dashboard-priority-card:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(15,23,42,.08)}
+.dashboard-priority-card div{min-width:0}.dashboard-priority-card span{display:block;font-size:.72rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#61758a}.dashboard-priority-card strong{display:block;font-size:2rem;line-height:1;margin-top:6px}.dashboard-priority-card b{font-size:1.25rem}.dashboard-priority-card.danger{border-left:5px solid #c92a2a;background:#fffafa}.dashboard-priority-card.warning{border-left:5px solid #e09b12;background:#fffdf7}.dashboard-priority-card.info{border-left:5px solid #1971c2;background:#f8fbff}.dashboard-priority-card.zero{opacity:.68;border-left-color:#89a0b8;background:#fbfcfe}
+.dashboard-summary-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.dashboard-two-column{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(340px,.65fr);gap:18px;margin-top:18px}
+.dashboard-ops-list,.dashboard-week-list{display:grid;gap:9px}
+.dashboard-ops-row,.dashboard-week-row{display:grid;grid-template-columns:minmax(145px,.75fr) minmax(180px,1fr) minmax(140px,.75fr) auto;gap:12px;align-items:center;border:1px solid #e4ebf3;border-radius:12px;padding:11px 12px;background:#fbfdff}
+.dashboard-ops-row small,.dashboard-week-row small{color:#6d7e91}.dashboard-ops-row strong,.dashboard-week-row strong{min-width:0}
+.dashboard-week-row{grid-template-columns:minmax(110px,.7fr) 90px 1fr}.dashboard-week-row .dashboard-day-count{font-size:1.18rem;font-weight:900;color:#173b63}
+@media(max-width:1200px){.dashboard-priority-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dashboard-two-column{grid-template-columns:1fr}}
+@media(max-width:700px){.dashboard-priority-grid,.dashboard-summary-grid{grid-template-columns:1fr 1fr}.dashboard-ops-row{grid-template-columns:1fr 1fr}.dashboard-ops-row>*:last-child{grid-column:1/-1}.dashboard-week-row{grid-template-columns:1fr 80px}.dashboard-week-row>*:last-child{grid-column:1/-1}}
+@media(max-width:450px){.dashboard-priority-grid,.dashboard-summary-grid{grid-template-columns:1fr}}
+
+/* Master Calendar month workload view. */
+.calendar-view-toggle{display:inline-flex;align-items:center;border:1px solid #cad7e6;border-radius:11px;overflow:hidden;background:#fff}
+.calendar-view-toggle button{border:0;border-right:1px solid #cad7e6;background:#fff;color:#52677c;padding:9px 14px;font-weight:900;font-size:.76rem;letter-spacing:.04em;cursor:pointer}.calendar-view-toggle button:last-child{border-right:0}.calendar-view-toggle button.active{background:#0757b8;color:#fff}
+.master-calendar-grid.month-mode{display:grid;grid-template-columns:repeat(7,minmax(125px,1fr));min-width:900px;max-height:none;overflow:visible;border:1px solid #d9e3ee;border-radius:14px}
+.calendar-month-weekday{padding:10px;text-align:center;background:#f3f7fb;border-right:1px solid #d9e3ee;border-bottom:1px solid #d9e3ee;font-size:.75rem;font-weight:900;text-transform:uppercase;color:#5d7087}.calendar-month-weekday:nth-child(7){border-right:0}
+.calendar-month-day{min-height:122px;padding:10px;border-right:1px solid #e1e8f0;border-bottom:1px solid #e1e8f0;background:#fff;cursor:pointer;transition:.12s ease}.calendar-month-day:nth-child(7n){border-right:0}.calendar-month-day:hover{background:#f7fbff}.calendar-month-day.outside{background:#f8fafc;color:#9aa8b7}.calendar-month-day.today{box-shadow:inset 0 0 0 2px #0757b8}.calendar-month-day.has-services{background:#fbfdff}.calendar-month-number{display:flex;align-items:center;justify-content:space-between;font-weight:900;font-size:.9rem}.calendar-month-service-count{display:block;margin-top:13px;font-size:1.03rem;font-weight:900;color:#0b5fa8}.calendar-month-breakdown{display:grid;gap:3px;margin-top:8px;font-size:.7rem;color:#627488}.calendar-month-empty{display:block;margin-top:18px;color:#9aa8b7;font-size:.74rem}
+.calendar-provider-label{min-height:58px}.calendar-provider-label small{margin-top:3px}
+@media(max-width:800px){.master-calendar-grid.month-mode{min-width:760px;grid-template-columns:repeat(7,minmax(105px,1fr))}.calendar-month-day{min-height:108px;padding:8px}}
+
+/* Administration Provider rate maintenance. */
+.admin-provider-rate-list{display:grid;gap:12px}.admin-provider-rate-card{border:1px solid #dce5ef;border-radius:14px;padding:14px;background:#fbfdff}.admin-provider-rate-card.inactive{opacity:.68;background:#f7f7f8}.admin-provider-rate-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:11px}.admin-provider-rate-card-head strong{display:block}.admin-provider-rate-card-head small{display:block;color:#6b7d91;margin-top:3px}.admin-provider-rate-card .developer-form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-provider-rate-action{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:900px){.admin-provider-rate-card .developer-form-grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.admin-provider-rate-card .developer-form-grid{grid-template-columns:1fr}}
+
+/* Customers and Service Maintenance. */
+.maintenance-danger-zone{border:1px solid #ffd2d2!important;border-radius:14px;padding:16px!important;background:#fff8f8}.maintenance-danger-zone h3{color:#a61b1b}.maintenance-danger-zone textarea{width:100%;margin:8px 0 12px}.customer-returning-badge{display:inline-flex;padding:4px 7px;border-radius:999px;background:#e8f7ef;color:#0f7a45;font-size:.68rem;font-weight:900;text-transform:uppercase}.dashboard-ops-list .admin-empty{padding:18px}
+
+/* PLEASE Staff four-photo lifecycle. */
+.status-checked-in{background:#e7f2ff;color:#0757b8}.status-checked-out{background:#e8f7ef;color:#0f7a45}.provider-staff-evidence-notice{border-left:5px solid #0757b8;background:#f3f8ff;border-radius:10px;padding:12px 14px;margin:12px 0;color:#29465f}.provider-staff-evidence-notice strong{display:block;color:#0757b8;margin-bottom:4px}

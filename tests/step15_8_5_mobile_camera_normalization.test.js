@@ -11,6 +11,6 @@ ok(js.includes('No manual save-to-camera-roll step is required.'), 'Live evidenc
 ok((js.match(/accept="image\/\*"/g)||[]).length>=2, 'Live camera overlay accepts phone image formats for camera and library');
 ok(html.includes('id="provider-service-photo-file" type="file" accept="image/*" capture="environment"'), 'Service portfolio supports direct rear-camera capture with normalization');
 ok(html.includes('id="provider-profile-photo-file" type="file" accept="image/*" capture="user"'), 'Profile photo supports direct front-camera capture with normalization');
-ok(html.includes('js/provider.js?v=15.8.5'), 'Provider page cache-busts the updated camera JavaScript');
-ok(sw.includes("please-provider-v15-8-5"), 'Provider PWA service-worker cache version advanced');
+ok(/js\/provider\.js\?v=(?:15\.8\.(?:[5-9]|\d{2,})(?:\.\d+)*|15\.(?:9|\d{2,}))/.test(html), 'Provider page cache-busts the updated camera JavaScript');
+ok(/please-provider-v15-(?:8-5|8-[6-9](?:-\d+)*|9|\d{2,})/.test(sw), 'Provider PWA service-worker cache version advanced');
 ok(sw.includes("k.startsWith('please-provider-')"), 'Provider PWA removes older Provider caches on activation');

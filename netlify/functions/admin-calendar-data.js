@@ -18,7 +18,8 @@ exports.handler=async event=>{
   const started=Date.now();
   try{
     await lib.requireAdmin(event);
-    const qs=event.queryStringParameters||{},from=isoDate(qs.from),to=isoDate(qs.to);if(!from||!to)return lib.json(400,{error:'Valid from/to dates are required'});
+    const qs=event.queryStringParameters||{},from=isoDate(qs.from),to=isoDate(qs.to),view=String(qs.view||'WEEK').toUpperCase();if(!from||!to)return lib.json(400,{error:'Valid from/to dates are required'});
+    const assignmentStatuses=view==='MONTH'?'PENDING,CONFIRMED,COMPLETED':'PENDING,CONFIRMED';
     const fromWide=new Date(`${from}T00:00:00Z`);fromWide.setUTCDate(fromWide.getUTCDate()-1);const toWide=new Date(`${to}T00:00:00Z`);toWide.setUTCDate(toWide.getUTCDate()+2);
     const fromEnc=encodeURIComponent(from),toEnc=encodeURIComponent(to),startEnc=encodeURIComponent(fromWide.toISOString()),endEnc=encodeURIComponent(toWide.toISOString());
     const warnings=[];
@@ -32,7 +33,7 @@ exports.handler=async event=>{
       optional('services',()=>activeServices(),warnings),
       optional('availability',()=>lib.sbJson('/rest/v1/provider_availability?select=id,provider_id,weekday,start_time,end_time,active&active=eq.true&order=provider_id.asc,weekday.asc,start_time.asc'),warnings),
       optional('availability-exceptions',()=>lib.sbJson(`/rest/v1/provider_availability_exceptions?select=id,provider_id,exception_date,start_time,end_time,exception_type,reason&exception_date=gte.${fromEnc}&exception_date=lte.${toEnc}&order=exception_date.asc,start_time.asc`),warnings),
-      optional('assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=${ASSIGN_SELECT}&scheduled_start=gte.${startEnc}&scheduled_start=lt.${endEnc}&status=in.(PENDING,CONFIRMED)&order=scheduled_start.asc`),warnings),
+      optional('assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=${ASSIGN_SELECT}&scheduled_start=gte.${startEnc}&scheduled_start=lt.${endEnc}&status=in.(${assignmentStatuses})&order=scheduled_start.asc`),warnings),
       optional('needs-assignment',()=>lib.sbJson('/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,estimated_duration_minutes,status,customer_id,source_service_request_id,created_at,customers(first_name,last_name,phone,email)&status=eq.NEEDS_ASSIGNMENT&order=created_at.asc'),warnings),
       optional('provider-rates',()=>activeProviderRates(),warnings),
       optional('schedule-changes',()=>lib.sbJson('/rest/v1/assignment_schedule_change_requests?select=id,assignment_id,job_id,provider_id,current_start,current_end,proposed_start,proposed_end,provider_reason,status,admin_note,created_at,updated_at&status=eq.PENDING&order=created_at.asc'),warnings)

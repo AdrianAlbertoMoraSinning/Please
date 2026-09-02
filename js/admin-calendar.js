@@ -15,6 +15,8 @@
   let assignmentCatalogLoaded=false;
   let weekStart=startOfWeek(new Date());
   let weekDates=[];
+  let calendarView='WEEK';
+  let monthAnchor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
 
   const $=id=>document.getElementById(id);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -43,6 +45,11 @@
   function addDays(date,n){const d=new Date(date);d.setDate(d.getDate()+n);return d;}
   function ymd(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
   function fmtWeek(){const end=addDays(weekStart,6);return `${weekStart.toLocaleDateString('en-CA',{month:'short',day:'numeric'})} – ${end.toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'})}`;}
+  function monthStart(date=monthAnchor){return new Date(date.getFullYear(),date.getMonth(),1,12,0,0,0);}
+  function monthVisibleStart(){return startOfWeek(monthStart());}
+  function monthVisibleEnd(){return addDays(monthVisibleStart(),41);}
+  function fmtMonth(){return monthAnchor.toLocaleDateString('en-CA',{month:'long',year:'numeric'});}
+  function setViewButtons(){const w=$('calendar-view-week'),m=$('calendar-view-month');w?.classList.toggle('active',calendarView==='WEEK');m?.classList.toggle('active',calendarView==='MONTH');grid?.classList.toggle('month-mode',calendarView==='MONTH');}
   function localParts(iso){
     const parts=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(iso));
     const o={};parts.forEach(p=>{if(p.type!=='literal')o[p.type]=p.value;});return {date:`${o.year}-${o.month}-${o.day}`,time:`${o.hour}:${o.minute}`};
@@ -161,17 +168,16 @@
     if([...providerFilter.options].some(o=>o.value===currentP))providerFilter.value=currentP;
   }
 
-  function renderCalendar(){
+  function renderWeekCalendar(){
     weekDates=Array.from({length:7},(_,i)=>ymd(addDays(weekStart,i))); $('week-label').textContent=fmtWeek();
     const providers=data.providers.filter(p=>providerMatches(p.id)&&(providerFilter.value==='ALL'||providerFilter.value===p.id));
     const headers=weekDates.map(d=>{const dt=new Date(`${d}T12:00:00`);return `<div class="calendar-day-head"><strong>${dt.toLocaleDateString('en-CA',{weekday:'short'})}</strong><span>${dt.toLocaleDateString('en-CA',{month:'short',day:'numeric'})}</span></div>`}).join('');
     let html=`<div class="calendar-corner">Provider</div>${headers}`;
     if(!providers.length){grid.innerHTML='<div class="admin-empty calendar-empty-wide">No active providers match the selected filters.</div>';return;}
     providers.forEach(p=>{
-      const services=[...providerServiceIds(p.id)].map(id=>data.services.find(s=>s.id===id)?.name).filter(Boolean);
-      html+=`<div class="calendar-provider-label"><strong>${esc(p.display_name)}</strong><span>${esc(p.public_title||p.company_name||'Service Provider')}</span><small>${esc(services.join(' · '))}</small></div>`;
+      html+=`<div class="calendar-provider-label"><strong>${esc(p.display_name)}</strong><span>${esc(p.public_title||p.company_name||'Service Provider')}</span></div>`;
       weekDates.forEach(date=>{
-        const av=availabilityFor(p.id,date), assignments=assignmentFor(p.id,date);
+        const av=availabilityFor(p.id,date), assignments=assignmentFor(p.id,date).filter(a=>a.status!=='COMPLETED');
         const fullBlocked=av.blocked.some(e=>!e.start_time&&!e.end_time);
         html+=`<div class="calendar-cell ${fullBlocked?'calendar-cell-blocked':''}" data-provider="${p.id}" data-date="${date}">
           <div class="calendar-availability-line">${esc(providerWindowText(p.id,date))}</div>
@@ -185,6 +191,20 @@
     grid.querySelectorAll('.calendar-add-slot').forEach(btn=>btn.addEventListener('click',()=>{const cell=btn.closest('.calendar-cell');openNewJob({provider_id:cell.dataset.provider,date:cell.dataset.date});}));
     grid.querySelectorAll('.calendar-assignment').forEach(btn=>btn.addEventListener('click',()=>openAssignment(btn.dataset.assignment)));
   }
+  function renderMonthCalendar(){
+    $('week-label').textContent=fmtMonth();
+    const first=monthVisibleStart(),today=ymd(new Date()),month=monthAnchor.getMonth();
+    const headers=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x=>`<div class="calendar-month-weekday">${x}</div>`).join('');
+    const providerId=providerFilter.value,serviceId=serviceFilter.value,byDate=new Map();
+    for(const a of data.assignments||[]){
+      const j=a.jobs||{};if(!a.scheduled_start)continue;if(providerId!=='ALL'&&a.provider_id!==providerId)continue;if(serviceId!=='ALL'&&j.service_id!==serviceId)continue;if(['DECLINED','CANCELLED'].includes(a.status))continue;
+      const d=localParts(a.scheduled_start).date;if(!byDate.has(d))byDate.set(d,{jobs:new Map(),pending:0,confirmed:0,completed:0});const x=byDate.get(d);x.jobs.set(a.job_id,j);if(a.status==='PENDING')x.pending++;else if(a.status==='CONFIRMED')x.confirmed++;else if(a.status==='COMPLETED')x.completed++;
+    }
+    let cells='';for(let i=0;i<42;i++){const dt=addDays(first,i),date=ymd(dt),x=byDate.get(date),count=x?.jobs.size||0,outside=dt.getMonth()!==month;cells+=`<button type="button" class="calendar-month-day ${outside?'outside':''} ${date===today?'today':''} ${count?'has-services':''}" data-month-date="${date}"><span class="calendar-month-number">${dt.getDate()}</span><strong>${count} ${count===1?'Service':'Services'}</strong>${count?`<small>${x.pending?`${x.pending} pending`:''}${x.pending&&x.confirmed?' · ':''}${x.confirmed?`${x.confirmed} confirmed`:''}${(x.pending||x.confirmed)&&x.completed?' · ':''}${x.completed?`${x.completed} completed`:''}</small>`:'<small>No services</small>'}</button>`;}
+    grid.innerHTML=`${headers}${cells}`;
+    grid.querySelectorAll('[data-month-date]').forEach(btn=>btn.addEventListener('click',()=>{weekStart=startOfWeek(new Date(`${btn.dataset.monthDate}T12:00:00`));calendarView='WEEK';setViewButtons();loadCalendar().catch(e=>showAlert(e.message));}));
+  }
+  function renderCalendar(){setViewButtons();if(calendarView==='MONTH')renderMonthCalendar();else renderWeekCalendar();}
 
   function scheduleChangeContext(change){
     const a=(data.assignments||[]).find(x=>x.id===change.assignment_id);
@@ -252,8 +272,8 @@
   }
   function setMultiMode(on){$('multi-provider-section').hidden=!on;$('legacy-assignment-section').hidden=on;['job-provider','job-date','job-start','job-end'].forEach(id=>{const el=$(id);if(el)el.required=!on;});}
   async function loadCalendar(){
-    clearAlert(); const from=ymd(weekStart),to=ymd(addDays(weekStart,6));
-    const fresh=await api(`/.netlify/functions/admin-calendar-data?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    clearAlert(); const from=calendarView==='MONTH'?ymd(monthVisibleStart()):ymd(weekStart),to=calendarView==='MONTH'?ymd(monthVisibleEnd()):ymd(addDays(weekStart,6));
+    const fresh=await api(`/.netlify/functions/admin-calendar-data?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&view=${calendarView}`);
     data={...data,...fresh};
     if((fresh.providers||[]).length&&(fresh.services||[]).length)assignmentCatalogLoaded=true;
     renderFilters();renderPendingScheduleChanges();renderCalendar();renderUnassigned();if(data.warnings?.length)showAlert(`Master Calendar loaded with limited auxiliary data (${data.warnings.join(', ')}). Assignment can still retry its catalog independently.`);
@@ -471,9 +491,11 @@
   function on(id,event,handler){const el=$(id);if(el)el.addEventListener(event,handler);return el;}
   function bindEvents(){
     on('new-job','click',()=>{sourceRequest=null;try{sessionStorage.removeItem('pleasePendingServiceRequest');}catch{}history.replaceState(null,'','admin-calendar.html');openNewJob();});
-    on('prev-week','click',()=>{weekStart=addDays(weekStart,-7);loadCalendar().catch(e=>showAlert(e.message));});
-    on('next-week','click',()=>{weekStart=addDays(weekStart,7);loadCalendar().catch(e=>showAlert(e.message));});
-    on('today-week','click',()=>{weekStart=startOfWeek(new Date());loadCalendar().catch(e=>showAlert(e.message));});
+    on('prev-week','click',()=>{if(calendarView==='MONTH')monthAnchor=new Date(monthAnchor.getFullYear(),monthAnchor.getMonth()-1,1);else weekStart=addDays(weekStart,-7);loadCalendar().catch(e=>showAlert(e.message));});
+    on('next-week','click',()=>{if(calendarView==='MONTH')monthAnchor=new Date(monthAnchor.getFullYear(),monthAnchor.getMonth()+1,1);else weekStart=addDays(weekStart,7);loadCalendar().catch(e=>showAlert(e.message));});
+    on('today-week','click',()=>{weekStart=startOfWeek(new Date());monthAnchor=new Date(new Date().getFullYear(),new Date().getMonth(),1);loadCalendar().catch(e=>showAlert(e.message));});
+    on('calendar-view-week','click',()=>{calendarView='WEEK';setViewButtons();loadCalendar().catch(e=>showAlert(e.message));});
+    on('calendar-view-month','click',()=>{calendarView='MONTH';const center=addDays(weekStart,3);monthAnchor=new Date(center.getFullYear(),center.getMonth(),1);setViewButtons();loadCalendar().catch(e=>showAlert(e.message));});
     on('refresh-calendar','click',()=>loadCalendar().catch(e=>showAlert(e.message)));
     serviceFilter?.addEventListener('change',renderCalendar);providerFilter?.addEventListener('change',renderCalendar);
     on('job-service','change',()=>{populateJobProviders($('job-service').value);teamAssignments.forEach(a=>{if(a.provider_id&&!eligibleProviders($('job-service').value).some(p=>p.id===a.provider_id)){a.provider_id='';a.billing_items=[];}});renderTeam();});
@@ -493,7 +515,9 @@
       loading.textContent='Checking secure session…';
       await ensureSession();
       loading.textContent='Loading Master Calendar…';
-      const requestId=new URLSearchParams(location.search).get('request');
+      const params=new URLSearchParams(location.search),requestId=params.get('request'),requestedDate=params.get('date'),requestedView=String(params.get('view')||'').toUpperCase();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(requestedDate||'')){const d=new Date(`${requestedDate}T12:00:00`);weekStart=startOfWeek(d);monthAnchor=new Date(d.getFullYear(),d.getMonth(),1);}
+      if(requestedView==='MONTH')calendarView='MONTH';
       let calendarWarning=null;
       try{await loadCalendar();}catch(e){calendarWarning=e;}
       bindEvents();
