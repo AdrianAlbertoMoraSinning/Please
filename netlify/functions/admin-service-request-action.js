@@ -1,6 +1,7 @@
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
 const customerLib=require('./_customer-lib');
+const jobSchedule=require('./_job-schedule-lib');
 
 function actionAlreadyApplied(action,status){
   const a=String(action||'').toUpperCase();
@@ -108,13 +109,35 @@ exports.handler=async event=>{
       const patch={service_id:svc.id,service_name:svc.name,street_address:String(v.street_address||'').trim()||null,city:String(v.city||'').trim()||null,province:String(v.province||'').trim()||null,postal_code:String(v.postal_code||'').trim()||null,dropoff_address:dropoff||null,estimated_hours:estimatedHours,preferred_date:preferredDate,preferred_start_time:preferredTime,scheduling_flexibility:flexibility,work_description:String(v.work_description||'').trim(),customer_notes:legacyNotes||null,updated_at:new Date().toISOString()};
       if(!patch.work_description) return lib.json(400,{error:'Work Description is required.'});
       if(!patch.street_address||!patch.city||!patch.province) return lib.json(400,{error:'Complete the service location before scheduling the Job.'});
+      // If this request has already become a Job, the Service Request cannot become a
+      // second, conflicting source of schedule truth. Save the request and synchronize
+      // the active Job in one controlled operation. A failed Job sync rolls the request
+      // back to the values it had before the Administrator clicked Save.
+      if(current.job_id&&current.status==='ASSIGNED'){
+        const linked=(await lib.sbJson(`/rest/v1/jobs?select=id,service_id,reference,status&id=eq.${encodeURIComponent(current.job_id)}&limit=1`))?.[0];
+        if(!linked) return lib.json(409,{error:'The related Job could not be found. Open Service Maintenance before changing this assigned request.'});
+        if(String(linked.service_id||'')!==String(svc.id||'')) return lib.json(409,{error:'The Service cannot be changed after a Job has been created. Change only the date, time, hours, address or work description.'});
+      }
+      const rollbackPatch={service_id:current.service_id,service_name:current.service_name,street_address:current.street_address,city:current.city,province:current.province,postal_code:current.postal_code,dropoff_address:current.dropoff_address,estimated_hours:current.estimated_hours,preferred_date:current.preferred_date,preferred_start_time:current.preferred_start_time,scheduling_flexibility:current.scheduling_flexibility,work_description:current.work_description,customer_notes:current.customer_notes,customer_id:current.customer_id,updated_at:current.updated_at};
+      let updated;
+      try{
+        updated=await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(current.id)}&select=*`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(patch)});
+        if(current.job_id&&current.status==='ASSIGNED'){
+          const scheduledStart=jobSchedule.edmontonLocalToIso(preferredDate,preferredTime),scheduledEnd=new Date(new Date(scheduledStart).getTime()+Math.round(estimatedHours*60)*60000).toISOString();
+          await jobSchedule.updateActiveJob({actorId:auth.user.id,jobId:current.job_id,applyToTeam:true,scheduledStart,scheduledEnd,estimatedDurationMinutes:Math.round(estimatedHours*60),syncHourlyBilling:true,syncSourceRequest:false,workAddress:[patch.street_address,patch.city,patch.province,patch.postal_code].filter(Boolean).join(', '),workDescription:patch.work_description,reason:`Related Service Request ${current.reference} updated by PLEASE Administration`,notifyPeople:true});
+        }
+      }catch(syncError){
+        try{await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(current.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(rollbackPatch)});}catch(rollbackError){console.error('admin-service-request-action:request-rollback-warning',rollbackError);}
+        throw Object.assign(new Error(`The request was not changed because the related Job could not be synchronized. ${syncError.message||''}`.trim()),{status:syncError.status||409});
+      }
       const customerId=await customerLib.upsertCustomer({first_name:current.first_name,last_name:current.last_name,email:current.email,phone:current.phone,street_address:patch.street_address,city:patch.city,province:patch.province,postal_code:patch.postal_code},{incrementRequest:false});
-      if(customerId)patch.customer_id=customerId;
-      const updated=await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(current.id)}&select=*`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(patch)});
-      await lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:current.id,old_status:current.status,new_status:current.status,note:'Request details updated by PLEASE Administration',changed_by_admin_portal_user:auth.user.id})}).catch(e=>console.error('admin-service-request-action:details-history-warning',e));
+      if(customerId&&customerId!==current.customer_id){await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(current.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({customer_id:customerId,updated_at:new Date().toISOString()})}).catch(()=>{});if(updated?.[0])updated[0].customer_id=customerId;}
+      await lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:current.id,old_status:current.status,new_status:current.status,note:current.job_id?'Request details updated and related Job synchronized by PLEASE Administration':'Request details updated by PLEASE Administration',changed_by_admin_portal_user:auth.user.id})}).catch(e=>console.error('admin-service-request-action:details-history-warning',e));
       const out=updated?.[0]||current;
-      const n=await notify.send({to:out.email,subject:`PLEASE — Request Updated (${out.reference})`,title:'Your service request was updated',intro:`Hi ${out.first_name||'there'}, PLEASE Administration updated the details of your request.`,details:[['Request',out.reference],['Service',out.service_name],['Status',out.status]],ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-request-details-${out.id}-${Date.now()}`});
-      return lib.json(200,{request:out,notification_sent:!!n?.sent});
+      // The active Job synchronization already sends the schedule update when linked.
+      // For an unassigned request, keep the normal request-update email.
+      const n=current.job_id?null:await notify.send({to:out.email,subject:`PLEASE — Request Updated (${out.reference})`,title:'Your service request was updated',intro:`Hi ${out.first_name||'there'}, PLEASE Administration updated the details of your request.`,details:[['Request',out.reference],['Service',out.service_name],['Status',out.status]],ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-request-details-${out.id}-${Date.now()}`});
+      return lib.json(200,{request:out,related_job_synchronized:!!current.job_id,notification_sent:!!n?.sent});
     }
 
     if(action==='SAVE_NOTES'){

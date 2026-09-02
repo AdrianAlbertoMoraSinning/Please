@@ -1,21 +1,33 @@
 const lib=require('./_admin-lib');
+const schedule=require('./_job-schedule-lib');
 const BUCKET='provider-applications';
 const clean=(v,n=1000)=>String(v??'').trim().slice(0,n);
 const validId=v=>/^[0-9a-f-]{36}$/i.test(String(v||''));
 async function removeStorage(path){if(!path)return false;const enc=String(path).split('/').map(encodeURIComponent).join('/');try{const r=await lib.sbFetch(`/storage/v1/object/${BUCKET}/${enc}`,{method:'DELETE'});return r.ok;}catch{return false;}}
 async function audit(auth,type,id,reference,snapshot,reason){try{await lib.sbJson('/rest/v1/admin_service_maintenance_audit',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({admin_user_id:auth.user.id,action:'EDIT',record_type:type,record_id:id,reference,reason:reason||'Record edited in Service Maintenance',snapshot})});}catch(e){console.warn('admin-service-maintenance:audit',e?.message||e);}}
+function requestPatchFrom(patch){
+  const estimated=patch.estimated_hours===''||patch.estimated_hours==null?null:Number(patch.estimated_hours);
+  const out={street_address:clean(patch.street_address,300)||null,city:clean(patch.city,120)||null,province:clean(patch.province,80)||null,postal_code:clean(patch.postal_code,30)||null,work_description:clean(patch.work_description,4000),preferred_date:clean(patch.preferred_date,20)||null,preferred_start_time:clean(patch.preferred_start_time,10)||null,estimated_hours:estimated,internal_notes:clean(patch.internal_notes,4000)||null,updated_at:new Date().toISOString()};
+  if(!out.work_description)throw Object.assign(new Error('Work Description is required.'),{status:400});
+  if(out.preferred_date&&!/^\d{4}-\d{2}-\d{2}$/.test(out.preferred_date))throw Object.assign(new Error('Preferred Date is invalid.'),{status:400});
+  if(out.preferred_start_time&&!/^\d{2}:(00|15|30|45)$/.test(out.preferred_start_time.slice(0,5)))throw Object.assign(new Error('Time must use 15-minute increments.'),{status:400});
+  if(out.estimated_hours!=null&&(!Number.isFinite(out.estimated_hours)||out.estimated_hours<0.25||out.estimated_hours>72||Math.abs(out.estimated_hours*4-Math.round(out.estimated_hours*4))>1e-8))throw Object.assign(new Error('Estimated Hours must be 0.25–72 in 15-minute increments.'),{status:400});
+  return out;
+}
 exports.handler=async event=>{
  try{
   const auth=await lib.requireAdmin(event);
   if(event.httpMethod==='GET'){
    const q=clean(event.queryStringParameters?.q,200).toLowerCase();
-   const [requests,jobs]=await Promise.all([
+   const [requests,jobs,assignments]=await Promise.all([
     lib.sbJson('/rest/v1/service_requests?select=id,reference,status,first_name,last_name,email,phone,service_name,street_address,city,province,postal_code,preferred_date,preferred_start_time,estimated_hours,work_description,internal_notes,job_id,created_at,updated_at&order=created_at.desc&limit=500').catch(()=>[]),
-    lib.sbJson('/rest/v1/jobs?select=id,reference,status,service_name,work_address,work_description,estimated_duration_minutes,internal_notes,created_at,updated_at,customers(first_name,last_name,email,phone)&order=created_at.desc&limit=500').catch(()=>[])
+    lib.sbJson('/rest/v1/jobs?select=id,reference,status,service_name,work_address,work_description,estimated_duration_minutes,internal_notes,created_at,updated_at,customers(first_name,last_name,email,phone)&order=created_at.desc&limit=500').catch(()=>[]),
+    lib.sbJson('/rest/v1/job_assignments?select=id,job_id,provider_id,status,sequence_no,is_primary,scheduled_start,scheduled_end&status=in.(PENDING,CONFIRMED)&order=sequence_no.asc,assigned_at.asc').catch(()=>[])
    ]);
+   const byJob=new Map();for(const a of assignments||[]){if(!byJob.has(a.job_id))byJob.set(a.job_id,[]);byJob.get(a.job_id).push(a);}
    const rows=[];
    for(const r of requests||[]){const hay=[r.reference,r.status,r.first_name,r.last_name,r.email,r.phone,r.service_name,r.street_address].join(' ').toLowerCase();if(!q||hay.includes(q))rows.push({type:'SERVICE_REQUEST',...r,customer_name:[r.first_name,r.last_name].filter(Boolean).join(' ')});}
-   for(const j of jobs||[]){const c=j.customers||{},hay=[j.reference,j.status,j.service_name,j.work_address,c.first_name,c.last_name,c.email,c.phone].join(' ').toLowerCase();if(!q||hay.includes(q))rows.push({type:'JOB',...j,customer_name:[c.first_name,c.last_name].filter(Boolean).join(' '),email:c.email,phone:c.phone});}
+   for(const j of jobs||[]){const c=j.customers||{},aa=byJob.get(j.id)||[],primary=aa.find(x=>x.is_primary)||aa[0]||null,hay=[j.reference,j.status,j.service_name,j.work_address,c.first_name,c.last_name,c.email,c.phone].join(' ').toLowerCase();if(!q||hay.includes(q))rows.push({type:'JOB',...j,customer_name:[c.first_name,c.last_name].filter(Boolean).join(' '),email:c.email,phone:c.phone,scheduled_start:primary?.scheduled_start||null,scheduled_end:primary?.scheduled_end||null,active_assignment_count:aa.length});}
    rows.sort((a,b)=>new Date(b.updated_at||b.created_at)-new Date(a.updated_at||a.created_at));return lib.json(200,{records:rows.slice(0,500)});
   }
   if(event.httpMethod!=='POST')return lib.json(405,{error:'Method not allowed'});
@@ -28,14 +40,25 @@ exports.handler=async event=>{
    let removed=0;for(const e of evidence||[])if(await removeStorage(e.storage_path))removed++;
    return lib.json(200,{ok:true,result:d,evidence_files_removed:removed});
   }
-  const patch=b.patch||{},now=new Date().toISOString();
+  const patch=b.patch||{};
   if(type==='SERVICE_REQUEST'){
    const before=(await lib.sbJson(`/rest/v1/service_requests?select=*&id=eq.${encodeURIComponent(id)}&limit=1`))?.[0];if(!before)return lib.json(404,{error:'Service Request not found.'});
-   const out={street_address:clean(patch.street_address,300)||null,city:clean(patch.city,120)||null,province:clean(patch.province,80)||null,postal_code:clean(patch.postal_code,30)||null,work_description:clean(patch.work_description,4000),preferred_date:clean(patch.preferred_date,20)||null,preferred_start_time:clean(patch.preferred_start_time,10)||null,estimated_hours:patch.estimated_hours===''||patch.estimated_hours==null?null:Number(patch.estimated_hours),internal_notes:clean(patch.internal_notes,4000)||null,updated_at:now};
-   if(!out.work_description)return lib.json(400,{error:'Work Description is required.'});if(out.preferred_date&&!/^\d{4}-\d{2}-\d{2}$/.test(out.preferred_date))return lib.json(400,{error:'Preferred Date is invalid.'});if(out.preferred_start_time&&!/^\d{2}:(00|15|30|45)$/.test(out.preferred_start_time.slice(0,5)))return lib.json(400,{error:'Time must use 15-minute increments.'});if(out.estimated_hours!=null&&(!Number.isFinite(out.estimated_hours)||out.estimated_hours<0.25||out.estimated_hours>72||Math.abs(out.estimated_hours*4-Math.round(out.estimated_hours*4))>1e-8))return lib.json(400,{error:'Estimated Hours must be 0.25–72 in 15-minute increments.'});
-   const rows=await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(id)}&select=*`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(out)});await audit(auth,type,id,before.reference,before,'Service Request edited in Service Maintenance');return lib.json(200,{ok:true,record:rows?.[0]});
+   const out=requestPatchFrom(patch),rollback={street_address:before.street_address,city:before.city,province:before.province,postal_code:before.postal_code,work_description:before.work_description,preferred_date:before.preferred_date,preferred_start_time:before.preferred_start_time,estimated_hours:before.estimated_hours,internal_notes:before.internal_notes,updated_at:before.updated_at};
+   let rows;
+   try{
+    rows=await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(id)}&select=*`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(out)});
+    if(before.job_id&&out.preferred_date&&out.preferred_start_time&&out.estimated_hours){
+      const start=schedule.edmontonLocalToIso(out.preferred_date,out.preferred_start_time.slice(0,5)),end=new Date(new Date(start).getTime()+Math.round(Number(out.estimated_hours)*60)*60000).toISOString();
+      await schedule.updateActiveJob({actorId:auth.user.id,jobId:before.job_id,applyToTeam:true,scheduledStart:start,scheduledEnd:end,estimatedDurationMinutes:Math.round(Number(out.estimated_hours)*60),syncHourlyBilling:true,syncSourceRequest:false,workAddress:[out.street_address,out.city,out.province,out.postal_code].filter(Boolean).join(', '),workDescription:out.work_description,internalNotes:out.internal_notes,reason:`Service Maintenance synchronized ${before.reference}`,notifyPeople:true});
+    }
+   }catch(e){try{await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(rollback)});}catch(re){console.error('admin-service-maintenance:request-rollback',re);}throw e;}
+   await audit(auth,type,id,before.reference,before,before.job_id?'Service Request and related Job edited in Service Maintenance':'Service Request edited in Service Maintenance');return lib.json(200,{ok:true,record:rows?.[0],related_job_synchronized:!!before.job_id});
   }
   const before=(await lib.sbJson(`/rest/v1/jobs?select=*&id=eq.${encodeURIComponent(id)}&limit=1`))?.[0];if(!before)return lib.json(404,{error:'Job not found.'});
-  const rawMins=Number(patch.estimated_duration_minutes);if(!Number.isFinite(rawMins)||rawMins<15||rawMins>4320||Math.round(rawMins)%15!==0)return lib.json(400,{error:'Estimated Minutes must use 15-minute increments.'});const mins=Math.round(rawMins);const out={work_address:clean(patch.work_address,500),work_description:clean(patch.work_description,5000),estimated_duration_minutes:mins,internal_notes:clean(patch.internal_notes,5000)||null,updated_at:now};if(!out.work_address||!out.work_description)return lib.json(400,{error:'Work Address and Work Description are required.'});const rows=await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(id)}&select=*`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(out)});await audit(auth,type,id,before.reference,before,'Job edited in Service Maintenance');return lib.json(200,{ok:true,record:rows?.[0]});
+  const rawMins=Number(patch.estimated_duration_minutes);if(!Number.isFinite(rawMins)||rawMins<15||rawMins>4320||Math.round(rawMins)%15!==0)return lib.json(400,{error:'Estimated Minutes must use 15-minute increments.'});const mins=Math.round(rawMins);
+  const date=clean(patch.service_date,20),time=clean(patch.service_start,10).slice(0,5);let start=null,end=null;
+  if(date||time){if(!date||!time)return lib.json(400,{error:'Both Service Date and Start Time are required.'});if(!/^\d{2}:(00|15|30|45)$/.test(time))return lib.json(400,{error:'Start Time must use 15-minute increments.'});start=schedule.edmontonLocalToIso(date,time);end=new Date(new Date(start).getTime()+mins*60000).toISOString();}
+  const result=await schedule.updateActiveJob({actorId:auth.user.id,jobId:id,applyToTeam:true,scheduledStart:start,scheduledEnd:end,estimatedDurationMinutes:mins,syncHourlyBilling:patch.sync_hourly_billing!==false,syncSourceRequest:true,workAddress:clean(patch.work_address,500),workDescription:clean(patch.work_description,5000),internalNotes:clean(patch.internal_notes,5000),reason:'Job edited in Service Maintenance',notifyPeople:true});
+  await audit(auth,type,id,before.reference,before,'Job schedule / duration edited in Service Maintenance');return lib.json(200,{ok:true,...result});
  }catch(e){console.error('admin-service-maintenance',e);return lib.json(e.status||500,{error:e.status===401?'Unauthorized':(e.message||'Service Maintenance failed.')});}
 };

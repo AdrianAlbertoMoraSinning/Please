@@ -13,9 +13,9 @@ async function addJobReferences(requests){
   if(!ids.length)return rows;
   try{
     const list=ids.map(encodeURIComponent).join(',');
-    const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference&id=in.(${list})`);
-    const map=new Map((jobs||[]).map(j=>[j.id,j.reference]));
-    rows.forEach(r=>{r.job_reference=r.job_id?map.get(r.job_id)||null:null;});
+    const [jobs,assignments]=await Promise.all([lib.sbJson(`/rest/v1/jobs?select=id,reference,service_id,estimated_duration_minutes&id=in.(${list})`),lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,is_primary,sequence_no,status,scheduled_start,scheduled_end&job_id=in.(${list})&status=in.(PENDING,CONFIRMED)&order=sequence_no.asc,assigned_at.asc`).catch(()=>[])]);
+    const map=new Map((jobs||[]).map(j=>[j.id,j])),byJob=new Map();for(const a of assignments||[]){if(!byJob.has(a.job_id))byJob.set(a.job_id,[]);byJob.get(a.job_id).push(a);}
+    rows.forEach(r=>{const j=r.job_id?map.get(r.job_id):null,aa=r.job_id?(byJob.get(r.job_id)||[]):[],primary=aa.find(x=>x.is_primary)||aa[0]||null;r.job_reference=j?.reference||null;r.job_service_id=j?.service_id||null;r.job_estimated_duration_minutes=j?.estimated_duration_minutes??null;r.job_scheduled_start=primary?.scheduled_start||null;r.job_scheduled_end=primary?.scheduled_end||null;r.job_active_assignment_count=aa.length;});
   }catch(e){console.warn('admin-service-requests:job-reference-link',e?.message||e);}
   return rows;
 }
