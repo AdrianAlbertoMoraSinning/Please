@@ -29,6 +29,7 @@ const fakeLib={
    const id=decodeURIComponent(url.match(/id=eq\.([^&]+)/)[1]),patch=JSON.parse(opt.body);currentBilling=currentBilling.map(x=>x.id===id?{...x,...patch}:x);return null;
   }
   if(url.startsWith('/rest/v1/job_billing_items?select=customer_line_total'))return currentBilling.map(x=>({customer_line_total:x.customer_line_total}));
+  if(url.startsWith('/rest/v1/job_billing_items?select=id,quantity,unit,customer_unit_rate'))return currentBilling.map(x=>({...x}));
   if(url.startsWith('/rest/v1/jobs?id=eq.')&&method==='PATCH')return null;
   if(url.startsWith('/rest/v1/service_requests?id=eq.')&&method==='PATCH')return null;
   if(['/rest/v1/assignment_status_history','/rest/v1/job_status_history','/rest/v1/service_request_status_history'].includes(url))return null;

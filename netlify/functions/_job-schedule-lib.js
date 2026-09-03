@@ -45,20 +45,24 @@ async function conflictsFor(targets,newStart,newEnd){
   }
 }
 
-function billingPatch(row,qty){
-  const customerRate=Number(row.customer_unit_rate??row.unit_rate??0),providerRate=row.provider_unit_rate==null?null:Number(row.provider_unit_rate);
+function billingPatch(row,qty,override={}){
+  const hasCustomer=Object.prototype.hasOwnProperty.call(override,'customer_unit_rate'),hasProvider=Object.prototype.hasOwnProperty.call(override,'provider_unit_rate');
+  const customerRate=hasCustomer?Number(override.customer_unit_rate):Number(row.customer_unit_rate??row.unit_rate??0);
+  const providerRate=hasProvider?(override.provider_unit_rate==null?null:Number(override.provider_unit_rate)):(row.provider_unit_rate==null?null:Number(row.provider_unit_rate));
+  if(!Number.isFinite(customerRate)||customerRate<0||customerRate>1000000)throw Object.assign(new Error('Customer Rate must be a valid non-negative amount.'),{status:400});
+  if(providerRate!=null&&(!Number.isFinite(providerRate)||providerRate<0||providerRate>1000000))throw Object.assign(new Error('Provider Cost / Rate must be a valid non-negative amount.'),{status:400});
   const customerLine=money(qty*customerRate),providerLine=providerRate==null?null:money(qty*providerRate);
-  return{quantity:money(qty),customer_line_total:customerLine,line_total:customerLine,provider_line_total:providerLine,gross_profit:providerLine==null?null:money(customerLine-providerLine)};
+  return{quantity:money(qty),customer_unit_rate:money(customerRate),unit_rate:money(customerRate),customer_line_total:customerLine,line_total:customerLine,provider_unit_rate:providerRate==null?null:money(providerRate),provider_line_total:providerLine,gross_profit:providerLine==null?null:money(customerLine-providerLine)};
 }
 
 async function rollback({assignments=[],billing=[],job=null,request=null}){
   for(const a of assignments){try{await lib.sbJson(`/rest/v1/job_assignments?id=eq.${encodeURIComponent(a.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({scheduled_start:a.scheduled_start,scheduled_end:a.scheduled_end,updated_at:new Date().toISOString()})});}catch(e){console.error('job-schedule:assignment-rollback',a.id,e?.message||e);}}
-  for(const b of billing){try{await lib.sbJson(`/rest/v1/job_billing_items?id=eq.${encodeURIComponent(b.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({quantity:b.quantity,customer_line_total:b.customer_line_total,provider_line_total:b.provider_line_total,gross_profit:b.gross_profit,line_total:b.line_total})});}catch(e){console.error('job-schedule:billing-rollback',b.id,e?.message||e);}}
+  for(const b of billing){try{await lib.sbJson(`/rest/v1/job_billing_items?id=eq.${encodeURIComponent(b.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({quantity:b.quantity,customer_unit_rate:b.customer_unit_rate,unit_rate:b.unit_rate,customer_line_total:b.customer_line_total,provider_unit_rate:b.provider_unit_rate,provider_line_total:b.provider_line_total,gross_profit:b.gross_profit,line_total:b.line_total})});}catch(e){console.error('job-schedule:billing-rollback',b.id,e?.message||e);}}
   if(job){try{await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(job.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({work_address:job.work_address,work_description:job.work_description,internal_notes:job.internal_notes,estimated_duration_minutes:job.estimated_duration_minutes,quoted_subtotal:job.quoted_subtotal,updated_at:new Date().toISOString()})});}catch(e){console.error('job-schedule:job-rollback',e?.message||e);}}
   if(request){try{await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(request.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({preferred_date:request.preferred_date,preferred_start_time:request.preferred_start_time,estimated_hours:request.estimated_hours,street_address:request.street_address,city:request.city,province:request.province,postal_code:request.postal_code,work_description:request.work_description,updated_at:new Date().toISOString()})});}catch(e){console.error('job-schedule:request-rollback',e?.message||e);}}
 }
 
-async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true,scheduledStart=null,scheduledEnd=null,estimatedDurationMinutes=null,syncHourlyBilling=true,syncSourceRequest=true,workAddress,workDescription,internalNotes,reason='Schedule / duration updated by PLEASE Administration',notifyPeople=true}={}){
+async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true,scheduledStart=null,scheduledEnd=null,estimatedDurationMinutes=null,syncHourlyBilling=true,billingOverrides=[],syncSourceRequest=true,workAddress,workDescription,internalNotes,reason='Schedule / duration updated by PLEASE Administration',notifyPeople=true}={}){
   if(!validUuid(jobId))throw Object.assign(new Error('Invalid Job.'),{status:400});
   const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,status,service_name,work_address,work_description,internal_notes,estimated_duration_minutes,quoted_subtotal,source_service_request_id,customers(first_name,last_name,email,phone)&id=eq.${encodeURIComponent(jobId)}&limit=1`),job=jobs?.[0];
   if(!job)throw Object.assign(new Error('Job not found.'),{status:404});
@@ -94,7 +98,14 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
   const billing=await lib.sbJson(`/rest/v1/job_billing_items?select=id,job_id,assignment_id,provider_id,quantity,unit,customer_unit_rate,customer_line_total,provider_unit_rate,provider_line_total,gross_profit,unit_rate,line_total&job_id=eq.${encodeURIComponent(jobId)}`).catch(()=>[]);
   const targetIds=new Set(targets.map(x=>x.id)),targetProviders=new Set(targets.map(x=>x.provider_id));
   const hourly=(billing||[]).filter(x=>syncHourlyBilling&&isHourly(x.unit)&&(targetIds.has(x.assignment_id)||(!x.assignment_id&&targetProviders.has(x.provider_id))));
-  const snapshots={assignments:targets.map(x=>({...x})),billing:hourly.map(x=>({...x})),job:{...job},request:null};
+  const overrideMap=new Map();
+  for(const raw of Array.isArray(billingOverrides)?billingOverrides:[]){
+    const id=String(raw?.id||'');if(!validUuid(id))throw Object.assign(new Error('Invalid billing item.'),{status:400});
+    const row=(billing||[]).find(x=>x.id===id);if(!row)throw Object.assign(new Error('A billing item no longer belongs to this Job. Refresh and try again.'),{status:409});
+    const o={};if(Object.prototype.hasOwnProperty.call(raw,'customer_unit_rate'))o.customer_unit_rate=raw.customer_unit_rate;if(Object.prototype.hasOwnProperty.call(raw,'provider_unit_rate'))o.provider_unit_rate=raw.provider_unit_rate;billingPatch(row,row.quantity,o);overrideMap.set(id,o);
+  }
+  const billingToUpdate=[...(billing||[]).filter(x=>hourly.some(h=>h.id===x.id)||overrideMap.has(x.id))];
+  const snapshots={assignments:targets.map(x=>({...x})),billing:billingToUpdate.map(x=>({...x})),job:{...job},request:null};
   let sourceRequest=null;
   if(syncSourceRequest&&job.source_service_request_id){
     sourceRequest=(await lib.sbJson(`/rest/v1/service_requests?select=id,reference,status,preferred_date,preferred_start_time,estimated_hours,street_address,city,province,postal_code,work_description&id=eq.${encodeURIComponent(job.source_service_request_id)}&limit=1`).catch(()=>[]))?.[0]||null;
@@ -104,13 +115,13 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
   const now=new Date().toISOString();
   try{
     for(const t of targets){await lib.sbJson(`/rest/v1/job_assignments?id=eq.${encodeURIComponent(t.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({scheduled_start:newStart,scheduled_end:newEnd,updated_at:now})});}
-    const qty=money(duration/60);
-    for(const b of hourly){await lib.sbJson(`/rest/v1/job_billing_items?id=eq.${encodeURIComponent(b.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(billingPatch(b,qty))});}
+    const qty=money(duration/60),hourlyIds=new Set(hourly.map(x=>x.id));
+    for(const b of billingToUpdate){const nextQty=hourlyIds.has(b.id)?qty:Number(b.quantity||0),override=overrideMap.get(b.id)||{};await lib.sbJson(`/rest/v1/job_billing_items?id=eq.${encodeURIComponent(b.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(billingPatch(b,nextQty,override))});}
 
     const allAfter=(allAssignments||[]).filter(x=>!['DECLINED','CANCELLED'].includes(String(x.status||'').toUpperCase())).map(x=>targetIds.has(x.id)?{...x,scheduled_start:newStart,scheduled_end:newEnd}:x);
     const maxDuration=allAfter.reduce((m,x)=>Math.max(m,durationMinutes(x.scheduled_start,x.scheduled_end)),0)||duration;
     let subtotal=job.quoted_subtotal;
-    if(hourly.length){const totals=await lib.sbJson(`/rest/v1/job_billing_items?select=customer_line_total&job_id=eq.${encodeURIComponent(jobId)}`);subtotal=money((totals||[]).reduce((n,x)=>n+Number(x.customer_line_total||0),0));}
+    if(billingToUpdate.length){const totals=await lib.sbJson(`/rest/v1/job_billing_items?select=customer_line_total&job_id=eq.${encodeURIComponent(jobId)}`);subtotal=money((totals||[]).reduce((n,x)=>n+Number(x.customer_line_total||0),0));}
     const jobPatch={estimated_duration_minutes:maxDuration,quoted_subtotal:subtotal,updated_at:now};
     if(workAddress!==undefined){const v=String(workAddress||'').trim();if(!v)throw Object.assign(new Error('Work Address is required.'),{status:400});jobPatch.work_address=v.slice(0,500);}
     if(workDescription!==undefined){const v=String(workDescription||'').trim();if(!v)throw Object.assign(new Error('Work Description is required.'),{status:400});jobPatch.work_description=v.slice(0,5000);}
@@ -126,7 +137,7 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
 
   // Audit failures should never tempt an Administrator to repeat a successful schedule mutation.
   for(const t of targets){lib.sbJson('/rest/v1/assignment_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({assignment_id:t.id,old_status:t.status,new_status:t.status,changed_by_admin_portal_user:actorId,note:`${reason}. ${notify.formatDateTime(t.scheduled_start)} → ${notify.formatDateTime(newStart)}; end ${notify.formatDateTime(t.scheduled_end)} → ${notify.formatDateTime(newEnd)}.`})}).catch(e=>console.warn('job-schedule:assignment-history',e?.message||e));}
-  lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:jobId,old_status:job.status,new_status:job.status,changed_by_admin_portal_user:actorId,note:`${reason}. Duration ${job.estimated_duration_minutes||'—'} → ${targets.length?duration:(estimatedDurationMinutes||duration)} minutes.${hourly.length?` ${hourly.length} hourly billing item(s) synchronized.`:''}`})}).catch(e=>console.warn('job-schedule:job-history',e?.message||e));
+  lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:jobId,old_status:job.status,new_status:job.status,changed_by_admin_portal_user:actorId,note:`${reason}. Duration ${job.estimated_duration_minutes||'—'} → ${targets.length?duration:(estimatedDurationMinutes||duration)} minutes.${hourly.length?` ${hourly.length} hourly billing item(s) synchronized.`:''}${overrideMap.size?` ${overrideMap.size} billing rate item(s) reviewed/updated.`:''}`})}).catch(e=>console.warn('job-schedule:job-history',e?.message||e));
   if(sourceRequest)lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:sourceRequest.id,old_status:sourceRequest.status,new_status:sourceRequest.status,note:`Related Job ${job.reference} schedule/duration synchronized by PLEASE Administration`,changed_by_admin_portal_user:actorId})}).catch(()=>{});
 
   let notices=[];
@@ -139,7 +150,9 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
     notices=settled.map((x,i)=>x.status==='fulfilled'?x.value:{sent:false,error:String(x.reason?.message||x.reason||'Notification failed')});
     settled.filter(x=>x.status==='rejected').forEach(x=>console.warn('job-schedule:notification-warning',x.reason?.message||x.reason));
   }
-  return{ok:true,job_id:jobId,job_reference:job.reference,updated_assignments:targets.length,updated_assignment_ids:targets.map(x=>x.id),estimated_duration_minutes:targets.length?duration:(estimatedDurationMinutes||duration),job_estimated_duration_minutes:targets.length?Math.max(duration,...(allAssignments||[]).filter(x=>!targetIds.has(x.id)&&!['DECLINED','CANCELLED'].includes(String(x.status||'').toUpperCase())).map(x=>durationMinutes(x.scheduled_start,x.scheduled_end))):(estimatedDurationMinutes||duration),hourly_billing_items_updated:hourly.length,notifications_sent:notices.filter(x=>x?.sent).length,scheduled_start:newStart,scheduled_end:newEnd};
+  const finalBilling=await lib.sbJson(`/rest/v1/job_billing_items?select=id,quantity,unit,customer_unit_rate,customer_line_total,provider_unit_rate,provider_line_total,gross_profit&job_id=eq.${encodeURIComponent(jobId)}`).catch(()=>[]);
+  const customerSubtotal=money((finalBilling||[]).reduce((n,x)=>n+Number(x.customer_line_total||0),0)),providerComplete=(finalBilling||[]).every(x=>x.provider_line_total!=null),providerTotal=money((finalBilling||[]).reduce((n,x)=>n+Number(x.provider_line_total||0),0)),grossProfitTotal=providerComplete?money(customerSubtotal-providerTotal):null;
+  return{ok:true,job_id:jobId,job_reference:job.reference,updated_assignments:targets.length,updated_assignment_ids:targets.map(x=>x.id),estimated_duration_minutes:targets.length?duration:(estimatedDurationMinutes||duration),job_estimated_duration_minutes:targets.length?Math.max(duration,...(allAssignments||[]).filter(x=>!targetIds.has(x.id)&&!['DECLINED','CANCELLED'].includes(String(x.status||'').toUpperCase())).map(x=>durationMinutes(x.scheduled_start,x.scheduled_end))):(estimatedDurationMinutes||duration),hourly_billing_items_updated:hourly.length,billing_rate_items_reviewed:overrideMap.size,notifications_sent:notices.filter(x=>x?.sent).length,scheduled_start:newStart,scheduled_end:newEnd,billing_summary:{customer_subtotal:customerSubtotal,provider_total:providerTotal,gross_profit_total:grossProfitTotal,provider_complete:providerComplete}};
 }
 
 module.exports={updateActiveJob,edmontonLocalToIso,edmontonParts,durationMinutes,validQuarterIso,isHourly};
