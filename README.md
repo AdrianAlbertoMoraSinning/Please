@@ -129,3 +129,8 @@ Administration now includes a prioritized Dashboard, Customer Master, Service Ma
 
 ## STEP 15.9.1 — Active Job Hours + Provider Photo Recovery
 Administration can now change an active Job's date, start time and service hours after the `PLS-JOB` has been created, from Master Calendar, linked Service Requests or Service Maintenance. The controlled mutation synchronizes active Provider schedules, Job duration, linked request schedule and optional hourly billing quantities/totals while preserving Customer Rate and Provider Rate values. Provider evidence now performs a server-side lifecycle readiness check before camera/gallery selection and returns explicit timing/status/schema/storage recovery messages. Safe JPG/PNG/WEBP evidence can upload directly; larger compatible phone images are optimized for the gateway. **No new SQL migration is required** beyond the already-required STEP 15.9 migration. See `STEP15_9_1_ACTIVE_JOB_HOURS_PHOTO_RECOVERY.md`.
+
+## STEP 15.9.3 — Stripe Payment Return Recovery
+
+Customer invoice payment returns from Stripe Checkout are now production-safe. `payment-success.html` confirms payments by invoice token and Checkout Session ID, waits for the verified Stripe webhook, and shows a clear Payment Successful or pending confirmation state. Cancelled Checkout sessions now go to `payment-cancelled.html`, where the invoice remains payable with Pay Again instead of showing a false invalid-link error. Paid invoices remain visible from their original public links, hide the PAY button, and show payment confirmation details. Admin Invoices now includes a Stripe Payment Details panel using existing payment transaction records. No new Supabase SQL migration is required. See `STEP15_9_3_STRIPE_PAYMENT_RETURN_RECOVERY.md`.
+
