@@ -124,3 +124,9 @@
   from = "/master-data.html"
   to = "/cal/master-data.html"
   status = 301
+
+# STEP 18.2 — Purchases & Accounts Payable convenience route.
+[[redirects]]
+  from = "/purchases.html"
+  to = "/cal/purchases.html"
+  status = 301

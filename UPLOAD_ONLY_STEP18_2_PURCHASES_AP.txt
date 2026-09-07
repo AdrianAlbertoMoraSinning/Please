@@ -1,0 +1,55 @@
+PLEASE / CAL — STEP 18.2 Purchases & Accounts Payable
+Deployment package: UPLOAD ONLY
+Date: 2026-09-07
+
+IMPORTANT DEPLOYMENT ORDER
+1. Run supabase/STEP18_2_PURCHASES_AP.sql in the existing PLEASE Supabase project.
+2. Confirm: Success. No rows returned.
+3. Run supabase/STEP18_2_VERIFY.sql and confirm every result row says PASS.
+4. Only then upload this package to GitHub preserving folders.
+5. Wait for Netlify Published.
+6. Smoke-test PLEASE Home, Admin, Provider, Service Request, Payment and CAL Dashboard.
+7. Open CAL > Purchases & A/P and run one controlled Supplier Bill test: Draft > Submit > Approve > Post.
+8. Confirm Accounting Engine returns to 0 Pending / 0 Dead Letter and the AP journal is correct.
+9. Record a partial supplier payment, verify AP reduction, then pay the remainder and verify PAID.
+10. Do NOT begin STEP 18.3 until STEP 18.2 is accepted.
+
+NO FILES NEED TO BE DELETED FOR STEP 18.2.
+Operational provider_payments remains separate and is not modified by this migration.
+
+FILES TO UPLOAD / REPLACE:
+- STEP18_2_PURCHASES_AP.md
+- STEP18_2_PURCHASES_AP.sql
+- STEP18_2_VERIFY.sql
+- _cal-accounting-lib.js
+- cal-purchases.js
+- cal/accounts.html
+- cal/audit.html
+- cal/banking.html
+- cal/css/style.css
+- cal/dashboard.html
+- cal/disclaimer.html
+- cal/documents.html
+- cal/expenses.html
+- cal/invoices.html
+- cal/journal.html
+- cal/js/purchases.js
+- cal/master-data.html
+- cal/purchases.html
+- cal/reports.html
+- cal/settings.html
+- cal/taxes.html
+- netlify.toml
+- netlify/functions/_cal-accounting-lib.js
+- netlify/functions/cal-purchases.js
+- supabase/STEP18_2_PURCHASES_AP.sql
+- supabase/STEP18_2_VERIFY.sql
+- tests/step18_2_accounting_worker_runtime.test.js
+- tests/step18_2_purchases_ap_static.test.js
+- UPLOAD_ONLY_STEP18_2_PURCHASES_AP.txt
+
+Implementation files before this guide: 28
+Total files in upload package including this guide: 29
+
+Scope: Supplier Bills, approval/posting workflow, purchase A/P, supplier payments, A/P aging, STEP 17 durable events.
+Excluded: Credit Notes/Refunds (18.3), Advanced Expenses (18.4), Bank Reconciliation (18.5), Inventory, Fixed Assets, Payroll, Period Close.
