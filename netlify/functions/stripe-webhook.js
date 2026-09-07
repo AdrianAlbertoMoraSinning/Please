@@ -2,6 +2,7 @@ const crypto=require('crypto');
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
 const pay=require('./_stripe-payment-lib');
+const accounting=require('./_cal-accounting-lib');
 
 function safeEqual(a,b){try{return crypto.timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'))}catch{return false}}
 function verify(raw,header,secret){
@@ -42,21 +43,33 @@ async function markPaidFromCheckout(evt,obj){
   };
   await lib.sbJson(`/rest/v1/invoices?id=eq.${encodeURIComponent(inv.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
   const note=pay.detailsNote({eventId:evt.id,session:obj,details,invoice:inv});
+  let txId=null;
+  const baseTx={
+    invoice_id:inv.id,
+    amount,
+    currency:invoiceCurrency,
+    provider:'STRIPE',
+    status:'SUCCEEDED',
+    external_reference:details.payment_intent||obj.payment_intent||obj.id,
+    stripe_checkout_session_id:obj.id,
+    stripe_payment_intent_id:details.payment_intent||obj.payment_intent||null,
+    note:note||'Stripe Checkout payment confirmed by verified webhook'
+  };
+  const extendedTx={...baseTx,stripe_charge_id:details.charge_id||null,stripe_receipt_url:details.receipt_url||null,stripe_balance_transaction_id:details.balance_transaction_id||null,stripe_fee_amount:details.fee_amount,stripe_net_amount:details.net_amount};
   try{
-    await lib.sbJson('/rest/v1/payment_transactions',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({
-      invoice_id:inv.id,
-      amount,
-      currency:invoiceCurrency,
-      provider:'STRIPE',
-      status:'SUCCEEDED',
-      external_reference:details.payment_intent||obj.payment_intent||obj.id,
-      stripe_checkout_session_id:obj.id,
-      stripe_payment_intent_id:details.payment_intent||obj.payment_intent||null,
-      note:note||'Stripe Checkout payment confirmed by verified webhook'
-    })});
+    const txRows=await lib.sbJson('/rest/v1/payment_transactions',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(extendedTx)});
+    txId=txRows?.[0]?.id||null;
   }catch(e){
-    if(!String(e.message||'').toLowerCase().includes('duplicate')) throw e;
+    const msg=String(e.message||'').toLowerCase();
+    if(msg.includes('stripe_charge_id')||msg.includes('stripe_receipt_url')||msg.includes('stripe_fee_amount')||msg.includes('schema cache')||msg.includes('could not find')){
+      try{const txRows=await lib.sbJson('/rest/v1/payment_transactions',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(baseTx)});txId=txRows?.[0]?.id||null;}catch(inner){if(!String(inner.message||'').toLowerCase().includes('duplicate')) throw inner;}
+    }else if(!msg.includes('duplicate')) throw e;
   }
+  if(!txId){
+    const txRows=await lib.sbJson(`/rest/v1/payment_transactions?select=id&stripe_checkout_session_id=eq.${encodeURIComponent(obj.id)}&limit=1`).catch(()=>[]);
+    txId=txRows?.[0]?.id||null;
+  }
+  if(txId) await accounting.handlePaymentTransaction(txId).catch(e=>console.error('cal-accounting-stripe',e));
   await lib.sbJson('/rest/v1/invoice_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({
     invoice_id:inv.id,
     old_status:inv.status,
