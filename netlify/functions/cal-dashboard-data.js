@@ -3,6 +3,7 @@ const {enabled}=require('./_cal-accounting-lib');
 const AGREEMENT_VERSION='CAL-LEGAL-1.0-2026-09-05';
 const enc=v=>encodeURIComponent(String(v??''));
 const MONEY=n=>Math.round((Number(n)||0)*100)/100;
+function rpcScalar(v){if(Array.isArray(v))v=v[0];if(v&&typeof v==='object'){const k=Object.keys(v);if(k.length===1)return v[k[0]];}return v;}
 async function safe(label,fn,fallback=[]){try{return await fn()}catch(e){console.warn('cal-dashboard-data',label,e?.message||e);return fallback;}}
 function entryNo(e){return e?.entry_number||e?.id||'';}
 function dateOf(v){return v?String(v).slice(0,10):'';}
@@ -24,10 +25,11 @@ exports.handler=async event=>{
   if(event.httpMethod!=='GET')return lib.json(405,{error:'Method not allowed'});
   try{
     const auth=await lib.requireAdmin(event);
-    const [legal,company,accounts,entries,lines,invoices,expenses,advancedExpenses,advancedExpenseLines,payments,creditNotes,refunds,parties,operationalInvoices,events,outbox,healthRaw]=await Promise.all([
+    const [legal,company,accounts,financialAccounts,entries,lines,invoices,expenses,advancedExpenses,advancedExpenseLines,payments,creditNotes,refunds,parties,operationalInvoices,events,outbox,healthRaw]=await Promise.all([
       safe('legal',()=>lib.sbJson(`/rest/v1/accounting_legal_acceptances?select=id,accepted_at,signer_name,signer_email,agreement_version&external_user_id=eq.${enc(auth.user.id)}&agreement_version=eq.${enc(AGREEMENT_VERSION)}&order=accepted_at.desc&limit=1`),[]),
       safe('company',()=>lib.sbJson('/rest/v1/accounting_company?select=*&limit=1'),[]),
       safe('accounts',()=>lib.sbJson('/rest/v1/accounting_accounts?select=id,code,name,account_type,active&order=code.asc'),[]),
+      safe('financialAccounts',()=>lib.sbJson('/rest/v1/accounting_financial_accounts?select=id,name,financial_type,gl_account_id,is_primary,active&active=eq.true&order=is_primary.desc,name.asc'),[]),
       safe('entries',()=>lib.sbJson('/rest/v1/accounting_journal_entries?select=id,entry_number,entry_date,memo,status,source_type,source_id,posted_at,created_at&order=entry_date.desc,created_at.desc&limit=500'),[]),
       safe('lines',()=>lib.sbJson('/rest/v1/accounting_journal_lines?select=id,journal_entry_id,account_id,debit,credit,description'),[]),
       safe('invoices',()=>lib.sbJson('/rest/v1/accounting_invoices?select=id,invoice_number,party_id,source_invoice_id,invoice_date,due_date,status,subtotal,tax_total,total,paid_total,currency,source_reference,created_at&order=invoice_date.desc,created_at.desc&limit=500'),[]),
@@ -46,6 +48,8 @@ exports.handler=async event=>{
     const lineByEntry=new Map();
     for(const l of lines||[]){if(!lineByEntry.has(l.journal_entry_id))lineByEntry.set(l.journal_entry_id,[]);lineByEntry.get(l.journal_entry_id).push(l);}
     const journals=(entries||[]).map(e=>{const ls=lineByEntry.get(e.id)||[];return{id:entryNo(e),date:dateOf(e.entry_date),memo:e.memo,debits:MONEY(ls.reduce((n,l)=>n+Number(l.debit||0),0)),credits:MONEY(ls.reduce((n,l)=>n+Number(l.credit||0),0)),status:e.status,lines:ls};});
+    const accountMap=new Map((accounts||[]).map(a=>[a.id,a]));
+    const entryMap=new Map((entries||[]).map(e=>[e.id,e]));
     const partyMap=new Map((parties||[]).map(p=>[p.id,p]));
     const opMap=new Map((operationalInvoices||[]).map(i=>[i.invoice_number,i]));
     const paidByInvoice=new Map();
@@ -59,7 +63,19 @@ exports.handler=async event=>{
     });
     const calCredits=(creditNotes||[]).map(x=>({id:x.credit_note_number,date:dateOf(x.credit_date),invoiceId:x.invoice_id,partyId:x.customer_party_id,subtotal:MONEY(x.subtotal_reduction),tax:MONEY(x.tax_reduction),total:MONEY(x.total),status:x.status}));
     const calRefunds=(refunds||[]).map(x=>({id:x.refund_number,date:dateOf(x.refund_date),partyId:x.customer_party_id,amount:MONEY(x.amount),method:x.method||'REFUND',reference:x.reference||''}));
-    const bank=[...(payments||[]).map(x=>({id:x.id,date:dateOf(x.payment_date),description:x.reference||x.method||'Payment',amount:MONEY(x.amount),type:'CREDIT',matched:true})),...(refunds||[]).map(x=>({id:x.id,date:dateOf(x.refund_date),description:x.reference||x.refund_number||'Customer refund',amount:MONEY(x.amount),type:'DEBIT',matched:true}))].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    // STEP 18.5: Operating-bank reporting is ledger-derived, never reconstructed from customer payments only.
+    // Use the SQL balance RPC so Reports remains exact even after the journal-line dataset grows beyond REST limits.
+    const primaryBank=(financialAccounts||[]).find(f=>f.is_primary&&String(f.financial_type).toUpperCase()==='BANK')||(financialAccounts||[]).find(f=>String(f.financial_type).toUpperCase()==='BANK');
+    let bank=[];
+    if(primaryBank){
+      const raw=await safe('primaryBankBalance',()=>lib.sbJson('/rest/v1/rpc/accounting_financial_account_balance',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_financial_account_id:primaryBank.id,p_as_of:new Date().toISOString().slice(0,10)})}),null);
+      const exact=Number(rpcScalar(raw));
+      if(Number.isFinite(exact))bank=[{id:'LEDGER-BALANCE',date:new Date().toISOString().slice(0,10),description:'Operating Bank ledger balance',amount:Math.abs(MONEY(exact)),type:exact>=0?'CREDIT':'DEBIT',matched:true}];
+      else {
+        const primaryBankAccount=accountMap.get(primaryBank.gl_account_id);
+        bank=(primaryBankAccount?(lines||[]).filter(l=>l.account_id===primaryBank.gl_account_id&&entryMap.get(l.journal_entry_id)?.status==='POSTED').map(l=>{const e=entryMap.get(l.journal_entry_id),effect=MONEY(String(primaryBankAccount.account_type).toUpperCase()==='LIABILITY'?Number(l.credit||0)-Number(l.debit||0):Number(l.debit||0)-Number(l.credit||0));return{id:l.id,date:dateOf(e.entry_date),description:l.description||e.memo||'Ledger bank movement',amount:Math.abs(effect),type:effect>=0?'CREDIT':'DEBIT',matched:false}}):[]).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+      }
+    }
     const advancedExpensePnl=new Map(),advancedExpenseItc=new Map();for(const l of advancedExpenseLines||[]){if(String(l.classification||'EXPENSE').toUpperCase()==='EXPENSE')advancedExpensePnl.set(l.expense_claim_id,MONEY((advancedExpensePnl.get(l.expense_claim_id)||0)+Number(l.line_subtotal||0)+Number(l.nonrecoverable_tax||0)));advancedExpenseItc.set(l.expense_claim_id,MONEY((advancedExpenseItc.get(l.expense_claim_id)||0)+Number(l.recoverable_tax||0)));}
     const calExpenses=[...(expenses||[]).map(x=>({id:x.expense_number,date:dateOf(x.expense_date),vendor:x.source_reference||'PLEASE Operations',category:x.description||'Operating expense',subtotal:MONEY(x.subtotal),tax:MONEY(x.tax_total),total:MONEY(x.total),status:x.status})),...(advancedExpenses||[]).map(x=>{const vendor=partyMap.get(x.vendor_party_id),payee=partyMap.get(x.payee_party_id);return{id:x.expense_number,date:dateOf(x.expense_date),vendor:partyName(vendor)||partyName(payee)||x.reference||'Direct expense',category:x.description||'Advanced expense',subtotal:MONEY(advancedExpensePnl.get(x.id)||0),tax:MONEY(advancedExpenseItc.get(x.id)||0),total:MONEY(x.total),status:x.status};})].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     const partyAgg=new Map();

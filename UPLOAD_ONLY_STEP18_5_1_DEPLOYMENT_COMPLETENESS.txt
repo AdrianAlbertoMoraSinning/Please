@@ -1,0 +1,20 @@
+STEP 18.5.1 — Deployment Completeness Hotfix
+
+Purpose: deploy the six nested runtime files that were missing or stale in GitHub after STEP 18.5.
+No Supabase SQL is required.
+
+Upload these files preserving their exact paths:
+- cal/banking.html
+- cal/js/banking.js
+- cal/js/app.js
+- cal/css/style.css
+- netlify/functions/cal-banking.js
+- netlify/functions/cal-dashboard-data.js
+
+After Netlify publishes, /cal/banking must show:
+- Treasury & Bank Reconciliation
+- Daily Cash Position
+- + Reconciliation
+- ledger-derived treasury KPIs
+
+Do not delete or move any other files.

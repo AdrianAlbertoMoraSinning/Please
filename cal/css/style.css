@@ -22,3 +22,17 @@
 .expense-kpis .note{display:block;width:100%;font-size:12px;line-height:1.35;color:var(--muted);margin-top:7px;white-space:normal;overflow-wrap:anywhere}
 @media(max-width:980px){.expense-kpis .card{min-height:124px}}
 @media(max-width:620px){.expense-kpis .card{min-height:0}}
+
+/* STEP 18.5 — Treasury & Bank Reconciliation */
+.treasury-main h3{margin:0 0 4px}.treasury-control{border-left-color:var(--blue)}
+.treasury-kpis .card,.treasury-recon-kpis .card{min-height:132px;display:flex;flex-direction:column;align-items:flex-start;overflow:hidden}
+.treasury-kpis .label,.treasury-recon-kpis .label{display:block;width:100%;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);line-height:1.25;white-space:normal}
+.treasury-kpis .value,.treasury-recon-kpis .value{display:block;width:100%;font-size:26px;font-weight:800;line-height:1.1;margin-top:9px;color:var(--blue);white-space:normal;overflow-wrap:anywhere}
+.treasury-kpis .note,.treasury-recon-kpis .note{display:block;width:100%;font-size:12px;line-height:1.35;color:var(--muted);margin-top:7px;white-space:normal;overflow-wrap:anywhere}
+.treasury-section-head{align-items:flex-end}.treasury-selects{display:flex;gap:8px;min-width:520px}.treasury-selects select:first-child{min-width:230px}
+.treasury-horizon{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:14px}.treasury-horizon div,.treasury-recon-meta div{border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fafcfd}.treasury-horizon span,.treasury-recon-meta span{display:block;font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em}.treasury-horizon strong,.treasury-recon-meta strong{display:block;margin-top:5px;color:var(--blue);font-size:15px}
+.treasury-recon-meta{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:12px}.treasury-actions{margin-top:14px}.treasury-evidence{white-space:normal;min-width:260px;max-width:440px;line-height:1.4}
+.treasury-match-modal{max-width:1080px}.treasury-match-total{display:grid;grid-template-columns:1fr auto;gap:6px 18px;max-width:430px;margin:14px 0 14px auto;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fafcfd}.treasury-match-total span{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase}.treasury-match-total strong{text-align:right;color:var(--blue)}
+#historyRows tr:hover{background:#f5f9fb}.treasury-main input[type=checkbox]{width:auto}
+@media(max-width:1100px){.treasury-horizon{grid-template-columns:repeat(3,minmax(0,1fr))}.treasury-recon-meta{grid-template-columns:repeat(3,minmax(0,1fr))}.treasury-selects{min-width:0}}
+@media(max-width:760px){.treasury-section-head{align-items:flex-start;flex-direction:column}.treasury-selects{display:grid;width:100%}.treasury-horizon,.treasury-recon-meta{grid-template-columns:1fr}.treasury-kpis .card,.treasury-recon-kpis .card{min-height:0}.treasury-evidence{min-width:220px}.treasury-match-total{max-width:none}}
