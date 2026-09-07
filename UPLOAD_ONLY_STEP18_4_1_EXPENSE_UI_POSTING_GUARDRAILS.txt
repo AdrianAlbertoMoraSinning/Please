@@ -1,0 +1,16 @@
+STEP 18.4.1 — Expense UI & Posting Guardrails
+NO SUPABASE SQL REQUIRED.
+
+Upload/replace exactly these files in GitHub, preserving paths:
+
+1. cal-expenses.js
+2. cal/expenses.html
+3. cal/css/style.css
+4. cal/js/expenses.js
+5. netlify/functions/cal-expenses.js
+6. STEP18_4_1_EXPENSE_UI_POSTING_GUARDRAILS.md
+7. tests/step18_4_1_expense_ui_posting_guardrails.test.js
+8. UPLOAD_ONLY_STEP18_4_1_EXPENSE_UI_POSTING_GUARDRAILS.txt
+
+Do not delete any other file.
+No changes are required to Supabase, Stripe, Home, Provider Portal, Purchases/A/P, Credit Notes/Refunds or posted Journals.
