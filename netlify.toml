@@ -118,3 +118,9 @@
   from = "/agenda-admin.html"
   to = "/modules/agenda/agenda-admin.html"
   status = 301
+
+# STEP 18.1 — Financial Master Data convenience route.
+[[redirects]]
+  from = "/master-data.html"
+  to = "/cal/master-data.html"
+  status = 301

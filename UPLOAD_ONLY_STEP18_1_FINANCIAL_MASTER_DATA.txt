@@ -1,0 +1,91 @@
+PLEASE / CAL — STEP 18.1 FINANCIAL MASTER DATA
+Deployment package: STEP 18.1 only. Do NOT start STEP 18.2 until this step is accepted.
+
+SAFE DEPLOYMENT ORDER
+=====================
+1) SUPABASE FIRST
+   Run the complete file:
+   supabase/STEP18_1_FINANCIAL_MASTER_DATA.sql
+
+   Expected result:
+   Success. No rows returned
+
+2) VERIFY SUPABASE
+   Run the complete read-only file:
+   supabase/STEP18_1_VERIFY.sql
+
+   Expected result:
+   Every returned row must show status = PASS.
+   Do not upload GitHub if any verification row shows FAIL.
+
+3) GITHUB / NETLIFY
+   Upload the files in this package preserving their exact folders.
+   Replace files when the same path already exists.
+   Do NOT delete any other repository file.
+   Wait for Netlify to show Published.
+
+4) SMOKE TEST BEFORE STEP 18.2
+   - PLEASE Home loads normally.
+   - Admin Dashboard loads normally.
+   - Provider Portal / Provider Login remain available.
+   - Service Request / Tracking / Payment remain available.
+   - CAL Dashboard shows STEP 17 Accounting Engine normally.
+   - CAL > Financial Master Data opens successfully.
+   - Existing Customers appear as PLEASE-managed CUSTOMER parties.
+   - Existing Providers appear as PLEASE-managed OPERATIONAL PROVIDER parties.
+   - Operating Bank maps to GL 1000.
+   - Stripe Clearing maps to GL 1090.
+   - Creating a test Supplier does NOT create a Journal Entry.
+   - Assigning SUPPLIER role to a PLEASE Provider does NOT change the Provider operational identity.
+
+WHAT STEP 18.1 DOES NOT DO
+==========================
+No Purchases, Vendor Bills, new AP transactions, Refund posting, advanced Expenses,
+Bank Reconciliation, Inventory transactions, Fixed Assets, Payroll, Period Close or
+new STEP 17 accounting event types are introduced in this package.
+
+FILES TO UPLOAD TO GITHUB
+=========================
+netlify.toml
+STEP18_1_VERIFY.sql
+STEP18_1_FINANCIAL_MASTER_DATA.sql
+STEP18_1_FINANCIAL_MASTER_DATA.md
+cal-master-data.js
+cal/accounts.html
+cal/audit.html
+cal/banking.html
+cal/dashboard.html
+cal/disclaimer.html
+cal/documents.html
+cal/expenses.html
+cal/invoices.html
+cal/journal.html
+cal/master-data.html
+cal/reports.html
+cal/settings.html
+cal/taxes.html
+cal/css/style.css
+cal/js/master-data.js
+netlify/functions/cal-master-data.js
+supabase/STEP18_1_VERIFY.sql
+supabase/STEP18_1_FINANCIAL_MASTER_DATA.sql
+tests/step18_1_financial_master_data_static.test.js
+UPLOAD_ONLY_STEP18_1_FINANCIAL_MASTER_DATA.txt
+
+FILES / FLOWS INTENTIONALLY NOT MODIFIED BY STEP 18.1
+======================================================
+index.html
+work-with-us.html
+provider.html
+admin-dashboard.html
+service-request.html
+track-request.html
+payment.html
+js/app.js
+css/style.css
+netlify/functions/stripe-webhook.js
+netlify/functions/admin-invoice-action.js
+netlify/functions/admin-provider-payment-action.js
+netlify/functions/_cal-accounting-lib.js
+netlify/functions/cal-accounting-worker.js
+supabase/STEP17_NATIVE_ACCOUNTING_ENGINE.sql
