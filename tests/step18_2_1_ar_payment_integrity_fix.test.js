@@ -18,7 +18,7 @@ not(lib,/paid_total:MONEY\(inv\.amount_paid\)/,'Invoice mirror no longer copies 
 not(lib,/Number\(ai\?\.\[0\]\?\.paid_total\|\|0\)\+Number\(tx\.amount\|\|0\)/,'Payment mirror no longer incrementally adds to cached paid_total');
 has(lib,/const paid=await accountingPaidTotal\(accountingInvoiceId\)/,'Payment mirror recomputes paid_total idempotently');
 has(dash,/const paidByInvoice=new Map\(\)/,'A/R read model builds payment-derived totals');
-has(dash,/paid:MONEY\(paidByInvoice\.get\(x\.id\)\|\|0\)/,'A/R display uses payment history instead of cached paid_total');
+has(dash,/const paid=MONEY\(paidByInvoice\.get\(x\.id\)\|\|0\)/,'A/R display uses payment history instead of cached paid_total');
 has(sql,/update public\.accounting_invoices ai[\s\S]*set paid_total=pt\.payment_total/,'Repair SQL only recalculates accounting invoice paid cache');
 not(sql,/update public\.invoices|update public\.payment_transactions|accounting_journal_entries|accounting_journal_lines/i,'Repair SQL does not touch operational payments or journals');
 has(verify,/A\/R mirror paid_total equals payment history/,'Verification checks A/R mirror integrity');

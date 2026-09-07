@@ -23,7 +23,7 @@ async function account(code,name,type){
 async function ensureAccounts(){
   const defs=[
     ['1000','Operating Bank','ASSET'],['1090','Stripe Clearing / Undeposited Funds','ASSET'],['1100','Accounts Receivable','ASSET'],['1200','GST/HST Recoverable','ASSET'],['1300','Provider Advances','ASSET'],
-    ['2000','Accounts Payable','LIABILITY'],['2010','Provider Payable','LIABILITY'],['2100','GST/HST Payable','LIABILITY'],['3000','Owner Equity / Retained Earnings','EQUITY'],
+    ['2000','Accounts Payable','LIABILITY'],['2010','Provider Payable','LIABILITY'],['2100','GST/HST Payable','LIABILITY'],['2110','QST Payable','LIABILITY'],['3000','Owner Equity / Retained Earnings','EQUITY'],
     ['4000','Service Revenue','REVENUE'],['5000','Subcontractors Expense','EXPENSE'],['5400','Office & Software','EXPENSE'],['5700','Merchant / Bank Fees','EXPENSE']
   ];
   const out={};
@@ -81,6 +81,11 @@ async function invoice(id){
 async function invoiceItems(id){
   return await safeSb(`/rest/v1/invoice_items?select=id,description,qty,unit,unit_rate,line_total,sort_order&invoice_id=eq.${enc(id)}&order=sort_order.asc,id.asc`).catch(()=>[]);
 }
+async function partyForOperationalCustomer(customerId){
+  if(!customerId)return null;
+  const rows=await safeSb(`/rest/v1/accounting_parties?source_system=eq.PLEASE&source_table=eq.customers&source_record_id=eq.${enc(customerId)}&select=id,party_number,legal_name,display_name&limit=1`).catch(()=>[]);
+  return rows?.[0]||null;
+}
 async function accountingPaidTotal(accountingInvoiceId){
   if(!accountingInvoiceId)return 0;
   const rows=await safeSb(`/rest/v1/accounting_payments?select=amount&invoice_id=eq.${enc(accountingInvoiceId)}`).catch(()=>[]);
@@ -88,8 +93,11 @@ async function accountingPaidTotal(accountingInvoiceId){
 }
 async function upsertAccountingInvoiceMirror(inv,items=[]){
   try{
-    const existing=await safeSb(`/rest/v1/accounting_invoices?invoice_number=eq.${enc(inv.invoice_number)}&select=id,total&limit=1`);
+    const existing=await safeSb(`/rest/v1/accounting_invoices?invoice_number=eq.${enc(inv.invoice_number)}&select=id,total,party_id,source_invoice_id&limit=1`);
+    const party=await partyForOperationalCustomer(inv.customer_id);
     const body={invoice_number:inv.invoice_number,invoice_date:inv.invoice_date||today(),due_date:inv.due_date||null,status:inv.status==='ISSUED'?'SENT':inv.status,subtotal:MONEY(inv.subtotal),tax_total:MONEY(inv.gst_amount),total:MONEY(inv.total_amount),currency:inv.currency||'CAD',source_reference:inv.invoice_number,notes:`Imported from PLEASE invoice ${inv.invoice_number}`};
+    if(inv.id)body.source_invoice_id=String(inv.id);
+    if(party?.id)body.party_id=party.id;
     let accountingInvoiceId=existing?.[0]?.id;
     if(accountingInvoiceId){
       // paid_total is payment-derived. Never overwrite it from PLEASE invoices.amount_paid,
@@ -181,6 +189,24 @@ async function financialAccount(id){
   const rows=await safeSb(`/rest/v1/accounting_financial_accounts?id=eq.${enc(id)}&select=id,name,financial_type,currency,gl_account_id,active&limit=1`);
   return rows?.[0]||null;
 }
+async function accountingInvoice(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_invoices?id=eq.${enc(id)}&select=id,invoice_number,party_id,source_invoice_id,invoice_date,status,subtotal,tax_total,total,currency&limit=1`);
+  return rows?.[0]||null;
+}
+async function creditNote(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_credit_notes?id=eq.${enc(id)}&select=*&limit=1`);
+  return rows?.[0]||null;
+}
+async function creditNoteLines(id){
+  return await safeSb(`/rest/v1/accounting_credit_note_lines?credit_note_id=eq.${enc(id)}&select=id,credit_note_id,sort_order,description,quantity,unit_price,revenue_account_id,tax_code_id,tax_amount_override,line_subtotal,line_tax,line_total&order=sort_order.asc,id.asc`).catch(()=>[]);
+}
+async function customerRefund(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_customer_refunds?id=eq.${enc(id)}&select=*&limit=1`);
+  return rows?.[0]||null;
+}
 
 function snap(row,key,current){return row?.payload_json?.[key]||current||{};}
 async function dependencyPosted(eventKey,{allowIgnored=false}={}){
@@ -192,7 +218,7 @@ async function dependencyPosted(eventKey,{allowIgnored=false}={}){
 async function buildPosting(row){
   const type=String(row.event_type||'').toUpperCase();
   const rule=await postingRule(type);
-  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID'].includes(type)&&!rule){
+  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED'].includes(type)&&!rule){
     throw new Error(`No enabled CAL posting rule is configured for ${type}.`);
   }
 
@@ -315,6 +341,39 @@ async function buildPosting(row){
     return{payload:{supplier_bill:bill,supplier_payment:payment,financial_account:fin},entryDate:String(payment.payment_date||current.payment_date||row.occurred_at||new Date().toISOString()).slice(0,10),memo:`Supplier payment ${payment.payment_number||current.payment_number}`,lines:[{code:rule.debit_account_code||'2000',debit:amount,description:`Reduce A/P ${bill.bill_number}`},{code:gl.code,credit:amount,description:`Supplier payment via ${fin.name}`}]};
   }
 
+  if(type==='CREDIT_NOTE_ISSUED'){
+    const current=await creditNote(row.source_record_id);if(!current)throw new Error('Credit note source record not found.');
+    const note=snap(row,'credit_note',current);
+    if(String(current.status||note.status||'').toUpperCase()!=='POSTED')return{ignored:true,reason:'Credit note is not POSTED.',payload:{credit_note:note}};
+    const inv=await accountingInvoice(note.invoice_id||current.invoice_id);if(!inv)throw new Error('Original accounting invoice not found for credit note.');
+    if(inv.source_invoice_id){const issueKey=`PLEASE:INVOICE_ISSUED:${inv.source_invoice_id}`;if(!(await dependencyPosted(issueKey,{allowIgnored:true})))throw new Error(`Dependency pending: ${issueKey}`);}
+    const currentLines=await creditNoteLines(row.source_record_id),linesSnap=Array.isArray(row?.payload_json?.lines)&&row.payload_json.lines.length?row.payload_json.lines:currentLines;
+    if(!linesSnap.length)throw new Error('Posted credit note has no lines.');
+    const journalLines=[],revenueBuckets=new Map(),taxBuckets=new Map();let control=0;
+    for(const l of linesSnap){
+      const acct=await glAccountById(l.revenue_account_id);if(!acct||acct.active===false||String(acct.account_type).toUpperCase()!=='REVENUE')throw new Error('Credit note revenue account is missing, inactive, or not REVENUE.');
+      const sub=MONEY(l.line_subtotal),tax=MONEY(l.line_tax);if(sub>0)revenueBuckets.set(acct.code,MONEY((revenueBuckets.get(acct.code)||0)+sub));
+      if(tax>0){const tc=await taxCodeById(l.tax_code_id);const kind=String(tc?.tax_kind||'GST').toUpperCase(),code=kind==='QST'?(rule.configuration_json?.qst_payable_account||'2110'):(rule.tax_account_code||'2100');taxBuckets.set(code,MONEY((taxBuckets.get(code)||0)+tax));}
+      control=MONEY(control+sub+tax);
+    }
+    for(const [code,amount] of revenueBuckets)journalLines.push({code,debit:amount,description:`Credit note revenue reduction ${note.credit_note_number}`});
+    for(const [code,amount] of taxBuckets)journalLines.push({code,debit:amount,description:`Credit note sales-tax reduction ${note.credit_note_number}`});
+    const expected=MONEY(note.total||current.total);if(Math.abs(control-expected)>0.02)throw new Error(`Credit note lines ${control.toFixed(2)} do not match credit note total ${expected.toFixed(2)}.`);
+    journalLines.push({code:rule.credit_account_code||'1100',credit:expected,description:`Reduce A/R ${inv.invoice_number}`});
+    return{payload:{credit_note:note,invoice:inv,lines:linesSnap},entryDate:String(note.credit_date||current.credit_date||row.occurred_at||new Date().toISOString()).slice(0,10),memo:`Credit note issued ${note.credit_note_number} · ${inv.invoice_number}`,lines:journalLines};
+  }
+
+  if(type==='REFUND_COMPLETED'){
+    const current=await customerRefund(row.source_record_id);if(!current)throw new Error('Customer refund source record not found.');
+    const refund=snap(row,'customer_refund',current);
+    if(String(current.status||refund.status||'').toUpperCase()!=='COMPLETED')return{ignored:true,reason:'Customer refund is not COMPLETED.',payload:{customer_refund:refund}};
+    if(refund.credit_note_id||current.credit_note_id){const creditKey=`PLEASE:CREDIT_NOTE_ISSUED:${refund.credit_note_id||current.credit_note_id}`;if(!(await dependencyPosted(creditKey)))throw new Error(`Dependency pending: ${creditKey}`);}
+    const fin=await financialAccount(refund.financial_account_id||current.financial_account_id);if(!fin||fin.active===false)throw new Error('Refund financial account is missing or inactive.');
+    const gl=await glAccountById(fin.gl_account_id);if(!gl||gl.active===false)throw new Error('Refund financial account GL mapping is missing or inactive.');
+    const amount=MONEY(refund.amount||current.amount);
+    return{payload:{customer_refund:refund,financial_account:fin},entryDate:String(refund.refund_date||current.refund_date||row.occurred_at||new Date().toISOString()).slice(0,10),memo:`Customer refund ${refund.refund_number||current.refund_number}`,lines:[{code:rule.debit_account_code||'1100',debit:amount,description:`Consume customer credit ${refund.refund_number||current.refund_number}`},{code:gl.code,credit:amount,description:`Refund via ${fin.name}`}]};
+  }
+
   return{ignored:true,reason:`No automatic posting handler is configured for ${type}.`,payload:row.payload_json||{}};
 }
 
@@ -404,7 +463,7 @@ async function enqueueLegacy(type,sourceTable,id,reference,payload,occurredAt,co
 }
 async function reconcile(limit=200){
   const max=Math.max(25,Math.min(500,Number(limit)||200));
-  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,errors:[]};
+  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,errors:[]};
   const invoices=await safeSb(`/rest/v1/invoices?select=*&status=in.(ISSUED,SENT,OVERDUE,PAID,VOID)&order=created_at.asc&limit=${max}`).catch(e=>{summary.errors.push(e.message);return[];});
   for(const inv of invoices||[]){
     try{
@@ -420,6 +479,10 @@ async function reconcile(limit=200){
   for(const b of bills||[]){try{const lines=await supplierBillLines(b.id);await enqueueLegacy('VENDOR_BILL_POSTED','accounting_supplier_bills',b.id,b.bill_number,{supplier_bill:b,lines},b.posted_at||b.updated_at||b.created_at,b.id);summary.queued++;summary.supplier_bills++;}catch(e){summary.errors.push(e.message||String(e));}}
   const sps=await safeSb(`/rest/v1/accounting_supplier_payments?select=*&status=eq.PAID&order=created_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
   for(const p of sps||[]){try{await enqueueLegacy('SUPPLIER_PAYMENT_PAID','accounting_supplier_payments',p.id,p.payment_number,{supplier_payment:p},p.paid_at||p.created_at,p.supplier_bill_id,`PLEASE:VENDOR_BILL_POSTED:${p.supplier_bill_id}`);summary.queued++;summary.supplier_payments++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const cns=await safeSb(`/rest/v1/accounting_credit_notes?select=*&status=eq.POSTED&order=created_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const n of cns||[]){try{const lines=await creditNoteLines(n.id),inv=await accountingInvoice(n.invoice_id),cause=inv?.source_invoice_id?`PLEASE:INVOICE_ISSUED:${inv.source_invoice_id}`:null;await enqueueLegacy('CREDIT_NOTE_ISSUED','accounting_credit_notes',n.id,n.credit_note_number,{credit_note:n,lines},n.posted_at||n.updated_at||n.created_at,n.invoice_id,cause);summary.queued++;summary.credit_notes++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const refs=await safeSb(`/rest/v1/accounting_customer_refunds?select=*&status=eq.COMPLETED&order=created_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const r of refs||[]){try{await enqueueLegacy('REFUND_COMPLETED','accounting_customer_refunds',r.id,r.refund_number,{customer_refund:r},r.completed_at||r.created_at,r.customer_party_id,r.credit_note_id?`PLEASE:CREDIT_NOTE_ISSUED:${r.credit_note_id}`:null);summary.queued++;summary.refunds++;}catch(e){summary.errors.push(e.message||String(e));}}
   return summary;
 }
 

@@ -1,0 +1,23 @@
+PLEASE / CAL — STEP 18.3 UPLOAD ONLY
+Preserve the folder structure when uploading to GitHub.
+Do not delete any other repository files.
+
+FILES TO UPLOAD / REPLACE:
+1. STEP18_3_AR_CREDIT_NOTES_REFUNDS.md
+2. STEP18_3_AR_CREDIT_NOTES_REFUNDS.sql
+3. STEP18_3_VERIFY.sql
+4. _cal-accounting-lib.js
+5. cal/css/style.css
+6. cal/invoices.html
+7. cal/js/app.js
+8. cal/js/receivables.js
+9. cal-dashboard-data.js
+10. cal-receivables.js
+11. netlify/functions/_cal-accounting-lib.js
+12. netlify/functions/cal-dashboard-data.js
+13. netlify/functions/cal-receivables.js
+14. supabase/STEP18_3_AR_CREDIT_NOTES_REFUNDS.sql
+15. supabase/STEP18_3_VERIFY.sql
+16. tests/step18_2_1_ar_payment_integrity_fix.test.js
+17. tests/step18_3_accounting_worker_runtime.test.js
+18. tests/step18_3_ar_credit_notes_refunds_static.test.js
