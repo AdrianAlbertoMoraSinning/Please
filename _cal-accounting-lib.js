@@ -23,8 +23,8 @@ async function account(code,name,type){
 async function ensureAccounts(){
   const defs=[
     ['1000','Operating Bank','ASSET'],['1090','Stripe Clearing / Undeposited Funds','ASSET'],['1100','Accounts Receivable','ASSET'],['1200','GST/HST Recoverable','ASSET'],['1300','Provider Advances','ASSET'],
-    ['2000','Accounts Payable','LIABILITY'],['2010','Provider Payable','LIABILITY'],['2100','GST/HST Payable','LIABILITY'],['2110','QST Payable','LIABILITY'],['3000','Owner Equity / Retained Earnings','EQUITY'],
-    ['4000','Service Revenue','REVENUE'],['5000','Subcontractors Expense','EXPENSE'],['5400','Office & Software','EXPENSE'],['5700','Merchant / Bank Fees','EXPENSE']
+    ['2000','Accounts Payable','LIABILITY'],['2010','Provider Payable','LIABILITY'],['2020','Employee / Contractor Reimbursements Payable','LIABILITY'],['2100','GST/HST Payable','LIABILITY'],['2110','QST Payable','LIABILITY'],['3000','Owner Equity / Retained Earnings','EQUITY'],
+    ['4000','Service Revenue','REVENUE'],['5000','Subcontractors Expense','EXPENSE'],['5100','Fuel & Vehicle','EXPENSE'],['5200','Insurance','EXPENSE'],['5300','Advertising','EXPENSE'],['5400','Office & Software','EXPENSE'],['5500','Professional Fees','EXPENSE'],['5600','Repairs & Maintenance','EXPENSE'],['5700','Merchant / Bank Fees','EXPENSE']
   ];
   const out={};
   for(const [code,name,type] of defs)out[code]=await account(code,name,type);
@@ -207,6 +207,19 @@ async function customerRefund(id){
   const rows=await safeSb(`/rest/v1/accounting_customer_refunds?id=eq.${enc(id)}&select=*&limit=1`);
   return rows?.[0]||null;
 }
+async function expenseClaim(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_expense_claims?id=eq.${enc(id)}&select=*&limit=1`);
+  return rows?.[0]||null;
+}
+async function expenseClaimLines(id){
+  return await safeSb(`/rest/v1/accounting_expense_claim_lines?expense_claim_id=eq.${enc(id)}&select=*&order=sort_order.asc,id.asc`).catch(()=>[]);
+}
+async function expenseReimbursement(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_expense_reimbursements?id=eq.${enc(id)}&select=*&limit=1`);
+  return rows?.[0]||null;
+}
 
 function snap(row,key,current){return row?.payload_json?.[key]||current||{};}
 async function dependencyPosted(eventKey,{allowIgnored=false}={}){
@@ -218,7 +231,7 @@ async function dependencyPosted(eventKey,{allowIgnored=false}={}){
 async function buildPosting(row){
   const type=String(row.event_type||'').toUpperCase();
   const rule=await postingRule(type);
-  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED'].includes(type)&&!rule){
+  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED','EXPENSE_POSTED','EXPENSE_REIMBURSEMENT_PAID'].includes(type)&&!rule){
     throw new Error(`No enabled CAL posting rule is configured for ${type}.`);
   }
 
@@ -374,6 +387,36 @@ async function buildPosting(row){
     return{payload:{customer_refund:refund,financial_account:fin},entryDate:String(refund.refund_date||current.refund_date||row.occurred_at||new Date().toISOString()).slice(0,10),memo:`Customer refund ${refund.refund_number||current.refund_number}`,lines:[{code:rule.debit_account_code||'1100',debit:amount,description:`Consume customer credit ${refund.refund_number||current.refund_number}`},{code:gl.code,credit:amount,description:`Refund via ${fin.name}`}]};
   }
 
+  if(type==='EXPENSE_POSTED'){
+    const current=await expenseClaim(row.source_record_id);if(!current)throw new Error('Expense source record not found.');
+    const claim=snap(row,'expense_claim',current),status=String(current.status||claim.status||'').toUpperCase();
+    if(!['POSTED','PAID'].includes(status))return{ignored:true,reason:'Expense is not posted.',payload:{expense_claim:claim}};
+    const currentLines=await expenseClaimLines(row.source_record_id),linesSnap=Array.isArray(row?.payload_json?.lines)&&row.payload_json.lines.length?row.payload_json.lines:currentLines;
+    if(!linesSnap.length)throw new Error('Posted expense has no lines.');
+    const journalLines=[],taxBuckets=new Map();let control=0;
+    for(const l of linesSnap){
+      const acct=await glAccountById(l.posting_account_id);if(!acct||acct.active===false||!['EXPENSE','ASSET'].includes(String(acct.account_type||'').toUpperCase()))throw new Error('Expense posting account is missing, inactive, or invalid.');
+      const sub=MONEY(l.line_subtotal),tax=MONEY(l.tax_amount),rec=MONEY(l.recoverable_tax),non=MONEY(l.nonrecoverable_tax),base=MONEY(sub+non);
+      if(base>0)journalLines.push({code:acct.code,debit:base,description:`Expense ${claim.expense_number||current.expense_number} · ${l.description||acct.name}`});
+      if(rec>0){const tc=await taxCodeById(l.tax_code_id),kind=String(tc?.tax_kind||'GST').toUpperCase(),code=kind==='QST'?(rule.configuration_json?.qst_recoverable_account||'1210'):(rule.tax_account_code||'1200');taxBuckets.set(code,MONEY((taxBuckets.get(code)||0)+rec));}
+      control=MONEY(control+sub+tax);
+    }
+    for(const [code,amount] of taxBuckets)journalLines.push({code,debit:amount,description:`Recoverable expense tax ${claim.expense_number||current.expense_number}`});
+    const expected=MONEY(claim.total||current.total);if(Math.abs(control-expected)>0.02)throw new Error(`Expense lines ${control.toFixed(2)} do not match expense total ${expected.toFixed(2)}.`);
+    if(String(claim.payment_mode||current.payment_mode).toUpperCase()==='REIMBURSEMENT')journalLines.push({code:rule.configuration_json?.reimbursement_payable_account||'2020',credit:expected,description:`Reimbursement payable ${claim.expense_number||current.expense_number}`});
+    else{const fin=await financialAccount(claim.financial_account_id||current.financial_account_id);if(!fin||fin.active===false)throw new Error('Expense financial account is missing or inactive.');const gl=await glAccountById(fin.gl_account_id);if(!gl||gl.active===false)throw new Error('Expense financial-account GL mapping is missing or inactive.');journalLines.push({code:gl.code,credit:expected,description:`Company-paid expense via ${fin.name}`});}
+    return{payload:{expense_claim:claim,lines:linesSnap},entryDate:String(claim.posting_date||current.posting_date||row.occurred_at||new Date().toISOString()).slice(0,10),memo:`Expense posted ${claim.expense_number||current.expense_number}`,lines:journalLines};
+  }
+
+  if(type==='EXPENSE_REIMBURSEMENT_PAID'){
+    const current=await expenseReimbursement(row.source_record_id);if(!current)throw new Error('Expense reimbursement source record not found.');
+    const pay=snap(row,'expense_reimbursement',current);if(String(current.status||pay.status||'').toUpperCase()!=='PAID')return{ignored:true,reason:'Expense reimbursement is not PAID.',payload:{expense_reimbursement:pay}};
+    const claimId=pay.expense_claim_id||current.expense_claim_id,dep=`PLEASE:EXPENSE_POSTED:${claimId}`;if(!(await dependencyPosted(dep)))throw new Error(`Dependency pending: ${dep}`);
+    const claim=await expenseClaim(claimId);if(!claim)throw new Error('Expense not found for reimbursement.');
+    const fin=await financialAccount(pay.financial_account_id||current.financial_account_id);if(!fin||fin.active===false)throw new Error('Reimbursement financial account is missing or inactive.');const gl=await glAccountById(fin.gl_account_id);if(!gl||gl.active===false)throw new Error('Reimbursement GL mapping is missing or inactive.');
+    const amount=MONEY(pay.amount||current.amount);return{payload:{expense_claim:claim,expense_reimbursement:pay,financial_account:fin},entryDate:String(pay.payment_date||current.payment_date||row.occurred_at||new Date().toISOString()).slice(0,10),memo:`Expense reimbursement ${pay.reimbursement_number||current.reimbursement_number}`,lines:[{code:rule.debit_account_code||'2020',debit:amount,description:`Reduce reimbursement payable ${claim.expense_number}`},{code:gl.code,credit:amount,description:`Reimbursement via ${fin.name}`}]};
+  }
+
   return{ignored:true,reason:`No automatic posting handler is configured for ${type}.`,payload:row.payload_json||{}};
 }
 
@@ -439,7 +482,7 @@ async function runWorker({limit=25,workerId=`netlify-${crypto.randomBytes(4).toS
   await releaseStaleClaims(Number(process.env.CAL_ACCOUNTING_STALE_MINUTES||10)).catch(e=>console.warn('cal-release-stale',e?.message||e));
   let rows=[];
   try{rows=await claimEvents(limit,workerId)||[];}catch(e){if(schemaMissing(e))return{ok:false,schema_missing:true,error:e.message||String(e),claimed:0};throw e;}
-  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,STRIPE_FEE_RECORDED:40};
+  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,EXPENSE_REIMBURSEMENT_PAID:30,STRIPE_FEE_RECORDED:40};
   rows=[...rows].sort((a,b)=>(priority[String(a.event_type||'').toUpperCase()]||100)-(priority[String(b.event_type||'').toUpperCase()]||100)||String(a.occurred_at||a.created_at||'').localeCompare(String(b.occurred_at||b.created_at||'')));
   const summary={ok:true,enabled:true,worker_id:workerId,claimed:rows.length,posted:0,ignored:0,duplicates:0,retried:0,dead_letter:0,errors:[]};
   for(const row of rows){
@@ -463,7 +506,7 @@ async function enqueueLegacy(type,sourceTable,id,reference,payload,occurredAt,co
 }
 async function reconcile(limit=200){
   const max=Math.max(25,Math.min(500,Number(limit)||200));
-  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,errors:[]};
+  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,expenses:0,expense_reimbursements:0,errors:[]};
   const invoices=await safeSb(`/rest/v1/invoices?select=*&status=in.(ISSUED,SENT,OVERDUE,PAID,VOID)&order=created_at.asc&limit=${max}`).catch(e=>{summary.errors.push(e.message);return[];});
   for(const inv of invoices||[]){
     try{
@@ -483,6 +526,10 @@ async function reconcile(limit=200){
   for(const n of cns||[]){try{const lines=await creditNoteLines(n.id),inv=await accountingInvoice(n.invoice_id),cause=inv?.source_invoice_id?`PLEASE:INVOICE_ISSUED:${inv.source_invoice_id}`:null;await enqueueLegacy('CREDIT_NOTE_ISSUED','accounting_credit_notes',n.id,n.credit_note_number,{credit_note:n,lines},n.posted_at||n.updated_at||n.created_at,n.invoice_id,cause);summary.queued++;summary.credit_notes++;}catch(e){summary.errors.push(e.message||String(e));}}
   const refs=await safeSb(`/rest/v1/accounting_customer_refunds?select=*&status=eq.COMPLETED&order=created_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
   for(const r of refs||[]){try{await enqueueLegacy('REFUND_COMPLETED','accounting_customer_refunds',r.id,r.refund_number,{customer_refund:r},r.completed_at||r.created_at,r.customer_party_id,r.credit_note_id?`PLEASE:CREDIT_NOTE_ISSUED:${r.credit_note_id}`:null);summary.queued++;summary.refunds++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const exps=await safeSb(`/rest/v1/accounting_expense_claims?select=*&status=in.(POSTED,PAID)&order=created_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const x of exps||[]){try{const lines=await expenseClaimLines(x.id);await enqueueLegacy('EXPENSE_POSTED','accounting_expense_claims',x.id,x.expense_number,{expense_claim:x,lines},x.posted_at||x.updated_at||x.created_at,x.id);summary.queued++;summary.expenses++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const ers=await safeSb(`/rest/v1/accounting_expense_reimbursements?select=*&status=eq.PAID&order=created_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const r of ers||[]){try{await enqueueLegacy('EXPENSE_REIMBURSEMENT_PAID','accounting_expense_reimbursements',r.id,r.reimbursement_number,{expense_reimbursement:r},r.paid_at||r.created_at,r.expense_claim_id,`PLEASE:EXPENSE_POSTED:${r.expense_claim_id}`);summary.queued++;summary.expense_reimbursements++;}catch(e){summary.errors.push(e.message||String(e));}}
   return summary;
 }
 

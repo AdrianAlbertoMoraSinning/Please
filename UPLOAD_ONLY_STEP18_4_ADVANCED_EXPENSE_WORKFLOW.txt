@@ -1,0 +1,38 @@
+PLEASE / CAL — STEP 18.4 ADVANCED EXPENSE WORKFLOW
+Deployment order:
+1) Supabase SQL Editor: run supabase/STEP18_4_ADVANCED_EXPENSE_WORKFLOW.sql completely.
+2) Supabase SQL Editor: run supabase/STEP18_4_VERIFY.sql and require every row = PASS.
+3) Only then upload the files in the STEP 18.4 UPLOAD_ONLY ZIP to GitHub, preserving paths.
+4) Wait for Netlify Published.
+5) Smoke test one small company-paid expense and one reimbursement expense.
+6) Confirm Accounting Engine HEALTHY, Pending/Retry/Dead Letter = 0 and Trial Balance BALANCED.
+
+Functional runtime changes:
+- _cal-accounting-lib.js
+- cal-dashboard-data.js
+- cal-expenses.js
+- cal-expense-document-upload.js
+- cal-expense-document-url.js
+- netlify/functions/_cal-accounting-lib.js
+- netlify/functions/cal-dashboard-data.js
+- netlify/functions/cal-expenses.js
+- netlify/functions/cal-expense-document-upload.js
+- netlify/functions/cal-expense-document-url.js
+- cal/expenses.html
+- cal/js/expenses.js
+
+Database / verification:
+- STEP18_4_ADVANCED_EXPENSE_WORKFLOW.sql
+- STEP18_4_VERIFY.sql
+- supabase/STEP18_4_ADVANCED_EXPENSE_WORKFLOW.sql
+- supabase/STEP18_4_VERIFY.sql
+
+Documentation / regression:
+- STEP18_4_ADVANCED_EXPENSE_WORKFLOW.md
+- tests/step18_4_advanced_expense_workflow_static.test.js
+- tests/step18_4_accounting_worker_runtime.test.js
+
+Instruction file:
+- UPLOAD_ONLY_STEP18_4_ADVANCED_EXPENSE_WORKFLOW.txt
+
+No files are deleted. Do not replace the repository with only these files; overlay them onto the existing PLEASE repository.
