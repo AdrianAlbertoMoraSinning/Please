@@ -1,0 +1,28 @@
+'use strict';
+const fs=require('fs'),path=require('path');
+const root=path.join(__dirname,'..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+function pass(name,ok){if(!ok){console.error('FAIL',name);process.exitCode=1}else console.log('PASS',name)}
+const sql=read('STEP18_5_TREASURY_BANK_RECONCILIATION.sql'),html=read('cal/banking.html'),js=read('cal/js/banking.js'),api=read('netlify/functions/cal-banking.js'),mirror=read('cal-banking.js'),dash=read('netlify/functions/cal-dashboard-data.js'),app=read('cal/js/app.js');
+pass('STEP 18.5 creates reconciliation, import, transaction and match tables',['accounting_bank_reconciliations','accounting_bank_imports','accounting_bank_transactions','accounting_bank_matches'].every(x=>sql.includes(`create table if not exists public.${x}`)));
+pass('Reconciliation close uses statement control, unmatched statement and difference gates',sql.includes('statement_control_difference')&&sql.includes('unmatched_statement_count')&&sql.includes("Reconciliation difference is"));
+pass('Closed reconciliation and evidence are immutable',sql.includes('accounting_protect_closed_bank_reconciliation')&&sql.includes('accounting_protect_closed_bank_evidence'));
+pass('Closed periods cannot be overlapped by later reconciliation records',sql.includes('Closed periods cannot be overlapped')&&!sql.includes("status<>'CLOSED' and daterange(period_start,period_end"));
+pass('Closed evidence protection checks both OLD and NEW reconciliation ownership',sql.includes('v_old_recon_id')&&sql.includes('v_new_recon_id')&&sql.includes("v_old_status='CLOSED' or v_new_status='CLOSED'")&&sql.includes('before insert or update or delete on public.accounting_bank_transactions'));
+pass('Database-level overlap trigger protects reconciliation periods',sql.includes('accounting_prevent_bank_reconciliation_overlap')&&sql.includes('trg_accounting_bank_reconciliation_overlap'));
+pass('Statement fingerprint preserves legitimate duplicate-looking CSV rows',sql.includes('source_row_number')&&sql.includes("'ROW|'||v_recon.id::text||'|'||v_row_no::text"));
+pass('Auto Match cannot reach beyond reconciliation period end',sql.includes('je.entry_date<=v_recon.period_end'));
+pass('Close and evidence-changing operations serialize on the reconciliation row',(sql.match(/accounting_bank_reconciliations where id=.*for update/g)||[]).length>=4&&sql.includes('Serialize evidence edits with Import/Auto Match/Close'));
+pass('Multi-line exact statement matching is supported',sql.includes('p_journal_line_ids uuid[]')&&sql.includes('Selected ledger lines total'));
+pass('Auto Match is conservative and ambiguity-safe',sql.includes('accounting_auto_match_bank_reconciliation')&&sql.includes('v_ambiguous')&&sql.includes('v_candidates=1'));
+pass('Banking UI exposes Daily Cash Position and controlled reconciliation',html.includes('Daily Cash Position')&&html.includes('Reconciliation Workspace')&&html.includes('Statement Transactions')&&html.includes('Outstanding Book Items'));
+pass('CSV, OFX and QFX parsing is client-side without bank credentials',js.includes('function parseCsv')&&js.includes('function parseOfx')&&html.includes('Bank credentials are never stored'));
+pass('Statement import stores a SHA-256 file fingerprint',js.includes("crypto.subtle.digest('SHA-256'")&&sql.includes('file_hash text'));
+pass('API does not post journals during reconciliation',!api.includes('accounting_post_event_journal')&&!api.includes('accounting_enqueue_event'));
+pass('Treasury position includes bank/cash, clearing and due commitments',api.includes('bankCash')&&api.includes('clearing')&&api.includes('commitmentsToday')&&api.includes('providerPayables'));
+pass('Operating bank reporting is ledger-derived after STEP 18.5',dash.includes('Operating-bank reporting is ledger-derived')&&dash.includes('accounting_financial_account_balance')&&dash.includes('LEDGER-BALANCE'));
+pass('Treasury account balances prefer the exact SQL balance RPC',api.includes('accounting_financial_account_balance')&&api.includes('balance RPC fallback'));
+pass('Legacy app banking renderer is disabled in favor of dedicated banking module',app.includes('banking:()=>{}'));
+pass('Netlify and root Banking function mirrors remain identical',api===mirror);
+pass('SQL root and Supabase mirrors remain identical',sql===read('supabase/STEP18_5_TREASURY_BANK_RECONCILIATION.sql'));
+if(process.exitCode)process.exit(process.exitCode);console.log('STEP 18.5 Treasury & Bank Reconciliation static audit completed successfully.');

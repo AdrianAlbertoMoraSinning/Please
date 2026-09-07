@@ -1,0 +1,21 @@
+STEP 18.5 — UPLOAD ONLY
+
+Upload these files to GitHub preserving their paths AFTER the STEP 18.5 Supabase migration and verification pass:
+
+STEP18_5_TREASURY_BANK_RECONCILIATION.md
+STEP18_5_TREASURY_BANK_RECONCILIATION.sql
+STEP18_5_VERIFY.sql
+UPLOAD_ONLY_STEP18_5_TREASURY_BANK_RECONCILIATION.txt
+cal-banking.js
+cal-dashboard-data.js
+cal/banking.html
+cal/css/style.css
+cal/js/app.js
+cal/js/banking.js
+netlify/functions/cal-banking.js
+netlify/functions/cal-dashboard-data.js
+supabase/STEP18_5_TREASURY_BANK_RECONCILIATION.sql
+tests/step18_5_treasury_bank_reconciliation_static.test.js
+tests/step18_5_treasury_runtime.test.js
+
+No file deletion is required.
