@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 100" role="img" aria-label="CAL 1.5 Canadian Accounting by Lottus">
+  <rect width="430" height="100" rx="18" fill="#173f5f"/>
+  <path d="M34 72c13-1 25-10 31-24 6 14 18 23 31 24-7-14-18-23-31-28-13 5-24 14-31 28Z" fill="#fff"/>
+  <circle cx="65" cy="34" r="11" fill="#f39c35"/>
+  <text x="112" y="43" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#fff">CAL 1.5</text>
+  <text x="112" y="69" font-family="Arial,sans-serif" font-size="17" fill="#d9e8f2">CANADIAN ACCOUNTING BY LOTTUS</text>
+</svg>
