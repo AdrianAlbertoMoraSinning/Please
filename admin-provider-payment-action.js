@@ -1,5 +1,6 @@
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
+const accounting=require('./_cal-accounting-lib');
 const money=n=>Math.round((Number(n)||0)*100)/100;
 const isSchemaMissing=e=>{
   const m=String(e?.message||e||'').toLowerCase();
@@ -55,7 +56,8 @@ exports.handler=async event=>{
         advanceApplied=0;remaining=money(p.amount);
       }
       const ctx=await notify.providerPaymentContext(id).catch(()=>null),n=await notify.sendProvider(p.provider_id,{subject:`PLEASE — Provider Payment Paid (${ctx?.payment_reference||p.payment_reference||'Payment'})`,title:'PLEASE provider payment completed',intro:`Hello ${ctx?.providers?.display_name||'Provider'}, PLEASE recorded your provider payment as paid.`,details:[['Payment',ctx?.payment_reference||p.payment_reference],['Job',ctx?.jobs?.reference||''],['Service',ctx?.jobs?.service_name||''],['Total provider payment',notify.money(p.amount)],['Advance applied',notify.money(advanceApplied)],['Paid now',notify.money(remaining)],['Method',method],['Reference',ref||'—']],message:note||'',ctaLabel:'Open Provider Portal',ctaUrl:`${notify.baseUrl()}/provider.html#history`,idempotencyKey:`please-provider-payment-paid-${id}`});
-      return lib.json(200,{ok:true,status:'PAID',amount:money(p.amount),advance_applied:advanceApplied,cash_paid:remaining,advances_enabled:advancesEnabled,notification_sent:!!n?.sent});
+      const accountingSync=await accounting.handleProviderPaymentPaid(id).catch(e=>({ok:false,error:e.message||String(e)}));
+      return lib.json(200,{ok:true,status:'PAID',amount:money(p.amount),advance_applied:advanceApplied,cash_paid:remaining,advances_enabled:advancesEnabled,notification_sent:!!n?.sent,accounting_sync:accountingSync});
     }
     return lib.json(400,{error:'Unknown action.'});
   }catch(e){console.error('admin-provider-payment-action',e);return lib.json(e.status||500,{error:e.message||'Provider payment action failed.'});}

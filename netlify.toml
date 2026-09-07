@@ -28,3 +28,14 @@
   from = "/track"
   to = "/track-request.html"
   status = 200
+
+# STEP 16.0 — CAL Accounting portal routes
+[[redirects]]
+  from = "/cal"
+  to = "/cal/dashboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/accounting"
+  to = "/cal/dashboard.html"
+  status = 200

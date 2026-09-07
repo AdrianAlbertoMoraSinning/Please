@@ -1,6 +1,7 @@
 const crypto=require('crypto');
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
+const accounting=require('./_cal-accounting-lib');
 const MONEY=n=>Math.round((Number(n)||0)*100)/100;
 
 async function getInvoice(id){
@@ -102,7 +103,8 @@ exports.handler=async event=>{
       const patch={status:'ISSUED',issued_at:new Date().toISOString(),updated_at:new Date().toISOString()};
       await lib.sbJson(`/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
       await history(fresh,patch,'Invoice customer values saved and invoice issued',auth.user);
-      return lib.json(200,{ok:true,total_amount:fresh.total_amount});
+      const accountingSync=await accounting.handleInvoiceIssued(id).catch(e=>({ok:false,error:e.message||String(e)}));
+      return lib.json(200,{ok:true,total_amount:fresh.total_amount,accounting_sync:accountingSync});
     }
 
     if(action==='MARK_SENT'){
@@ -129,7 +131,9 @@ exports.handler=async event=>{
       await history(inv,patch,note,auth.user);
       const fresh=await notify.invoiceContext(id).catch(()=>inv),remainingAfter=MONEY(Math.max(0,Number(fresh?.total_amount??inv.total_amount)-paid));
       const n=await notify.send({to:fresh?.client_email||inv.client_email,subject:`PLEASE — Payment ${isFull?'Received':'Recorded'} (${fresh?.invoice_number||inv.invoice_number})`,title:isFull?'Payment received — thank you':'Payment recorded',intro:`Hi ${fresh?.client_name||inv.client_name||'there'}, PLEASE recorded your payment.`,details:[['Invoice',fresh?.invoice_number||inv.invoice_number],['Payment',`${amount.toFixed(2)} ${inv.currency||'CAD'}`],['Total paid',`${paid.toFixed(2)} ${inv.currency||'CAD'}`],['Remaining balance',`${remainingAfter.toFixed(2)} ${inv.currency||'CAD'}`],['Method',method],['Reference',ref||'—']],ctaLabel:'View Invoice',ctaUrl:`${notify.baseUrl()}/invoice.html?token=${encodeURIComponent(fresh?.public_token||inv.public_token||'')}`,idempotencyKey:`please-invoice-manual-payment-${id}-${paid.toFixed(2)}`});
-      return lib.json(200,{ok:true,fully_paid:isFull,notification_sent:!!n?.sent});
+      const txRows=await lib.sbJson(`/rest/v1/payment_transactions?select=id&invoice_id=eq.${encodeURIComponent(id)}&status=eq.SUCCEEDED&order=created_at.desc&limit=1`).catch(()=>[]);
+      const accountingSync=txRows?.[0]?.id?await accounting.handlePaymentTransaction(txRows[0].id).catch(e=>({ok:false,error:e.message||String(e)})):await accounting.handleInvoicePaid(id).catch(e=>({ok:false,error:e.message||String(e)}));
+      return lib.json(200,{ok:true,fully_paid:isFull,notification_sent:!!n?.sent,accounting_sync:accountingSync});
     }
 
     if(action==='VOID'){
@@ -141,7 +145,8 @@ exports.handler=async event=>{
       await lib.sbJson(`/rest/v1/invoices?id=eq.${id}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
       await history(inv,patch,reason,auth.user);
       const n=await notify.send({to:inv.client_email,subject:`PLEASE — Invoice Voided (${inv.invoice_number})`,title:'PLEASE invoice voided',intro:`Hi ${inv.client_name||'there'}, PLEASE voided this invoice.`,details:[['Invoice',inv.invoice_number],['Previous total',notify.money(inv.total_amount)],['Status','VOID']],message:reason,idempotencyKey:`please-invoice-void-${id}`});
-      return lib.json(200,{ok:true,notification_sent:!!n?.sent});
+      const accountingSync=await accounting.handleInvoiceVoided(id).catch(e=>({ok:false,error:e.message||String(e)}));
+      return lib.json(200,{ok:true,notification_sent:!!n?.sent,accounting_sync:accountingSync});
     }
 
     return lib.json(400,{error:'Unknown action'});
