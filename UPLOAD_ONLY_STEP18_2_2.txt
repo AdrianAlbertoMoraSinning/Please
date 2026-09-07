@@ -1,0 +1,18 @@
+STEP 18.2.2 — Ledger & Trial Balance Integrity Fix
+
+NO SUPABASE SQL IS REQUIRED.
+
+Upload these files to GitHub preserving paths:
+- cal/reports.html
+- cal/js/app.js
+- STEP18_2_2_LEDGER_TRIAL_BALANCE_INTEGRITY.md
+- tests/step18_2_2_ledger_trial_balance_integrity.test.js
+
+After Netlify publishes:
+1. Open CAL > Reports.
+2. Confirm Trial Balance shows non-zero ledger-derived debit/credit totals where posted journals exist.
+3. Confirm Total Debits = Total Credits and status shows BALANCED.
+4. Confirm General Journal entries remain unchanged.
+5. Confirm Invoices & A/R still shows $1.05/$1.05 and $189/$189.
+6. Confirm Accounting Engine remains HEALTHY.
+7. Then perform Supplier -> Bill -> Submit -> Approve -> Post -> Pay smoke test before STEP 18.3.
