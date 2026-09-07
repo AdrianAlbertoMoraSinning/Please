@@ -1,0 +1,76 @@
+PLEASE — HOME RESTORATION / CAL ISOLATION
+Date: 2026-09-07
+Source baseline: Please-main(3).zip
+Restored Home source: GitHub commit immediately before "Cal Integration Start" (5cd9a3127272471da75d4868e2a328f962e276aa)
+
+SCOPE COMPLETED
+- Restored the public PLEASE Home at /index.html.
+- Kept CAL public UI under /cal/.
+- Removed accidental CAL frontend duplicates from the public root.
+- Added legacy URL redirects into /cal/.
+- Corrected favicon asset locations.
+- Corrected canonical Agenda favicon/routing setup.
+- Archived obsolete STEP 15.7 root test; current regression suite is under /tests.
+- Added STEP 16.0.3 Home/CAL isolation regression test.
+- Current test suite result: 24/24 PASS.
+
+FILES TO UPLOAD / REPLACE IN GITHUB
+1. index.html
+2. netlify.toml
+3. modules/agenda/agenda.html
+4. modules/agenda/agenda-admin.html
+5. images/favicon-16.png
+6. images/favicon-32.png
+7. images/favicon-48.png
+8. images/apple-touch-icon.png
+9. tests/archive/README.md
+10. tests/archive/step15_7_notification_routing_static.legacy.js
+11. tests/step16_0_3_home_cal_isolation.test.js
+12. UPLOAD_ONLY_HOME_RESTORATION_2026-09-07.txt
+
+FILES TO DELETE FROM THE GITHUB ROOT
+These are accidental CAL/root duplicates or obsolete/broken copies. Do NOT delete their canonical /cal/ or /modules/agenda/ versions.
+1. accounts.html
+2. agenda-admin.html
+3. agenda.html
+4. app.js
+5. audit.html
+6. banking.html
+7. dashboard.html
+8. disclaimer.html
+9. documents.html
+10. expenses.html
+11. invoices.html
+12. journal.html
+13. logo.svg
+14. reports.html
+15. settings.html
+16. step15_7_notification_routing_static.test.js
+17. step16_0_cal_accounting_bridge_static.test.js
+18. style.css
+19. supabase-config.js
+20. taxes.html
+
+IMPORTANT
+- DO NOT delete /cal/.
+- DO NOT delete netlify/functions/ CAL bridge functions.
+- DO NOT replace css/style.css or js/app.js; those are PLEASE public assets and remain intact.
+- The CAL page /cal/dashboard.html remains the canonical accounting entry point.
+- Legacy root CAL URLs redirect to /cal/* through netlify.toml.
+- Legacy /agenda.html and /agenda-admin.html redirect to /modules/agenda/ canonical pages.
+
+POST-DEPLOY CHECKS
+1. Open / and confirm "Need help? Just PLEASE." appears.
+2. Confirm "BOOK YOUR SERVICE" opens /service-request.html?mode=book.
+3. Open /cal and confirm CAL Accounting loads.
+4. Open /dashboard.html and confirm it redirects to /cal/dashboard.html.
+5. Confirm favicon appears on Home, Admin, Provider, CAL and Agenda pages.
+6. Open /agenda.html and confirm it redirects to /modules/agenda/agenda.html.
+
+AUTOMATED VALIDATION COMPLETED
+- Current regression tests: 24/24 PASS.
+- JavaScript syntax: 193/193 PASS.
+- Netlify relative requires: 129/129 resolved.
+- Active HTML favicon links: 47/47 PASS.
+- Home local asset/page references: 35/35 resolved.
+- netlify.toml parses successfully.

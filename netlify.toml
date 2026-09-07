@@ -39,3 +39,77 @@
   from = "/accounting"
   to = "/cal/dashboard.html"
   status = 200
+
+# 2026-09-07 — PLEASE Home restoration / CAL isolation compatibility routes.
+# Legacy root CAL URLs are permanently redirected into /cal/ so the PLEASE
+# public root remains reserved for the main service portal.
+[[redirects]]
+  from = "/accounts.html"
+  to = "/cal/accounts.html"
+  status = 301
+
+[[redirects]]
+  from = "/audit.html"
+  to = "/cal/audit.html"
+  status = 301
+
+[[redirects]]
+  from = "/banking.html"
+  to = "/cal/banking.html"
+  status = 301
+
+[[redirects]]
+  from = "/dashboard.html"
+  to = "/cal/dashboard.html"
+  status = 301
+
+[[redirects]]
+  from = "/disclaimer.html"
+  to = "/cal/disclaimer.html"
+  status = 301
+
+[[redirects]]
+  from = "/documents.html"
+  to = "/cal/documents.html"
+  status = 301
+
+[[redirects]]
+  from = "/expenses.html"
+  to = "/cal/expenses.html"
+  status = 301
+
+[[redirects]]
+  from = "/invoices.html"
+  to = "/cal/invoices.html"
+  status = 301
+
+[[redirects]]
+  from = "/journal.html"
+  to = "/cal/journal.html"
+  status = 301
+
+[[redirects]]
+  from = "/reports.html"
+  to = "/cal/reports.html"
+  status = 301
+
+[[redirects]]
+  from = "/settings.html"
+  to = "/cal/settings.html"
+  status = 301
+
+[[redirects]]
+  from = "/taxes.html"
+  to = "/cal/taxes.html"
+  status = 301
+
+# Keep historical agenda entry points functional while using the canonical module.
+[[redirects]]
+  from = "/agenda.html"
+  to = "/modules/agenda/agenda.html"
+  status = 301
+
+[[redirects]]
+  from = "/agenda-admin.html"
+  to = "/modules/agenda/agenda-admin.html"
+  status = 301
