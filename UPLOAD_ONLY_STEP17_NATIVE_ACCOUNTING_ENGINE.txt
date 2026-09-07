@@ -1,0 +1,127 @@
+PLEASE — STEP 17 NATIVE ACCOUNTING ENGINE
+Deployment package: 2026-09-07
+
+PURPOSE
+Replace the STEP 16 manual accounting synchronization workflow with the STEP 17 native event-driven accounting engine while preserving existing PLEASE operations.
+
+SAFE DEPLOYMENT ORDER — IMPORTANT
+This package assumes the restored PLEASE Home / CAL isolation release is already the current GitHub base.
+
+1. FIRST — in the EXISTING PLEASE Supabase project, run the complete migration:
+   supabase/STEP17_NATIVE_ACCOUNTING_ENGINE.sql
+
+   Run it while the current STEP 16 site is still live. The migration is additive and keeps
+   temporary compatibility with STEP 16 event status ERROR so the existing site can coexist
+   during the short rollout window.
+
+2. SECOND — upload/replace the files listed below in GitHub, preserving the SAME paths.
+
+3. THIRD — wait for the Netlify deploy to complete successfully.
+
+4. FOURTH — confirm Netlify recognizes cal-accounting-worker as a Scheduled Function.
+   The configured cadence is once per minute. The worker itself is limited conservatively
+   so a run stays within the scheduled-function execution window.
+
+5. FIFTH — open /cal/dashboard.html and confirm:
+   - Accounting Engine = HEALTHY
+   - Pending = 0 after normal processing
+   - Retrying = 0
+   - Dead Letter = 0
+   - no Sync button is present
+
+6. SIXTH — smoke-test in this order:
+   - issue one test invoice
+   - confirm an INVOICE_ISSUED event appears and posts once
+   - record/complete one payment
+   - confirm PAYMENT_RECEIVED posts once
+   - if Stripe is used, confirm STRIPE_FEE_RECORDED follows the payment event
+   - confirm the Journal remains balanced and the source references are preserved
+
+7. Do NOT delete STEP 16 tables, outbox history, external-event history, journals or accounting records.
+
+NO FILE DELETIONS ARE REQUIRED FOR STEP 17.
+
+CRITICAL FILES DELIBERATELY UNCHANGED
+- index.html (PLEASE Home)
+- work-with-us.html
+- provider.html
+- admin-dashboard.html
+- service-request.html
+- track-request.html
+- payment.html
+- css/style.css
+- js/app.js
+
+FILES MODIFIED OR ADDED FOR STEP 17 — 29 TOTAL
+- STEP17_NATIVE_ACCOUNTING_ENGINE.md
+- STEP17_NATIVE_ACCOUNTING_ENGINE.sql
+- UPLOAD_ONLY_STEP17_NATIVE_ACCOUNTING_ENGINE.txt
+- netlify.toml
+- _cal-accounting-lib.js
+- admin-invoice-action.js
+- admin-provider-payment-action.js
+- cal-accounting-worker.js
+- cal-accounting-recovery.js
+- cal-accounting-sync.js
+- cal-dashboard-data.js
+- stripe-webhook.js
+- cal/dashboard.html
+- cal/js/app.js
+- js/admin-invoices.js
+- supabase/STEP17_NATIVE_ACCOUNTING_ENGINE.sql
+- netlify/functions/_cal-accounting-lib.js
+- netlify/functions/admin-invoice-action.js
+- netlify/functions/admin-provider-payment-action.js
+- netlify/functions/cal-accounting-worker.js
+- netlify/functions/cal-accounting-recovery.js
+- netlify/functions/cal-accounting-sync.js
+- netlify/functions/cal-dashboard-data.js
+- netlify/functions/stripe-webhook.js
+- tests/step16_0_cal_accounting_bridge_static.test.js
+- tests/step17_accounting_worker_module.test.js
+- tests/step17_native_accounting_engine_static.test.js
+- tests/archive/README.md
+- tests/archive/step16_0_cal_accounting_bridge_static.legacy.js
+
+ARCHITECTURE IMPLEMENTED
+PLEASE business transaction
+  -> PostgreSQL source-table trigger / durable event
+  -> please_accounting_outbox
+  -> scheduled Accounting Worker
+  -> posting rules
+  -> atomic PostgreSQL Journal posting RPC
+  -> Journal / Ledger / Tax / Financial reporting foundation
+
+ACCOUNTING SAFETY
+- Operational actions no longer wait for synchronous CAL posting.
+- Financial events are created durably by PostgreSQL triggers from the same source-table transaction.
+- Queue states used by STEP 17: PENDING / PROCESSING / POSTED / RETRY / IGNORED / DEAD_LETTER.
+- Legacy ERROR is accepted only as rollout compatibility with STEP 16 and is recoverable by the new worker.
+- Worker claims use FOR UPDATE SKIP LOCKED.
+- Event keys, source references, event versions and payload hashes enforce idempotency and traceability.
+- Journal header + lines + POSTED state + event linkage are completed by one PostgreSQL RPC transaction.
+- Posted Journal headers and posted Journal lines are immutable.
+- Corrections use reversal entries rather than silently changing posted accounting.
+- Issued invoice financial values are locked in Admin; correct by void/reissue.
+- Stripe customer payments use Stripe Clearing; Stripe fees are separate events.
+- Provider costs recognize a payable before the provider payment clears it.
+- Dependency waiting does not consume retry attempts.
+- Repeated real failures move to DEAD_LETTER instead of retrying forever.
+- Dead-letter requeue resets retry budget for a controlled recovery attempt.
+- Refunds are recorded for accounting review but are NOT auto-posted until PLEASE has a dedicated Refund/Credit Note source-document workflow.
+
+ROLLBACK / PAUSE PRINCIPLE
+If the worker must be paused after deployment, disable the STEP 17 worker/integration in the runtime configuration rather than deleting queue rows or accounting history. Durable events should remain in the database for later processing/recovery. Never delete an event merely because processing failed.
+
+VALIDATION TARGET BEFORE PACKAGING
+- All active JavaScript files pass node --check.
+- All active regression tests pass.
+- Netlify internal require references resolve.
+- netlify.toml parses as valid TOML.
+- Root and netlify/functions mirrored function files match where applicable.
+- Root and supabase STEP17 SQL copies match.
+- PLEASE Home and critical public/Provider files match the restored baseline byte-for-byte.
+
+NOTES
+- This release removes manual Sync from the normal CAL user experience but retains protected recovery/reconciliation capability for exceptional administrative use.
+- Running the SQL migration against the live Supabase project is a deployment step; this offline package can statically validate the migration but cannot execute it against your production database by itself.

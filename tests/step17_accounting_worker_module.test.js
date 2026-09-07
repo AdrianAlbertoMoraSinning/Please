@@ -1,0 +1,10 @@
+const assert=require('assert');
+const path=require('path');
+const lib=require(path.resolve(__dirname,'../netlify/functions/_cal-accounting-lib.js'));
+assert.strictEqual(typeof lib.runWorker,'function','runWorker export');
+assert.strictEqual(typeof lib.processOutboxEvent,'function','processOutboxEvent export');
+assert.strictEqual(typeof lib.reconcile,'function','recovery scanner export');
+assert.strictEqual(typeof lib.enabled,'function','enabled export');
+assert.strictEqual(typeof lib.MONEY,'function','money helper export');
+assert.strictEqual(lib.MONEY(10.005),10.01,'money rounding remains stable');
+console.log('STEP 17 ACCOUNTING WORKER MODULE PASS');

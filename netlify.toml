@@ -1,6 +1,11 @@
 [functions]
   directory = "netlify/functions"
 
+# STEP 17 — Native Accounting Engine worker.
+# Financial events are already durable in Supabase before this worker runs.
+[functions."cal-accounting-worker"]
+  schedule = "* * * * *"
+
 # STEP 13.2 — browser security baseline. CSP remains compatible with the
 # current Supabase browser library, Google Fonts and existing static assets.
 [[headers]]

@@ -2,7 +2,6 @@ const crypto=require('crypto');
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
 const pay=require('./_stripe-payment-lib');
-const accounting=require('./_cal-accounting-lib');
 
 function safeEqual(a,b){try{return crypto.timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'))}catch{return false}}
 function verify(raw,header,secret){
@@ -55,7 +54,7 @@ async function markPaidFromCheckout(evt,obj){
     stripe_payment_intent_id:details.payment_intent||obj.payment_intent||null,
     note:note||'Stripe Checkout payment confirmed by verified webhook'
   };
-  const extendedTx={...baseTx,stripe_charge_id:details.charge_id||null,stripe_receipt_url:details.receipt_url||null,stripe_balance_transaction_id:details.balance_transaction_id||null,stripe_fee_amount:details.fee_amount,stripe_net_amount:details.net_amount};
+  const extendedTx={...baseTx,stripe_charge_id:details.charge_id||null,stripe_receipt_url:details.receipt_url||null,stripe_balance_transaction_id:details.balance_transaction_id||null,stripe_fee_amount:details.fee_amount,stripe_net_amount:details.net_amount,stripe_webhook_event_id:evt.id||null};
   try{
     const txRows=await lib.sbJson('/rest/v1/payment_transactions',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(extendedTx)});
     txId=txRows?.[0]?.id||null;
@@ -69,7 +68,6 @@ async function markPaidFromCheckout(evt,obj){
     const txRows=await lib.sbJson(`/rest/v1/payment_transactions?select=id&stripe_checkout_session_id=eq.${encodeURIComponent(obj.id)}&limit=1`).catch(()=>[]);
     txId=txRows?.[0]?.id||null;
   }
-  if(txId) await accounting.handlePaymentTransaction(txId).catch(e=>console.error('cal-accounting-stripe',e));
   await lib.sbJson('/rest/v1/invoice_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({
     invoice_id:inv.id,
     old_status:inv.status,

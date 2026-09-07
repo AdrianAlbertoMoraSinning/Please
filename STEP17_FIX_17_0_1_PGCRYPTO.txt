@@ -1,0 +1,17 @@
+PLEASE STEP 17.0.1 — Supabase pgcrypto compatibility fix
+Date: 2026-09-07
+
+Issue:
+  digest(bytea, unknown) could not be resolved inside SECURITY DEFINER functions because their fixed search_path was public only.
+
+Fix:
+  please_append_domain_event and accounting_enqueue_event now use:
+    SET search_path=public,extensions
+
+Why:
+  Supabase commonly exposes pgcrypto functions from the extensions schema.
+
+Deployment:
+  The failed STEP 17 run was wrapped in BEGIN/COMMIT and therefore rolled back.
+  Re-run the COMPLETE corrected STEP17_NATIVE_ACCOUNTING_ENGINE.sql in Supabase SQL Editor.
+  Do not deploy GitHub/Netlify code until the corrected SQL returns Success.
