@@ -1,0 +1,45 @@
+PLEASE / CAL — STEP 18.2.1 A/R Payment Integrity Fix
+Date: 2026-09-07
+
+PURPOSE
+Fix CAL Invoices & A/R showing Paid exactly twice the real payment. Root cause: paid amount was copied from PLEASE invoice.amount_paid into the CAL mirror and then the same successful payment was added again when PAYMENT_RECEIVED was mirrored.
+
+SAFE SCOPE
+This hotfix changes only the CAL A/R mirror/read model.
+It does NOT change:
+- PLEASE operational invoices
+- payment_transactions
+- Stripe webhook or Stripe payment records
+- accounting journal entries or lines
+- Provider payments
+- Supplier Purchases/A/P logic
+- Home / Provider / Admin operational pages
+
+DEPLOYMENT ORDER
+1. Supabase SQL Editor: run supabase/STEP18_2_1_AR_PAYMENT_INTEGRITY_FIX.sql
+2. Run supabase/STEP18_2_1_VERIFY.sql
+3. Confirm every verification row says PASS.
+4. Upload this STEP 18.2.1 package to GitHub preserving folders.
+5. Wait for Netlify Published.
+6. Open CAL > Invoices & A/R and verify:
+   - PLS-INV-20260905-15953B Total $1.05 -> Paid $1.05 (not $2.10), if its payment mirror is present.
+   - PLS-INV-20260905-D9122C Total $189.00 -> Paid $189.00 (not $378.00), if its payment mirror is present.
+7. Confirm Accounting Engine remains HEALTHY / Pending 0 / Retrying 0 / Dead Letter 0.
+8. Only then perform the STEP 18.2 Supplier Bill smoke test.
+
+RUNTIME FILES CHANGED (4)
+- _cal-accounting-lib.js
+- cal-dashboard-data.js
+- netlify/functions/_cal-accounting-lib.js
+- netlify/functions/cal-dashboard-data.js
+
+MIGRATION / VERIFICATION / DOCUMENTATION FILES
+- STEP18_2_1_AR_PAYMENT_INTEGRITY_FIX.sql
+- STEP18_2_1_VERIFY.sql
+- supabase/STEP18_2_1_AR_PAYMENT_INTEGRITY_FIX.sql
+- supabase/STEP18_2_1_VERIFY.sql
+- STEP18_2_1_AR_PAYMENT_INTEGRITY_FIX.md
+- tests/step18_2_1_ar_payment_integrity_fix.test.js
+- UPLOAD_ONLY_STEP18_2_1_AR_PAYMENT_INTEGRITY_FIX.txt
+
+NO FILES SHOULD BE DELETED FOR THIS HOTFIX.

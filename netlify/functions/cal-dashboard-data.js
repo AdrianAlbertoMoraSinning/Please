@@ -39,7 +39,11 @@ exports.handler=async event=>{
     const lineByEntry=new Map();
     for(const l of lines||[]){if(!lineByEntry.has(l.journal_entry_id))lineByEntry.set(l.journal_entry_id,[]);lineByEntry.get(l.journal_entry_id).push(l);}
     const journals=(entries||[]).map(e=>{const ls=lineByEntry.get(e.id)||[];return{id:entryNo(e),date:dateOf(e.entry_date),memo:e.memo,debits:MONEY(ls.reduce((n,l)=>n+Number(l.debit||0),0)),credits:MONEY(ls.reduce((n,l)=>n+Number(l.credit||0),0)),status:e.status,lines:ls};});
-    const calInvoices=(invoices||[]).map(x=>({id:x.invoice_number,date:dateOf(x.invoice_date),customer:x.source_reference||x.invoice_number,subtotal:MONEY(x.subtotal),tax:MONEY(x.tax_total),total:MONEY(x.total),paid:MONEY(x.paid_total),status:x.status}));
+    // A/R paid amount is derived from the idempotent accounting_payments mirror.
+    // accounting_invoices.paid_total is retained as a convenience cache, not an independent source of truth.
+    const paidByInvoice=new Map();
+    for(const p of payments||[])if(p.invoice_id)paidByInvoice.set(p.invoice_id,MONEY((paidByInvoice.get(p.invoice_id)||0)+Number(p.amount||0)));
+    const calInvoices=(invoices||[]).map(x=>({id:x.invoice_number,date:dateOf(x.invoice_date),customer:x.source_reference||x.invoice_number,subtotal:MONEY(x.subtotal),tax:MONEY(x.tax_total),total:MONEY(x.total),paid:MONEY(paidByInvoice.get(x.id)||0),status:x.status}));
     const calExpenses=(expenses||[]).map(x=>({id:x.expense_number,date:dateOf(x.expense_date),vendor:x.source_reference||'PLEASE Operations',category:x.description||'Operating expense',subtotal:MONEY(x.subtotal),tax:MONEY(x.tax_total),total:MONEY(x.total),status:x.status}));
     const bank=(payments||[]).map(x=>({id:x.id,date:dateOf(x.payment_date),description:x.reference||x.method||'Payment',amount:MONEY(x.amount),type:'CREDIT',matched:true}));
     const activeCompany=company?.[0]||{},health=normalizeHealth(healthRaw,outbox);

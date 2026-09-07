@@ -81,16 +81,23 @@ async function invoice(id){
 async function invoiceItems(id){
   return await safeSb(`/rest/v1/invoice_items?select=id,description,qty,unit,unit_rate,line_total,sort_order&invoice_id=eq.${enc(id)}&order=sort_order.asc,id.asc`).catch(()=>[]);
 }
+async function accountingPaidTotal(accountingInvoiceId){
+  if(!accountingInvoiceId)return 0;
+  const rows=await safeSb(`/rest/v1/accounting_payments?select=amount&invoice_id=eq.${enc(accountingInvoiceId)}`).catch(()=>[]);
+  return MONEY((rows||[]).reduce((sum,row)=>sum+Number(row.amount||0),0));
+}
 async function upsertAccountingInvoiceMirror(inv,items=[]){
   try{
-    const existing=await safeSb(`/rest/v1/accounting_invoices?invoice_number=eq.${enc(inv.invoice_number)}&select=id&limit=1`);
-    const body={invoice_number:inv.invoice_number,invoice_date:inv.invoice_date||today(),due_date:inv.due_date||null,status:inv.status==='ISSUED'?'SENT':inv.status,subtotal:MONEY(inv.subtotal),tax_total:MONEY(inv.gst_amount),total:MONEY(inv.total_amount),paid_total:MONEY(inv.amount_paid),currency:inv.currency||'CAD',source_reference:inv.invoice_number,notes:`Imported from PLEASE invoice ${inv.invoice_number}`};
+    const existing=await safeSb(`/rest/v1/accounting_invoices?invoice_number=eq.${enc(inv.invoice_number)}&select=id,total&limit=1`);
+    const body={invoice_number:inv.invoice_number,invoice_date:inv.invoice_date||today(),due_date:inv.due_date||null,status:inv.status==='ISSUED'?'SENT':inv.status,subtotal:MONEY(inv.subtotal),tax_total:MONEY(inv.gst_amount),total:MONEY(inv.total_amount),currency:inv.currency||'CAD',source_reference:inv.invoice_number,notes:`Imported from PLEASE invoice ${inv.invoice_number}`};
     let accountingInvoiceId=existing?.[0]?.id;
     if(accountingInvoiceId){
+      // paid_total is payment-derived. Never overwrite it from PLEASE invoices.amount_paid,
+      // otherwise the same payment can be counted once here and again when PAYMENT_RECEIVED is mirrored.
       await safeSb(`/rest/v1/accounting_invoices?id=eq.${enc(accountingInvoiceId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(body)});
       await safeSb(`/rest/v1/accounting_invoice_lines?invoice_id=eq.${enc(accountingInvoiceId)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}}).catch(()=>{});
     }else{
-      const created=await safeSb('/rest/v1/accounting_invoices',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(body)});
+      const created=await safeSb('/rest/v1/accounting_invoices',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({...body,paid_total:0})});
       accountingInvoiceId=created?.[0]?.id;
     }
     if(accountingInvoiceId&&items?.length){
@@ -101,17 +108,20 @@ async function upsertAccountingInvoiceMirror(inv,items=[]){
 }
 async function upsertAccountingPaymentMirror(inv,tx){
   try{
-    const ai=await safeSb(`/rest/v1/accounting_invoices?invoice_number=eq.${enc(inv.invoice_number)}&select=id,paid_total&limit=1`);
+    const ai=await safeSb(`/rest/v1/accounting_invoices?invoice_number=eq.${enc(inv.invoice_number)}&select=id,total,status&limit=1`);
     const accountingInvoiceId=ai?.[0]?.id||null;
     const ref=`PLEASE-PAYMENT-${tx.id}`;
     const existing=await safeSb(`/rest/v1/accounting_payments?reference=eq.${enc(ref)}&select=id&limit=1`).catch(()=>[]);
     if(!existing?.[0]){
       await safeSb('/rest/v1/accounting_payments',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({invoice_id:accountingInvoiceId,payment_date:(tx.created_at||inv.paid_at||new Date().toISOString()).slice(0,10),amount:MONEY(tx.amount),method:tx.provider||inv.payment_method||'MANUAL',reference:ref})});
-      if(accountingInvoiceId){
-        const paid=MONEY(Number(ai?.[0]?.paid_total||0)+Number(tx.amount||0));
-        const status=paid+0.001>=Number(inv.total_amount||0)?'PAID':inv.status;
-        await safeSb(`/rest/v1/accounting_invoices?id=eq.${enc(accountingInvoiceId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({paid_total:paid,status})}).catch(()=>{});
-      }
+    }
+    // Recompute from the idempotent accounting_payments mirror instead of incrementing paid_total.
+    // This makes retries harmless and also self-heals any stale paid_total on the next payment event.
+    if(accountingInvoiceId){
+      const paid=await accountingPaidTotal(accountingInvoiceId);
+      const total=MONEY(ai?.[0]?.total??inv.total_amount);
+      const status=paid+0.001>=total?'PAID':(paid>0?'PARTIAL':(inv.status==='PAID'?'SENT':inv.status));
+      await safeSb(`/rest/v1/accounting_invoices?id=eq.${enc(accountingInvoiceId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({paid_total:paid,status})}).catch(()=>{});
     }
   }catch(e){if(!schemaMissing(e))console.warn('cal-sync-payment',e?.message||e);}
 }
