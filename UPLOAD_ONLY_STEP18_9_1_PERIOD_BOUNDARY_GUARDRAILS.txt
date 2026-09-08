@@ -1,0 +1,21 @@
+STEP 18.9.1 — Period Boundary Guardrails
+Upload ONLY these files to GitHub, preserving directories:
+
+STEP18_9_1_PERIOD_BOUNDARY_GUARDRAILS.md
+STEP18_9_1_PERIOD_BOUNDARY_GUARDRAILS.sql
+STEP18_9_1_VERIFY.sql
+UPLOAD_ONLY_STEP18_9_1_PERIOD_BOUNDARY_GUARDRAILS.txt
+cal-period-close.js
+cal/period-close.html
+cal/js/period-close.js
+netlify/functions/cal-period-close.js
+cal/supabase/STEP18_9_1_PERIOD_BOUNDARY_GUARDRAILS.sql
+cal/supabase/STEP18_9_1_VERIFY.sql
+supabase/STEP18_9_1_PERIOD_BOUNDARY_GUARDRAILS.sql
+supabase/STEP18_9_1_VERIFY.sql
+tests/step18_9_period_close_api_runtime.test.js
+tests/step18_9_1_period_boundary_api_runtime.test.js
+tests/step18_9_1_period_boundary_guardrails.test.js
+
+Do NOT delete or replace any other repository files.
+No other STEP 18.9 files need to be re-uploaded.

@@ -10,7 +10,7 @@ async function rpc(name,body){return lib.sbJson(`/rest/v1/rpc/${name}`,{method:'
 async function getData(event){
   const q=event.queryStringParameters||{};
   const [periods,accounts,healthRaw]=await Promise.all([
-    safe('/rest/v1/accounting_fiscal_periods?select=id,period_start,period_end,status,close_state,close_version,last_prepared_at,last_prepared_by,close_notes,closed_at,reopened_at,reopened_by,reopen_reason&order=period_end.desc,period_start.desc&limit=120',[]),
+    safe('/rest/v1/accounting_fiscal_periods?select=id,period_start,period_end,status,close_state,close_version,last_prepared_at,last_prepared_by,close_notes,closed_at,reopened_at,reopened_by,reopen_reason,boundary_type,boundary_override_reason,boundary_confirmed_by,boundary_confirmed_at&order=period_end.desc,period_start.desc&limit=120',[]),
     safe('/rest/v1/accounting_accounts?select=id,code,name,account_type,account_subtype,allow_manual_posting,active&active=eq.true&allow_manual_posting=eq.true&order=code.asc',[]),
     rpc('accounting_engine_health',{}).catch(()=>({status:'UNKNOWN'}))
   ]);
@@ -33,7 +33,23 @@ async function getData(event){
   return{periods:periods||[],selectedPeriod:selected,controls:controls||[],adjustments:adjustments||[],actions:actions||[],snapshots:snapshots||[],accounts:accounts||[],engineHealth:health||{},summary:{blockers,reviews,overrides,ready:!!selected&&blockers===0&&reviews===0&&controls.length>0}};
 }
 
-async function prepare(auth,p){const start=clean(p.period_start,10),end=clean(p.period_end,10);if(!start||!end)bad('Period start and end are required.');const r=await rpc('accounting_prepare_period_close',{p_period_start:start,p_period_end:end,p_actor_id:String(auth.user.id)});return String(scalar(r)||'')}
+function isCalendarMonth(start,end){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!/^\d{4}-\d{2}-\d{2}$/.test(end))return false;
+  const [y,m,d]=start.split('-').map(Number);if(d!==1)return false;
+  const last=new Date(Date.UTC(y,m,0));
+  const expected=`${last.getUTCFullYear()}-${String(last.getUTCMonth()+1).padStart(2,'0')}-${String(last.getUTCDate()).padStart(2,'0')}`;
+  return end===expected;
+}
+async function prepare(auth,p){
+  const start=clean(p.period_start,10),end=clean(p.period_end,10),allowCustom=p.allow_custom===true,reason=clean(p.boundary_reason,1200);
+  if(!start||!end)bad('Period start and end are required.');
+  if(!isCalendarMonth(start,end)){
+    if(!allowCustom)bad('Partial/custom fiscal periods require explicit confirmation. Use Custom Fiscal Period and document the reason.');
+    if(reason.length<10)bad('Custom-period reason must be at least 10 characters.');
+  } else if(allowCustom&&reason.length<10) bad('Custom-period reason must be at least 10 characters.');
+  const r=await rpc('accounting_prepare_period_close_guarded',{p_period_start:start,p_period_end:end,p_actor_id:String(auth.user.id),p_allow_custom:allowCustom,p_boundary_reason:allowCustom?reason:null});
+  return String(scalar(r)||'')
+}
 async function refresh(auth,p){const id=clean(p.period_id,80);if(!id)bad('Fiscal period is required.');await rpc('accounting_refresh_period_close_checklist',{p_period_id:id,p_actor_id:String(auth.user.id)});return id}
 async function overrideControl(auth,p){const id=clean(p.period_id,80),code=clean(p.control_code,80),reason=clean(p.reason,1200);if(!id||!code)bad('Period and control are required.');if(reason.length<10)bad('Sign-off reason must be at least 10 characters.');await rpc('accounting_override_period_close_control',{p_period_id:id,p_control_code:code,p_reason:reason,p_actor_id:String(auth.user.id)});return id}
 async function adjustment(auth,p){const id=clean(p.period_id,80),date=clean(p.entry_date,10),memo=clean(p.memo,500),reason=clean(p.reason,1200),lines=Array.isArray(p.lines)?p.lines.slice(0,40):[];if(!id||!date||!memo||lines.length<2)bad('Period, entry date, memo and at least two lines are required.');const normalized=lines.map(x=>({code:clean(x.code,30),debit:Number(x.debit||0),credit:Number(x.credit||0),description:clean(x.description,500)||memo}));const r=await rpc('accounting_create_period_close_adjustment',{p_period_id:id,p_entry_date:date,p_memo:memo,p_lines:normalized,p_reason:reason||null,p_actor_id:String(auth.user.id)});await rpc('accounting_refresh_period_close_checklist',{p_period_id:id,p_actor_id:String(auth.user.id)});return String(scalar(r)||'')}
