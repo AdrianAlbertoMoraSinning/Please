@@ -1,0 +1,52 @@
+PLEASE / CAL 1.5 — STEP 18.9 Advanced Period Close
+UPLOAD ONLY deployment package
+
+DEPLOYMENT ORDER
+1. Run STEP18_9_ADVANCED_PERIOD_CLOSE_2026-09-07.sql in Supabase SQL Editor.
+2. Run STEP18_9_VERIFY_2026-09-07.sql. All 30 controls must be PASS before GitHub deployment.
+3. Upload ONLY the files listed below to the existing GitHub repository, preserving folders.
+4. Wait for Netlify status: Published.
+5. Open CAL > Period Close and run the production smoke test.
+
+IMPORTANT
+- Do not delete any repository files.
+- Do not re-upload the FULL ZIP to GitHub manually.
+- No files outside this list are required for this update.
+- Existing PLEASE Home, Provider, operational Admin, Service Request, Tracking, Payment, Stripe and Provider Payments are not part of this update.
+
+FILES TO UPLOAD (35)
+STEP18_9_ADVANCED_PERIOD_CLOSE.md
+STEP18_9_ADVANCED_PERIOD_CLOSE.sql
+STEP18_9_VERIFY.sql
+UPLOAD_ONLY_STEP18_9_ADVANCED_PERIOD_CLOSE.txt
+_cal-accounting-lib.js
+cal-period-close.js
+cal/accounts.html
+cal/audit.html
+cal/banking.html
+cal/css/style.css
+cal/dashboard.html
+cal/disclaimer.html
+cal/documents.html
+cal/expenses.html
+cal/fixed-assets.html
+cal/inventory.html
+cal/invoices.html
+cal/journal.html
+cal/js/period-close.js
+cal/master-data.html
+cal/payroll.html
+cal/period-close.html
+cal/purchases.html
+cal/reports.html
+cal/settings.html
+cal/supabase/STEP18_9_ADVANCED_PERIOD_CLOSE.sql
+cal/supabase/STEP18_9_VERIFY.sql
+cal/taxes.html
+netlify/functions/_cal-accounting-lib.js
+netlify/functions/cal-period-close.js
+supabase/STEP18_9_ADVANCED_PERIOD_CLOSE.sql
+supabase/STEP18_9_VERIFY.sql
+tests/step18_9_accounting_worker_runtime.test.js
+tests/step18_9_period_close_api_runtime.test.js
+tests/step18_9_period_close_static.test.js

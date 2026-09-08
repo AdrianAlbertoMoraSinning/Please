@@ -244,6 +244,10 @@ async function fixedAssetDepLines(runId){
   if(!runId)return[];
   return await safeSb(`/rest/v1/accounting_fixed_asset_depreciation_lines?depreciation_run_id=eq.${enc(runId)}&select=*&order=asset_id.asc`).catch(()=>[]);
 }
+async function periodAdjustment(id){
+  const rows=await safeSb(`/rest/v1/accounting_period_adjustments?id=eq.${enc(id)}&select=*&limit=1`).catch(()=>[]);
+  return rows?.[0]||null;
+}
 async function payrollRun(id){
   if(!id)return null;
   const rows=await safeSb(`/rest/v1/accounting_payroll_runs?id=eq.${enc(id)}&select=*&limit=1`).catch(()=>[]);
@@ -278,6 +282,14 @@ async function buildPosting(row){
   const rule=await postingRule(type);
   if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED','EXPENSE_POSTED','EXPENSE_REIMBURSEMENT_PAID','INVENTORY_OPENING_POSTED','INVENTORY_ISSUE_POSTED','INVENTORY_ADJUSTMENT_POSTED','FIXED_ASSET_OPENING_POSTED','FIXED_ASSET_DEPRECIATION_POSTED','FIXED_ASSET_DISPOSAL_POSTED','PAYROLL_POSTED','PAYROLL_PAID','PAYROLL_REMITTANCE_PAID'].includes(type)&&!rule){
     throw new Error(`No enabled CAL posting rule is configured for ${type}.`);
+  }
+
+  if(type==='PERIOD_CLOSE_ADJUSTMENT_POSTED'){
+    const current=await periodAdjustment(row.source_record_id);if(!current)throw new Error('Period-close adjustment source record not found.');
+    const adjustment=snap(row,'period_adjustment',current),rawLines=Array.isArray(row?.payload_json?.lines)&&row.payload_json.lines.length?row.payload_json.lines:adjustment.lines_json;
+    const lines=(Array.isArray(rawLines)?rawLines:[]).map(x=>({code:String(x.code||'').trim(),debit:MONEY(x.debit),credit:MONEY(x.credit),description:x.description||adjustment.memo})).filter(x=>x.code&&(x.debit>0||x.credit>0));
+    if(lines.length<2)throw new Error('Period-close adjustment requires at least two valid lines.');
+    return{payload:{period_adjustment:adjustment,lines},entryDate:adjustment.entry_date||today(),memo:`Period close adjustment ${adjustment.adjustment_number||current.adjustment_number} · ${adjustment.memo||current.memo}`,lines};
   }
 
   if(type==='INVOICE_ISSUED'){
@@ -610,7 +622,7 @@ async function runWorker({limit=25,workerId=`netlify-${crypto.randomBytes(4).toS
   await releaseStaleClaims(Number(process.env.CAL_ACCOUNTING_STALE_MINUTES||10)).catch(e=>console.warn('cal-release-stale',e?.message||e));
   let rows=[];
   try{rows=await claimEvents(limit,workerId)||[];}catch(e){if(schemaMissing(e))return{ok:false,schema_missing:true,error:e.message||String(e),claimed:0};throw e;}
-  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,INVENTORY_OPENING_POSTED:10,FIXED_ASSET_OPENING_POSTED:10,PAYROLL_POSTED:10,INVENTORY_ISSUE_POSTED:20,INVENTORY_ADJUSTMENT_POSTED:20,FIXED_ASSET_DEPRECIATION_POSTED:20,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,EXPENSE_REIMBURSEMENT_PAID:30,FIXED_ASSET_DISPOSAL_POSTED:30,PAYROLL_PAID:30,PAYROLL_REMITTANCE_PAID:30,STRIPE_FEE_RECORDED:40};
+  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,INVENTORY_OPENING_POSTED:10,FIXED_ASSET_OPENING_POSTED:10,PAYROLL_POSTED:10,PERIOD_CLOSE_ADJUSTMENT_POSTED:15,INVENTORY_ISSUE_POSTED:20,INVENTORY_ADJUSTMENT_POSTED:20,FIXED_ASSET_DEPRECIATION_POSTED:20,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,EXPENSE_REIMBURSEMENT_PAID:30,FIXED_ASSET_DISPOSAL_POSTED:30,PAYROLL_PAID:30,PAYROLL_REMITTANCE_PAID:30,STRIPE_FEE_RECORDED:40};
   rows=[...rows].sort((a,b)=>(priority[String(a.event_type||'').toUpperCase()]||100)-(priority[String(b.event_type||'').toUpperCase()]||100)||String(a.occurred_at||a.created_at||'').localeCompare(String(b.occurred_at||b.created_at||'')));
   const summary={ok:true,enabled:true,worker_id:workerId,claimed:rows.length,posted:0,ignored:0,duplicates:0,retried:0,dead_letter:0,errors:[]};
   for(const row of rows){
@@ -634,7 +646,7 @@ async function enqueueLegacy(type,sourceTable,id,reference,payload,occurredAt,co
 }
 async function reconcile(limit=200){
   const max=Math.max(25,Math.min(500,Number(limit)||200));
-  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,expenses:0,expense_reimbursements:0,inventory_events:0,fixed_asset_events:0,payroll_events:0,errors:[]};
+  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,expenses:0,expense_reimbursements:0,inventory_events:0,fixed_asset_events:0,payroll_events:0,period_close_events:0,errors:[]};
   const invoices=await safeSb(`/rest/v1/invoices?select=*&status=in.(ISSUED,SENT,OVERDUE,PAID,VOID)&order=created_at.asc&limit=${max}`).catch(e=>{summary.errors.push(e.message);return[];});
   for(const inv of invoices||[]){
     try{
@@ -670,6 +682,8 @@ async function reconcile(limit=200){
   for(const r of prs||[]){try{const lines=await payrollRunLines(r.id);await enqueueLegacy('PAYROLL_POSTED','accounting_payroll_runs',r.id,r.run_number,{payroll_run:r,lines},r.posted_at||r.updated_at||r.created_at,r.id);summary.queued++;summary.payroll_events++;if(r.status==='PAID'){await enqueueLegacy('PAYROLL_PAID','accounting_payroll_runs',r.id,r.run_number,{payroll_run:r},r.paid_at||r.updated_at||r.created_at,r.id,`PLEASE:PAYROLL_POSTED:${r.id}`);summary.queued++;summary.payroll_events++;}}catch(e){summary.errors.push(e.message||String(e));}}
   const prems=await safeSb(`/rest/v1/accounting_payroll_remittances?select=*&status=eq.PAID&order=remittance_date.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
   for(const r of prems||[]){try{await enqueueLegacy('PAYROLL_REMITTANCE_PAID','accounting_payroll_remittances',r.id,r.remittance_number,{payroll_remittance:r},r.paid_at||r.created_at,r.id);summary.queued++;summary.payroll_events++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const pads=await safeSb(`/rest/v1/accounting_period_adjustments?select=*&status=eq.POSTED&order=entry_date.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const a of pads||[]){try{await enqueueLegacy('PERIOD_CLOSE_ADJUSTMENT_POSTED','accounting_period_adjustments',a.id,a.adjustment_number,{period_adjustment:a,lines:a.lines_json},a.created_at||new Date().toISOString(),a.period_id||a.id,a.reversal_of?`PLEASE:PERIOD_CLOSE_ADJUSTMENT_POSTED:${a.reversal_of}`:null);summary.queued++;summary.period_close_events++;}catch(e){summary.errors.push(e.message||String(e));}}
   return summary;
 }
 
