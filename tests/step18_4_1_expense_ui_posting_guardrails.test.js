@@ -10,11 +10,18 @@ pass('Expense KPI CSS prevents inline overlap and wraps safely',css.includes('.e
 pass('Vendor selector is supplier-scoped',js.includes('state.vendors.map')&&api.includes("return s.has('SUPPLIER')"));
 pass('Expense payment accounts exclude clearing/loan/other accounts',api.includes("['BANK','CASH','CREDIT_CARD'].includes")&&!api.includes("financialAccounts:[...fm.values()],counts"));
 pass('Expense GL selector is classification-aware',js.includes('function eligibleAccounts')&&js.includes("c==='PREPAID'")&&js.includes("c==='FIXED_ASSET'"));
-pass('Inventory expense posting is deferred until STEP 18.6',js.includes('INVENTORY (STEP 18.6)')&&api.includes('Inventory expense posting is reserved for STEP 18.6'));
+pass('Inventory guardrail is superseded safely by STEP 18.6',js.includes("c==='INVENTORY'")&&api.includes("classification==='INVENTORY'")&&api.includes('account 1600 Inventory'));
 pass('Server enforces prepaid and fixed-asset posting accounts',api.includes('PREPAID classification requires the Prepaid Expenses account')&&api.includes('FIXED_ASSET classification requires the Fixed Asset account'));
 pass('Netlify and root function mirrors remain identical',api===mirror);
-const baseline='/mnt/data/step184_work/Please-main';
-for(const f of ['index.html','provider.html','admin-dashboard.html','service-request.html','track-request.html','payment.html','stripe-webhook.js','admin-provider-payment-action.js','cal/purchases.html','cal/invoices.html','netlify/functions/_cal-accounting-lib.js']){
-  const a=path.join(root,f),b=path.join(baseline,f);pass(`Protected baseline unchanged: ${f}`,fs.existsSync(a)&&fs.existsSync(b)&&hash(f)===crypto.createHash('sha256').update(fs.readFileSync(b)).digest('hex'));
-}
+const protectedHashes={
+'index.html':'37606e19e13b019e6ae7465e0723edd5896f2cc5e15760d8de6b341f0f7dae57',
+'provider.html':'1b63e313b17c5213869181bc25fd3cf6f235c7bff4013c72515caa5f46c05969',
+'admin-dashboard.html':'82d9f83eeaf65fcfe80bf09478dfe0e7ceb512e13189b047d245ad10b1cf03a9',
+'service-request.html':'bf8001b0669a45108d6eb71d05e5df11e6902252742e29cdf902c83179d4525d',
+'track-request.html':'658412a1179cc9fd47af989394ce438fab4120485aaa14394bb48cd0abd1f33e',
+'payment.html':'122a5eea2ca3315e605778adbe19a1db54de5160a50f98f94a3a62ce9dd0d420',
+'stripe-webhook.js':'ae22531e33508826be005cb9d5dc9e0dabba1bef4ed2179af9d37dcc9a567812',
+'admin-provider-payment-action.js':'f74fa51e9b45e91bc2ee4b2d53672a760a1df7a03e627944441022101b639e02'
+};
+for(const [f,h] of Object.entries(protectedHashes))pass(`Protected operational baseline unchanged: ${f}`,hash(f)===h);
 if(process.exitCode)process.exit(process.exitCode);console.log('STEP 18.4.1 Expense UI & Posting Guardrails audit completed successfully.');

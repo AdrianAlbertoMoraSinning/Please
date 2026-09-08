@@ -1,0 +1,49 @@
+PLEASE / CAL — STEP 18.6 Inventory Accounting
+Deployment order: Supabase first, GitHub/Netlify second.
+
+1) Run STEP18_6_INVENTORY_ACCOUNTING.sql in Supabase SQL Editor.
+2) Run STEP18_6_VERIFY.sql. Expected: all 20 checks PASS. If any FAIL/REVIEW appears, STOP and review before GitHub.
+3) Upload the files below to GitHub preserving their exact paths. Do not delete unrelated files.
+4) Wait for Netlify Published, then smoke-test Inventory before proceeding to STEP 18.7.
+
+Files in this update (excluding this instruction file):
+01. STEP18_6_INVENTORY_ACCOUNTING.md
+02. STEP18_6_INVENTORY_ACCOUNTING.sql
+03. STEP18_6_VERIFY.sql
+04. _cal-accounting-lib.js
+05. cal/accounts.html
+06. cal/audit.html
+07. cal/banking.html
+08. cal/css/style.css
+09. cal/dashboard.html
+10. cal/disclaimer.html
+11. cal/documents.html
+12. cal/expenses.html
+13. cal/inventory.html
+14. cal/invoices.html
+15. cal/journal.html
+16. cal/js/expenses.js
+17. cal/js/inventory.js
+18. cal/js/purchases.js
+19. cal/master-data.html
+20. cal/purchases.html
+21. cal/reports.html
+22. cal/settings.html
+23. cal/supabase/STEP18_6_INVENTORY_ACCOUNTING.sql
+24. cal/taxes.html
+25. cal-expenses.js
+26. cal-inventory.js
+27. cal-purchases.js
+28. netlify/functions/_cal-accounting-lib.js
+29. netlify/functions/cal-expenses.js
+30. netlify/functions/cal-inventory.js
+31. netlify/functions/cal-purchases.js
+32. supabase/STEP18_6_INVENTORY_ACCOUNTING.sql
+33. supabase/STEP18_6_VERIFY.sql
+34. tests/step18_3_ar_credit_notes_refunds_static.test.js
+35. tests/step18_4_1_expense_ui_posting_guardrails.test.js
+36. tests/step18_4_advanced_expense_workflow_static.test.js
+37. tests/step18_6_accounting_worker_runtime.test.js
+38. tests/step18_6_inventory_accounting_static.test.js
+
+Smoke test: create Item + Location -> small Opening -> worker/Journal -> Supplier Bill receipt -> Issue/COGS -> Transfer/no GL -> Physical Count -> GL vs Subledger difference $0.00.

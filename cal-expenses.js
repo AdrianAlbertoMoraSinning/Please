@@ -9,7 +9,7 @@ function rpcScalar(v){if(Array.isArray(v))v=v[0];if(v&&typeof v==='object'){cons
 async function audit(auth,event,objectType,objectId,eventType,afterData){try{await lib.sbJson('/rest/v1/accounting_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_user_id:null,event_type:eventType,object_type:objectType,object_id:String(objectId||''),after_data:afterData||null,metadata:{step:'18.4',source:'CAL_EXPENSES_API',please_admin_user_id:auth.user.id,actor_email:auth.user.email,ip:lib.requestIp(event)||null,user_agent:lib.requestUserAgent(event)||null}})});}catch(e){console.warn('cal-expenses audit',e?.message||e)}}
 
 async function getData(){
-  const [parties,roles,accounts,taxCodes,financialAccounts,claims,lines,reimbursements,documents,legacyExpenses]=await Promise.all([
+  const [parties,roles,accounts,taxCodes,financialAccounts,claims,lines,reimbursements,documents,legacyExpenses,inventoryItems,inventoryLocations]=await Promise.all([
     lib.sbJson('/rest/v1/accounting_parties?select=id,party_number,legal_name,display_name,email,active,source_system,source_table&active=eq.true&order=legal_name.asc'),
     lib.sbJson('/rest/v1/accounting_party_roles?select=party_id,role,active&active=eq.true'),
     lib.sbJson('/rest/v1/accounting_accounts?select=id,code,name,account_type,account_subtype,active,system_managed&active=eq.true&order=code.asc'),
@@ -19,11 +19,13 @@ async function getData(){
     lib.sbJson('/rest/v1/accounting_expense_claim_lines?select=*&order=expense_claim_id.asc,sort_order.asc,id.asc&limit=5000'),
     lib.sbJson('/rest/v1/accounting_expense_reimbursements?select=*&order=payment_date.desc,created_at.desc&limit=2500'),
     lib.sbJson('/rest/v1/accounting_documents?select=id,document_type,original_name,mime_type,size_bytes,related_type,related_id,sha256_hash,source_reference,created_at&related_type=eq.EXPENSE_CLAIM&order=created_at.desc&limit=1500').catch(()=>[]),
-    lib.sbJson('/rest/v1/accounting_expenses?select=id,expense_number,expense_date,status,subtotal,tax_total,total,recoverable_tax,description,source_reference,created_at&order=expense_date.desc,created_at.desc&limit=500').catch(()=>[])
+    lib.sbJson('/rest/v1/accounting_expenses?select=id,expense_number,expense_date,status,subtotal,tax_total,total,recoverable_tax,description,source_reference,created_at&order=expense_date.desc,created_at.desc&limit=500').catch(()=>[]),
+    lib.sbJson('/rest/v1/accounting_inventory_items?select=id,sku,name,active&active=eq.true&order=sku.asc').catch(()=>[]),
+    lib.sbJson('/rest/v1/accounting_inventory_locations?select=id,code,name,active&active=eq.true&order=code.asc').catch(()=>[])
   ]);
-  const pm=new Map((parties||[]).map(x=>[x.id,x])),am=new Map((accounts||[]).map(x=>[x.id,x])),tm=new Map((taxCodes||[]).map(x=>[x.id,x]));
+  const pm=new Map((parties||[]).map(x=>[x.id,x])),am=new Map((accounts||[]).map(x=>[x.id,x])),tm=new Map((taxCodes||[]).map(x=>[x.id,x])),im=new Map((inventoryItems||[]).map(x=>[x.id,x])),ilm=new Map((inventoryLocations||[]).map(x=>[x.id,x]));
   const fm=new Map((financialAccounts||[]).map(x=>[x.id,{...x,gl_account:am.get(x.gl_account_id)||null}]));
-  const lm=new Map();for(const l of lines||[]){if(!lm.has(l.expense_claim_id))lm.set(l.expense_claim_id,[]);lm.get(l.expense_claim_id).push({...l,posting_account:am.get(l.posting_account_id)||null,tax_code:tm.get(l.tax_code_id)||null});}
+  const lm=new Map();for(const l of lines||[]){if(!lm.has(l.expense_claim_id))lm.set(l.expense_claim_id,[]);lm.get(l.expense_claim_id).push({...l,posting_account:am.get(l.posting_account_id)||null,tax_code:tm.get(l.tax_code_id)||null,inventory_item:im.get(l.inventory_item_id)||null,inventory_location:ilm.get(l.inventory_location_id)||null});}
   const rm=new Map();for(const r of reimbursements||[]){if(!rm.has(r.expense_claim_id))rm.set(r.expense_claim_id,[]);rm.get(r.expense_claim_id).push({...r,financial_account:fm.get(r.financial_account_id)||null});}
   const dm=new Map((documents||[]).map(d=>[d.id,d]));
   const normalized=(claims||[]).map(x=>({...x,vendor:pm.get(x.vendor_party_id)||null,payee:pm.get(x.payee_party_id)||null,financial_account:fm.get(x.financial_account_id)||null,receipt_document:dm.get(x.receipt_document_id)||null,lines:lm.get(x.id)||[],reimbursements:rm.get(x.id)||[],reimbursement_balance:money(Math.max(0,Number(x.total||0)-Number(x.amount_reimbursed||0)))}));
@@ -31,27 +33,29 @@ async function getData(){
   const vendors=(parties||[]).filter(p=>{const s=rolesByParty.get(p.id)||new Set();return s.has('SUPPLIER')});
   const payees=(parties||[]).filter(p=>{const s=rolesByParty.get(p.id)||new Set();return s.has('EMPLOYEE')||s.has('CONTRACTOR')});
   const counts={draft:normalized.filter(x=>x.status==='DRAFT').length,submitted:normalized.filter(x=>x.status==='SUBMITTED').length,approved:normalized.filter(x=>x.status==='APPROVED').length,posted:normalized.filter(x=>['POSTED','PAID'].includes(x.status)).length,unreimbursed:money(normalized.filter(x=>x.payment_mode==='REIMBURSEMENT'&&x.status==='POSTED').reduce((n,x)=>n+x.reimbursement_balance,0)),missingReceipts:normalized.filter(x=>x.receipt_status==='MISSING'&&!['VOID'].includes(x.status)).length,totalPosted:money(normalized.filter(x=>['POSTED','PAID'].includes(x.status)).reduce((n,x)=>n+Number(x.total||0),0))};
-  return{expenses:normalized,operationalExpenses:(legacyExpenses||[]).map(x=>({...x})),vendors,payees,accounts:(accounts||[]).filter(a=>['EXPENSE','ASSET'].includes(a.account_type)),taxCodes:taxCodes||[],financialAccounts:[...fm.values()].filter(x=>['BANK','CASH','CREDIT_CARD'].includes(String(x.financial_type||'').toUpperCase())),counts};
+  return{expenses:normalized,operationalExpenses:(legacyExpenses||[]).map(x=>({...x})),vendors,payees,accounts:(accounts||[]).filter(a=>['EXPENSE','ASSET'].includes(a.account_type)),taxCodes:taxCodes||[],financialAccounts:[...fm.values()].filter(x=>['BANK','CASH','CREDIT_CARD'].includes(String(x.financial_type||'').toUpperCase())),inventoryItems:inventoryItems||[],inventoryLocations:inventoryLocations||[],counts};
 }
 
 async function normalizeLines(rawLines,expenseDate){
   const rows=Array.isArray(rawLines)?rawLines:[];if(!rows.length)bad('At least one expense line is required.');if(rows.length>100)bad('An expense cannot exceed 100 lines.');
-  const [accounts,taxes]=await Promise.all([lib.sbJson('/rest/v1/accounting_accounts?select=id,code,name,account_type,account_subtype,active&active=eq.true'),lib.sbJson('/rest/v1/accounting_tax_codes?select=id,code,name,federal_rate,provincial_rate,tax_kind,recoverable_default,effective_from,effective_to,active&active=eq.true')]);
-  const am=new Map((accounts||[]).map(x=>[x.id,x])),tm=new Map((taxes||[]).map(x=>[x.id,x]));
+  const [accounts,taxes,items,locations]=await Promise.all([lib.sbJson('/rest/v1/accounting_accounts?select=id,code,name,account_type,account_subtype,active&active=eq.true'),lib.sbJson('/rest/v1/accounting_tax_codes?select=id,code,name,federal_rate,provincial_rate,tax_kind,recoverable_default,effective_from,effective_to,active&active=eq.true'),lib.sbJson('/rest/v1/accounting_inventory_items?select=id,sku,name,active&active=eq.true').catch(()=>[]),lib.sbJson('/rest/v1/accounting_inventory_locations?select=id,code,name,active&active=eq.true').catch(()=>[])]);
+  const am=new Map((accounts||[]).map(x=>[x.id,x])),tm=new Map((taxes||[]).map(x=>[x.id,x])),im=new Map((items||[]).map(x=>[x.id,x])),lm=new Map((locations||[]).map(x=>[x.id,x]));
   return rows.map((x,i)=>{
     const description=clean(x.description,500);if(!description)bad(`Line ${i+1}: description is required.`);
-    const classification=clean(x.classification,20).toUpperCase()||'EXPENSE';if(!['EXPENSE','PREPAID','FIXED_ASSET','INVENTORY'].includes(classification))bad(`Line ${i+1}: invalid classification.`);if(classification==='INVENTORY')bad(`Line ${i+1}: Inventory expense posting is reserved for STEP 18.6 Inventory Accounting.`);
+    const classification=clean(x.classification,20).toUpperCase()||'EXPENSE';if(!['EXPENSE','PREPAID','FIXED_ASSET','INVENTORY'].includes(classification))bad(`Line ${i+1}: invalid classification.`);
     const quantity=Number(x.quantity||1),unitPrice=Number(x.unit_price||0);if(!Number.isFinite(quantity)||quantity<=0||!Number.isFinite(unitPrice)||unitPrice<0)bad(`Line ${i+1}: invalid quantity or unit price.`);
     const account=am.get(clean(x.posting_account_id,80));if(!account||!['EXPENSE','ASSET'].includes(account.account_type))bad(`Line ${i+1}: choose an active Expense or Asset account.`);
     if(classification==='EXPENSE'&&account.account_type!=='EXPENSE')bad(`Line ${i+1}: EXPENSE classification requires an Expense account.`);
     if(classification==='PREPAID'&&!(account.account_type==='ASSET'&&(account.account_subtype==='PREPAID'||account.code==='1400')))bad(`Line ${i+1}: PREPAID classification requires the Prepaid Expenses account.`);
     if(classification==='FIXED_ASSET'&&!(account.account_type==='ASSET'&&(account.account_subtype==='FIXED_ASSET'||account.code==='1500')))bad(`Line ${i+1}: FIXED_ASSET classification requires the Fixed Asset account.`);
+    const inventoryItemId=clean(x.inventory_item_id,80)||null,inventoryLocationId=clean(x.inventory_location_id,80)||null;
+    if(classification==='INVENTORY'){if(account.code!=='1600')bad(`Line ${i+1}: INVENTORY classification requires account 1600 Inventory.`);if(!inventoryItemId||!inventoryLocationId||!im.has(inventoryItemId)||!lm.has(inventoryLocationId))bad(`Line ${i+1}: choose an active inventory item and location.`);}else if(inventoryItemId||inventoryLocationId)bad(`Line ${i+1}: inventory mapping is allowed only for INVENTORY classification.`);
     const taxId=clean(x.tax_code_id,80)||null;let tax=null,taxAmount=0;if(taxId){tax=tm.get(taxId);if(!tax)bad(`Line ${i+1}: tax code is inactive or missing.`);const d=expenseDate||today();if(tax.effective_from&&d<tax.effective_from)bad(`Line ${i+1}: tax code ${tax.code} is not yet effective.`);if(tax.effective_to&&d>tax.effective_to)bad(`Line ${i+1}: tax code ${tax.code} is expired.`);}
     const eligibility=clean(x.itc_eligibility,20).toUpperCase()||'FULL';if(!['FULL','PARTIAL','NONE','MANUAL'].includes(eligibility))bad(`Line ${i+1}: invalid ITC eligibility.`);
     let percent=Number(x.recoverable_percent);if(!Number.isFinite(percent))percent=eligibility==='NONE'?0:100;if(eligibility==='FULL')percent=100;if(eligibility==='NONE')percent=0;if(percent<0||percent>100)bad(`Line ${i+1}: recoverable percent must be 0–100.`);
     const subtotal=money(quantity*unitPrice);if(tax){taxAmount=money(subtotal*(Number(tax.federal_rate||0)+Number(tax.provincial_rate||0))/100)}
     const recoverable=money(taxAmount*percent/100),nonrecoverable=money(taxAmount-recoverable);
-    return{sort_order:i+1,description,classification,quantity,unit_price:unitPrice,posting_account_id:account.id,tax_code_id:taxId,itc_eligibility:eligibility,recoverable_percent:percent,line_subtotal:subtotal,tax_amount:taxAmount,recoverable_tax:recoverable,nonrecoverable_tax:nonrecoverable,line_total:money(subtotal+taxAmount)};
+    return{sort_order:i+1,description,classification,quantity,unit_price:unitPrice,posting_account_id:account.id,tax_code_id:taxId,itc_eligibility:eligibility,recoverable_percent:percent,line_subtotal:subtotal,tax_amount:taxAmount,recoverable_tax:recoverable,nonrecoverable_tax:nonrecoverable,line_total:money(subtotal+taxAmount),inventory_item_id:inventoryItemId,inventory_location_id:inventoryLocationId};
   });
 }
 

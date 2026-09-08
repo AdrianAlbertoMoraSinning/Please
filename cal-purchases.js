@@ -18,7 +18,7 @@ async function audit(auth,event,objectType,objectId,eventType,afterData){
 }
 
 async function getData(){
-  const [parties,roles,accounts,taxCodes,financialAccounts,bills,lines,payments]=await Promise.all([
+  const [parties,roles,accounts,taxCodes,financialAccounts,bills,lines,payments,inventoryItems,inventoryLocations]=await Promise.all([
     lib.sbJson('/rest/v1/accounting_parties?select=id,party_number,legal_name,display_name,email,phone,default_currency,payment_terms_days,active,source_system,source_table&active=eq.true&order=legal_name.asc'),
     lib.sbJson('/rest/v1/accounting_party_roles?select=party_id,role,active&role=eq.SUPPLIER&active=eq.true'),
     lib.sbJson('/rest/v1/accounting_accounts?select=id,code,name,account_type,active,system_managed&active=eq.true&order=code.asc'),
@@ -26,15 +26,18 @@ async function getData(){
     lib.sbJson('/rest/v1/accounting_financial_accounts?select=id,name,financial_type,institution_name,account_last4,currency,gl_account_id,is_primary,active&active=eq.true&order=is_primary.desc,name.asc'),
     lib.sbJson('/rest/v1/accounting_supplier_bills?select=*&order=bill_date.desc,created_at.desc&limit=500'),
     lib.sbJson('/rest/v1/accounting_supplier_bill_lines?select=*&order=supplier_bill_id.asc,sort_order.asc,id.asc&limit=3000'),
-    lib.sbJson('/rest/v1/accounting_supplier_payments?select=*&order=payment_date.desc,created_at.desc&limit=1500')
+    lib.sbJson('/rest/v1/accounting_supplier_payments?select=*&order=payment_date.desc,created_at.desc&limit=1500'),
+    lib.sbJson('/rest/v1/accounting_inventory_items?select=id,sku,name,active&active=eq.true&order=sku.asc').catch(()=>[]),
+    lib.sbJson('/rest/v1/accounting_inventory_locations?select=id,code,name,active&active=eq.true&order=code.asc').catch(()=>[])
   ]);
   const supplierIds=new Set((roles||[]).map(r=>r.party_id));
   const suppliers=(parties||[]).filter(p=>supplierIds.has(p.id));
   const partyMap=new Map((parties||[]).map(p=>[p.id,p]));
   const accountMap=new Map((accounts||[]).map(a=>[a.id,a]));
   const taxMap=new Map((taxCodes||[]).map(t=>[t.id,t]));
+  const itemMap=new Map((inventoryItems||[]).map(x=>[x.id,x])),locationMap=new Map((inventoryLocations||[]).map(x=>[x.id,x]));
   const finMap=new Map((financialAccounts||[]).map(f=>[f.id,{...f,gl_account:accountMap.get(f.gl_account_id)||null}]));
-  const lineMap=new Map();for(const l of lines||[]){if(!lineMap.has(l.supplier_bill_id))lineMap.set(l.supplier_bill_id,[]);lineMap.get(l.supplier_bill_id).push({...l,posting_account:accountMap.get(l.posting_account_id)||null,tax_code:taxMap.get(l.tax_code_id)||null});}
+  const lineMap=new Map();for(const l of lines||[]){if(!lineMap.has(l.supplier_bill_id))lineMap.set(l.supplier_bill_id,[]);lineMap.get(l.supplier_bill_id).push({...l,posting_account:accountMap.get(l.posting_account_id)||null,tax_code:taxMap.get(l.tax_code_id)||null,inventory_item:itemMap.get(l.inventory_item_id)||null,inventory_location:locationMap.get(l.inventory_location_id)||null});}
   const payMap=new Map();for(const p of payments||[]){if(!payMap.has(p.supplier_bill_id))payMap.set(p.supplier_bill_id,[]);payMap.get(p.supplier_bill_id).push({...p,financial_account:finMap.get(p.financial_account_id)||null});}
   const today=new Date().toISOString().slice(0,10);
   const normalized=(bills||[]).map(b=>{
@@ -56,24 +59,28 @@ async function getData(){
     overdueAP:money(postedOpen.filter(b=>['1-30','31-60','61-90','90+'].includes(b.aging_bucket)).reduce((n,b)=>n+b.balance_due,0))
   };
   const aging={CURRENT:0,'1-30':0,'31-60':0,'61-90':0,'90+':0};for(const b of postedOpen)aging[b.aging_bucket]=money((aging[b.aging_bucket]||0)+b.balance_due);
-  return{bills:normalized,suppliers,accounts:(accounts||[]).filter(a=>['EXPENSE','ASSET'].includes(a.account_type)),taxCodes:taxCodes||[],financialAccounts:[...finMap.values()],counts,aging};
+  return{bills:normalized,suppliers,accounts:(accounts||[]).filter(a=>['EXPENSE','ASSET'].includes(a.account_type)),taxCodes:taxCodes||[],financialAccounts:[...finMap.values()],inventoryItems:inventoryItems||[],inventoryLocations:inventoryLocations||[],counts,aging};
 }
 
 async function normalizeLines(rawLines,billDate){
   const lines=Array.isArray(rawLines)?rawLines:[];if(!lines.length)bad('At least one purchase line is required.');if(lines.length>100)bad('A supplier bill cannot exceed 100 lines.');
-  const [accounts,taxes]=await Promise.all([
+  const [accounts,taxes,items,locations]=await Promise.all([
     lib.sbJson('/rest/v1/accounting_accounts?select=id,code,name,account_type,active&active=eq.true'),
-    lib.sbJson('/rest/v1/accounting_tax_codes?select=id,code,name,federal_rate,provincial_rate,tax_kind,recoverable_default,effective_from,effective_to,active&active=eq.true')
+    lib.sbJson('/rest/v1/accounting_tax_codes?select=id,code,name,federal_rate,provincial_rate,tax_kind,recoverable_default,effective_from,effective_to,active&active=eq.true'),
+    lib.sbJson('/rest/v1/accounting_inventory_items?select=id,sku,name,active&active=eq.true').catch(()=>[]),
+    lib.sbJson('/rest/v1/accounting_inventory_locations?select=id,code,name,active&active=eq.true').catch(()=>[])
   ]);
-  const am=new Map((accounts||[]).map(x=>[x.id,x])),tm=new Map((taxes||[]).map(x=>[x.id,x]));
+  const am=new Map((accounts||[]).map(x=>[x.id,x])),tm=new Map((taxes||[]).map(x=>[x.id,x])),im=new Map((items||[]).map(x=>[x.id,x])),lm=new Map((locations||[]).map(x=>[x.id,x]));
   return lines.map((x,i)=>{
     const description=clean(x.description,500);if(!description)bad(`Line ${i+1}: description is required.`);
     const quantity=Number(x.quantity||1),unitPrice=Number(x.unit_price||0);if(!Number.isFinite(quantity)||quantity<=0||!Number.isFinite(unitPrice)||unitPrice<0)bad(`Line ${i+1}: invalid quantity or unit price.`);
     const account=am.get(clean(x.posting_account_id,80));if(!account||!['EXPENSE','ASSET'].includes(account.account_type))bad(`Line ${i+1}: choose an active Expense or Asset account.`);
+    const inventoryItemId=clean(x.inventory_item_id,80)||null,inventoryLocationId=clean(x.inventory_location_id,80)||null;
+    if(account.code==='1600'){if(!inventoryItemId||!inventoryLocationId)bad(`Line ${i+1}: Inventory account 1600 requires an inventory item and location.`);if(!im.has(inventoryItemId)||!lm.has(inventoryLocationId))bad(`Line ${i+1}: inventory item/location is inactive or missing.`);}else if(inventoryItemId||inventoryLocationId)bad(`Line ${i+1}: inventory mapping is allowed only with account 1600 Inventory.`);
     let tax=null,taxAmount=0,recoverable=0;const taxId=clean(x.tax_code_id,80)||null;
     if(taxId){tax=tm.get(taxId);if(!tax)bad(`Line ${i+1}: tax code is inactive or missing.`);const d=billDate||new Date().toISOString().slice(0,10);if(tax.effective_from&&d<tax.effective_from)bad(`Line ${i+1}: tax code ${tax.code} is not yet effective.`);if(tax.effective_to&&d>tax.effective_to)bad(`Line ${i+1}: tax code ${tax.code} is expired.`);}
     const subtotal=money(quantity*unitPrice);if(tax){const rate=Number(tax.federal_rate||0)+Number(tax.provincial_rate||0);taxAmount=money(subtotal*rate/100);recoverable=tax.recoverable_default===false?0:taxAmount;}
-    return{sort_order:i+1,description,quantity,unit_price:unitPrice,posting_account_id:account.id,tax_code_id:taxId,line_subtotal:subtotal,tax_amount:taxAmount,recoverable_tax:recoverable,line_total:money(subtotal+taxAmount)};
+    return{sort_order:i+1,description,quantity,unit_price:unitPrice,posting_account_id:account.id,tax_code_id:taxId,line_subtotal:subtotal,tax_amount:taxAmount,recoverable_tax:recoverable,line_total:money(subtotal+taxAmount),inventory_item_id:inventoryItemId,inventory_location_id:inventoryLocationId};
   });
 }
 

@@ -94,9 +94,7 @@ const protectedHashes={
 'css/style.css':'8d4a495c85dd55cf1d8c28e0c98ccfd37443fed2a257e038440bb31197430e40',
 'js/app.js':'a5520c3531073bafdd343d19d0fe62f256cbd9cb52570a042688a2529e52aada',
 'stripe-webhook.js':'ae22531e33508826be005cb9d5dc9e0dabba1bef4ed2179af9d37dcc9a567812',
-'cal-accounting-worker.js':'f5467c6b3e3129267f8151d5b5d787a2c8cdb558045af20183fa6520242db43d',
-'cal-purchases.js':'5d980a45e7afb51cda73aee315de2c0502965993767e71cf8618a5d757dbd93e',
-'cal/js/purchases.js':'afa0c5923ea4fd0ecbdde58cdd12355a11c5647b36fad493d340130330f955a7'
+'cal-accounting-worker.js':'f5467c6b3e3129267f8151d5b5d787a2c8cdb558045af20183fa6520242db43d'
 };
-pass('Protected PLEASE and STEP 18.2 operational files remain byte-identical',Object.entries(protectedHashes).every(([p,h])=>hash(p)===h));
+pass('Protected PLEASE operational files remain byte-identical while purchase accounting evolves in STEP 18.6',Object.entries(protectedHashes).every(([p,h])=>hash(p)===h));
 console.log('STEP 18.3 A/R + Credit Notes + Refunds static audit completed successfully.');
