@@ -1,0 +1,11 @@
+PLEASE / CAL — STEP 18.7 Fixed Assets
+Deployment order:
+1) Run STEP18_7_FIXED_ASSETS.sql in Supabase SQL Editor.
+2) Run STEP18_7_VERIFY.sql. Checks 1-20 and 23-24 must be PASS. Checks 21-22 (gross/accumulated GL controls) should be PASS; if REVIEW, stop and reconcile before GitHub deployment.
+3) Upload ONLY the files in this package to GitHub, preserving paths. Do not delete any other file.
+4) Wait for Netlify Published.
+5) Smoke test: Opening Asset -> STEP 17 journal -> depreciation Draft/Post -> GL control -> CCA working paper -> controlled disposal.
+
+No files are deleted by STEP 18.7.
+Book depreciation and tax CCA remain separate.
+Supplier Bill / Expense acquisitions already posted to GL 1500 create Pending Setup assets without a second acquisition journal.

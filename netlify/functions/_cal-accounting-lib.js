@@ -22,9 +22,9 @@ async function account(code,name,type){
 }
 async function ensureAccounts(){
   const defs=[
-    ['1000','Operating Bank','ASSET'],['1090','Stripe Clearing / Undeposited Funds','ASSET'],['1100','Accounts Receivable','ASSET'],['1200','GST/HST Recoverable','ASSET'],['1300','Provider Advances','ASSET'],['1400','Prepaid Expenses','ASSET'],['1500','Equipment & Vehicles','ASSET'],['1600','Inventory','ASSET'],
+    ['1000','Operating Bank','ASSET'],['1090','Stripe Clearing / Undeposited Funds','ASSET'],['1100','Accounts Receivable','ASSET'],['1200','GST/HST Recoverable','ASSET'],['1300','Provider Advances','ASSET'],['1400','Prepaid Expenses','ASSET'],['1500','Equipment & Vehicles','ASSET'],['1510','Accumulated Depreciation - Equipment & Vehicles','ASSET'],['1600','Inventory','ASSET'],
     ['2000','Accounts Payable','LIABILITY'],['2010','Provider Payable','LIABILITY'],['2020','Employee / Contractor Reimbursements Payable','LIABILITY'],['2100','GST/HST Payable','LIABILITY'],['2110','QST Payable','LIABILITY'],['3000','Owner Equity / Retained Earnings','EQUITY'],
-    ['4000','Service Revenue','REVENUE'],['5000','Subcontractors Expense','EXPENSE'],['5100','Fuel & Vehicle','EXPENSE'],['5200','Insurance','EXPENSE'],['5300','Advertising','EXPENSE'],['5400','Office & Software','EXPENSE'],['5500','Professional Fees','EXPENSE'],['5600','Repairs & Maintenance','EXPENSE'],['5700','Merchant / Bank Fees','EXPENSE'],['6000','Cost of Goods Sold','EXPENSE'],['6100','Inventory Adjustments','EXPENSE']
+    ['4000','Service Revenue','REVENUE'],['4050','Gain on Disposal of Fixed Assets','REVENUE'],['5000','Subcontractors Expense','EXPENSE'],['5100','Fuel & Vehicle','EXPENSE'],['5200','Insurance','EXPENSE'],['5300','Advertising','EXPENSE'],['5400','Office & Software','EXPENSE'],['5500','Professional Fees','EXPENSE'],['5600','Repairs & Maintenance','EXPENSE'],['5700','Merchant / Bank Fees','EXPENSE'],['6000','Cost of Goods Sold','EXPENSE'],['6100','Inventory Adjustments','EXPENSE'],['6200','Depreciation Expense','EXPENSE'],['6300','Loss on Disposal of Fixed Assets','EXPENSE']
   ];
   const out={};
   for(const [code,name,type] of defs)out[code]=await account(code,name,type);
@@ -230,6 +230,27 @@ async function inventoryItem(id){
   const rows=await safeSb(`/rest/v1/accounting_inventory_items?id=eq.${enc(id)}&select=*&limit=1`).catch(()=>[]);
   return rows?.[0]||null;
 }
+async function fixedAsset(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_fixed_assets?id=eq.${enc(id)}&select=*&limit=1`).catch(()=>[]);
+  return rows?.[0]||null;
+}
+async function fixedAssetDepRun(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_fixed_asset_depreciation_runs?id=eq.${enc(id)}&select=*&limit=1`).catch(()=>[]);
+  return rows?.[0]||null;
+}
+async function fixedAssetDepLines(runId){
+  if(!runId)return[];
+  return await safeSb(`/rest/v1/accounting_fixed_asset_depreciation_lines?depreciation_run_id=eq.${enc(runId)}&select=*&order=asset_id.asc`).catch(()=>[]);
+}
+function fixedAssetDependency(a){
+  const type=String(a?.source_type||'').toUpperCase();
+  if(type==='OPENING')return `PLEASE:FIXED_ASSET_OPENING_POSTED:${a.id}`;
+  if(type==='SUPPLIER_BILL'&&a.source_record_id)return `PLEASE:VENDOR_BILL_POSTED:${a.source_record_id}`;
+  if(type==='EXPENSE'&&a.source_record_id)return `PLEASE:EXPENSE_POSTED:${a.source_record_id}`;
+  return null;
+}
 
 function snap(row,key,current){return row?.payload_json?.[key]||current||{};}
 async function dependencyPosted(eventKey,{allowIgnored=false}={}){
@@ -241,7 +262,7 @@ async function dependencyPosted(eventKey,{allowIgnored=false}={}){
 async function buildPosting(row){
   const type=String(row.event_type||'').toUpperCase();
   const rule=await postingRule(type);
-  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED','EXPENSE_POSTED','EXPENSE_REIMBURSEMENT_PAID','INVENTORY_OPENING_POSTED','INVENTORY_ISSUE_POSTED','INVENTORY_ADJUSTMENT_POSTED'].includes(type)&&!rule){
+  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED','EXPENSE_POSTED','EXPENSE_REIMBURSEMENT_PAID','INVENTORY_OPENING_POSTED','INVENTORY_ISSUE_POSTED','INVENTORY_ADJUSTMENT_POSTED','FIXED_ASSET_OPENING_POSTED','FIXED_ASSET_DEPRECIATION_POSTED','FIXED_ASSET_DISPOSAL_POSTED'].includes(type)&&!rule){
     throw new Error(`No enabled CAL posting rule is configured for ${type}.`);
   }
 
@@ -441,6 +462,39 @@ async function buildPosting(row){
     return{payload:{inventory_movement:movement,item},entryDate:movement.movement_date||today(),memo:`Inventory adjustment ${ref}`,lines:gain?[{code:invAcct.code,debit:amount,description:`Inventory gain ${item.sku||item.name}`},{code:adjAcct.code,credit:amount,description:`Inventory adjustment gain ${item.sku||item.name}`}]:[{code:adjAcct.code,debit:amount,description:`Inventory adjustment loss ${item.sku||item.name}`},{code:invAcct.code,credit:amount,description:`Inventory loss ${item.sku||item.name}`}]};
   }
 
+
+  if(type==='FIXED_ASSET_OPENING_POSTED'){
+    const current=await fixedAsset(row.source_record_id);if(!current)throw new Error('Fixed asset opening source record not found.');
+    const asset=snap(row,'fixed_asset',current),cost=MONEY(asset.capital_cost??current.capital_cost),accum=MONEY(asset.opening_accumulated_depreciation??current.opening_accumulated_depreciation),equity=MONEY(cost-accum);
+    if(cost<=0)return{ignored:true,reason:'Opening fixed asset has zero capital cost.',payload:{fixed_asset:asset}};
+    const lines=[{code:rule.debit_account_code||'1500',debit:cost,description:`Opening fixed asset ${asset.asset_number||current.asset_number}`}];
+    if(accum>0)lines.push({code:rule.configuration_json?.accumulated_depreciation_account||'1510',credit:accum,description:`Opening accumulated depreciation ${asset.asset_number||current.asset_number}`});
+    if(equity>0)lines.push({code:rule.credit_account_code||'3000',credit:equity,description:`Opening net book value ${asset.asset_number||current.asset_number}`});
+    return{payload:{fixed_asset:asset},entryDate:asset.purchase_date||today(),memo:`Fixed asset opening ${asset.asset_number||current.asset_number}`,lines};
+  }
+
+  if(type==='FIXED_ASSET_DEPRECIATION_POSTED'){
+    const current=await fixedAssetDepRun(row.source_record_id);if(!current)throw new Error('Fixed asset depreciation run not found.');
+    const run=snap(row,'depreciation_run',current),depLines=Array.isArray(row?.payload_json?.lines)&&row.payload_json.lines.length?row.payload_json.lines:await fixedAssetDepLines(row.source_record_id);
+    if(String(current.status||run.status||'').toUpperCase()!=='POSTED')return{ignored:true,reason:'Depreciation run is not POSTED.',payload:{depreciation_run:run,lines:depLines}};
+    for(const dl of depLines){const a=await fixedAsset(dl.asset_id);if(!a)throw new Error('Fixed asset missing for depreciation line.');const dep=fixedAssetDependency(a);if(dep&&!(await dependencyPosted(dep,{allowIgnored:true})))throw new Error(`Dependency pending: ${dep}`);}
+    const amount=MONEY(run.total_depreciation??current.total_depreciation);if(amount<=0)return{ignored:true,reason:'Depreciation run total is zero.',payload:{depreciation_run:run,lines:depLines}};
+    return{payload:{depreciation_run:run,lines:depLines},entryDate:run.period_end||current.period_end||today(),memo:`Book depreciation ${run.run_number||current.run_number}`,lines:[{code:rule.debit_account_code||'6200',debit:amount,description:`Depreciation expense ${run.run_number||current.run_number}`},{code:rule.credit_account_code||'1510',credit:amount,description:`Accumulated depreciation ${run.run_number||current.run_number}`}]};
+  }
+
+  if(type==='FIXED_ASSET_DISPOSAL_POSTED'){
+    const current=await fixedAsset(row.source_record_id);if(!current)throw new Error('Fixed asset disposal source record not found.');
+    const asset=snap(row,'fixed_asset',current);if(String(current.status||asset.status||'').toUpperCase()!=='DISPOSED')return{ignored:true,reason:'Fixed asset is not disposed.',payload:{fixed_asset:asset}};
+    const dep=fixedAssetDependency(current);if(dep&&!(await dependencyPosted(dep,{allowIgnored:true})))throw new Error(`Dependency pending: ${dep}`);
+    const cost=MONEY(asset.capital_cost??current.capital_cost),accum=MONEY(asset.disposal_accumulated_depreciation??current.disposal_accumulated_depreciation),nbv=MONEY(asset.disposal_net_book_value??current.disposal_net_book_value),proceeds=MONEY(asset.disposal_proceeds??current.disposal_proceeds),gainLoss=MONEY(proceeds-nbv),cfg=rule.configuration_json||{};
+    const lines=[];if(proceeds>0){const fin=await financialAccount(asset.disposal_financial_account_id||current.disposal_financial_account_id);if(!fin||fin.active===false)throw new Error('Disposal financial account is missing or inactive.');const gl=await glAccountById(fin.gl_account_id);if(!gl||gl.active===false)throw new Error('Disposal financial account GL mapping is missing or inactive.');lines.push({code:gl.code,debit:proceeds,description:`Disposal proceeds ${asset.asset_number||current.asset_number}`});}
+    if(accum>0)lines.push({code:rule.debit_account_code||'1510',debit:accum,description:`Clear accumulated depreciation ${asset.asset_number||current.asset_number}`});
+    if(gainLoss<0)lines.push({code:cfg.loss_account||'6300',debit:Math.abs(gainLoss),description:`Loss on disposal ${asset.asset_number||current.asset_number}`});
+    lines.push({code:rule.credit_account_code||'1500',credit:cost,description:`Remove fixed asset cost ${asset.asset_number||current.asset_number}`});
+    if(gainLoss>0)lines.push({code:cfg.gain_account||'4050',credit:gainLoss,description:`Gain on disposal ${asset.asset_number||current.asset_number}`});
+    return{payload:{fixed_asset:asset},entryDate:asset.disposal_date||current.disposal_date||today(),memo:`Fixed asset disposal ${asset.asset_number||current.asset_number}`,lines};
+  }
+
   return{ignored:true,reason:`No automatic posting handler is configured for ${type}.`,payload:row.payload_json||{}};
 }
 
@@ -506,7 +560,7 @@ async function runWorker({limit=25,workerId=`netlify-${crypto.randomBytes(4).toS
   await releaseStaleClaims(Number(process.env.CAL_ACCOUNTING_STALE_MINUTES||10)).catch(e=>console.warn('cal-release-stale',e?.message||e));
   let rows=[];
   try{rows=await claimEvents(limit,workerId)||[];}catch(e){if(schemaMissing(e))return{ok:false,schema_missing:true,error:e.message||String(e),claimed:0};throw e;}
-  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,INVENTORY_OPENING_POSTED:10,INVENTORY_ISSUE_POSTED:20,INVENTORY_ADJUSTMENT_POSTED:20,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,EXPENSE_REIMBURSEMENT_PAID:30,STRIPE_FEE_RECORDED:40};
+  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,INVENTORY_OPENING_POSTED:10,FIXED_ASSET_OPENING_POSTED:10,INVENTORY_ISSUE_POSTED:20,INVENTORY_ADJUSTMENT_POSTED:20,FIXED_ASSET_DEPRECIATION_POSTED:20,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,EXPENSE_REIMBURSEMENT_PAID:30,FIXED_ASSET_DISPOSAL_POSTED:30,STRIPE_FEE_RECORDED:40};
   rows=[...rows].sort((a,b)=>(priority[String(a.event_type||'').toUpperCase()]||100)-(priority[String(b.event_type||'').toUpperCase()]||100)||String(a.occurred_at||a.created_at||'').localeCompare(String(b.occurred_at||b.created_at||'')));
   const summary={ok:true,enabled:true,worker_id:workerId,claimed:rows.length,posted:0,ignored:0,duplicates:0,retried:0,dead_letter:0,errors:[]};
   for(const row of rows){
@@ -530,7 +584,7 @@ async function enqueueLegacy(type,sourceTable,id,reference,payload,occurredAt,co
 }
 async function reconcile(limit=200){
   const max=Math.max(25,Math.min(500,Number(limit)||200));
-  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,expenses:0,expense_reimbursements:0,inventory_events:0,errors:[]};
+  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,expenses:0,expense_reimbursements:0,inventory_events:0,fixed_asset_events:0,errors:[]};
   const invoices=await safeSb(`/rest/v1/invoices?select=*&status=in.(ISSUED,SENT,OVERDUE,PAID,VOID)&order=created_at.asc&limit=${max}`).catch(e=>{summary.errors.push(e.message);return[];});
   for(const inv of invoices||[]){
     try{
@@ -556,6 +610,12 @@ async function reconcile(limit=200){
   for(const r of ers||[]){try{await enqueueLegacy('EXPENSE_REIMBURSEMENT_PAID','accounting_expense_reimbursements',r.id,r.reimbursement_number,{expense_reimbursement:r},r.paid_at||r.created_at,r.expense_claim_id,`PLEASE:EXPENSE_POSTED:${r.expense_claim_id}`);summary.queued++;summary.expense_reimbursements++;}catch(e){summary.errors.push(e.message||String(e));}}
   const ims=await safeSb(`/rest/v1/accounting_inventory_movements?select=*&financial_event_type=not.is.null&order=created_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
   for(const m of ims||[]){try{await enqueueLegacy(m.financial_event_type,'accounting_inventory_movements',m.id,m.movement_number,{inventory_movement:m},m.created_at||new Date().toISOString(),m.item_id||m.id);summary.queued++;summary.inventory_events++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const fas=await safeSb(`/rest/v1/accounting_fixed_assets?select=*&source_type=eq.OPENING&order=created_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const a of fas||[]){try{await enqueueLegacy('FIXED_ASSET_OPENING_POSTED','accounting_fixed_assets',a.id,a.asset_number,{fixed_asset:a},a.created_at||new Date().toISOString(),a.id);summary.queued++;summary.fixed_asset_events++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const drs=await safeSb(`/rest/v1/accounting_fixed_asset_depreciation_runs?select=*&status=eq.POSTED&order=period_end.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const r of drs||[]){try{const lines=await fixedAssetDepLines(r.id);await enqueueLegacy('FIXED_ASSET_DEPRECIATION_POSTED','accounting_fixed_asset_depreciation_runs',r.id,r.run_number,{depreciation_run:r,lines},r.posted_at||r.created_at,r.id);summary.queued++;summary.fixed_asset_events++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const disposals=await safeSb(`/rest/v1/accounting_fixed_assets?select=*&status=eq.DISPOSED&order=disposed_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const a of disposals||[]){try{await enqueueLegacy('FIXED_ASSET_DISPOSAL_POSTED','accounting_fixed_assets',a.id,a.asset_number,{fixed_asset:a},a.disposed_at||a.updated_at||a.created_at,a.id,fixedAssetDependency(a));summary.queued++;summary.fixed_asset_events++;}catch(e){summary.errors.push(e.message||String(e));}}
   return summary;
 }
 
