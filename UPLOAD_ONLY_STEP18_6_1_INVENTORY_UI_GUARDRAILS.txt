@@ -1,0 +1,13 @@
+STEP 18.6.1 — Inventory UI Guardrails
+
+NO SUPABASE SQL REQUIRED.
+
+Upload these files to GitHub preserving their exact paths:
+- STEP18_6_1_INVENTORY_UI_GUARDRAILS.md
+- cal/inventory.html
+- cal/css/style.css
+- cal/js/inventory.js
+- tests/step18_6_1_inventory_ui_guardrails.test.js
+- UPLOAD_ONLY_STEP18_6_1_INVENTORY_UI_GUARDRAILS.txt
+
+This hotfix does not change accounting SQL, Netlify functions, journals, inventory movements, A/R, A/P, Stripe, Provider Payments, Banking, or PLEASE public operations.
