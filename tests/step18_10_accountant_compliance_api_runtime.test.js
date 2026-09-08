@@ -1,0 +1,20 @@
+'use strict';
+const path=require('path'),assert=require('assert');const root=path.resolve(__dirname,'../netlify/functions'),calls=[];
+const fake={json:(status,obj)=>({statusCode:status,body:JSON.stringify(obj)}),sameOrigin:()=>true,requireAdmin:async()=>({user:{id:'11111111-1111-1111-1111-111111111111',email:'admin@test.local'}}),requestIp:()=>null,requestUserAgent:()=>null,
+ sbJson:async(url,opt={})=>{const body=opt.body?JSON.parse(opt.body):null;calls.push({url,method:opt.method||'GET',body});
+   if(url==='/rest/v1/rpc/accounting_generate_compliance_calendar')return[{accounting_generate_compliance_calendar:9}];
+   if(url==='/rest/v1/rpc/accounting_save_gifi_mapping')return[{accounting_save_gifi_mapping:'acct-1'}];
+   if(url==='/rest/v1/accounting_audit_log')return[];
+   if(url.startsWith('/rest/v1/accounting_company?'))return[{legal_name:'PLEASE Services',fiscal_year_end:'12-31',province:'AB'}];
+   if(url.startsWith('/rest/v1/accounting_compliance_settings?'))return[{id:'s1',gst_reporting_frequency:'UNCONFIGURED'}];
+   if(url.startsWith('/rest/v1/accounting_accounts?'))return[{id:'acct-1',code:'1000',name:'Operating Bank',account_type:'ASSET',active:true}];
+   if(url.startsWith('/rest/v1/accounting_gifi_account_mappings?'))return[];
+   if(url.startsWith('/rest/v1/accounting_gifi_codes?'))return[{code:'1002',name:'Deposits',statement_section:'BALANCE_SHEET',active:true}];
+   if(url.startsWith('/rest/v1/accounting_gifi_working_papers?')||url.startsWith('/rest/v1/accounting_gifi_working_paper_lines?')||url.startsWith('/rest/v1/accounting_compliance_obligations?')||url.startsWith('/rest/v1/accounting_compliance_approvals?')||url.startsWith('/rest/v1/accounting_filing_evidence?')||url.startsWith('/rest/v1/accounting_accountant_packages?')||url.startsWith('/rest/v1/accounting_documents?'))return[];
+   throw new Error(`Unexpected ${opt.method||'GET'} ${url}`);
+ }};
+require.cache[require.resolve(path.join(root,'_admin-lib.js'))]={exports:fake};const fn=require(path.join(root,'cal-compliance.js'));
+(async()=>{let r=await fn.handler({httpMethod:'GET',headers:{}});let j=JSON.parse(r.body);assert.strictEqual(r.statusCode,200);assert.strictEqual(j.data.summary.unmappedAccounts,1);
+ r=await fn.handler({httpMethod:'POST',headers:{},body:JSON.stringify({action:'GENERATE_CALENDAR',payload:{year:2026}})});j=JSON.parse(r.body);assert.strictEqual(r.statusCode,200);assert.strictEqual(j.result.count,9);assert.ok(calls.some(c=>c.url==='/rest/v1/rpc/accounting_generate_compliance_calendar'&&c.body.p_year===2026));
+ r=await fn.handler({httpMethod:'POST',headers:{},body:JSON.stringify({action:'SAVE_GIFI_MAPPING',payload:{account_id:'acct-1',gifi_code:'1002',sign_multiplier:1,mapping_note:'Reviewed mapping'}})});j=JSON.parse(r.body);assert.strictEqual(r.statusCode,200);assert.ok(calls.some(c=>c.url==='/rest/v1/rpc/accounting_save_gifi_mapping'&&c.body.p_gifi_code==='1002'));
+ console.log('STEP 18.10 ACCOUNTANT COMPLIANCE API RUNTIME PASS');})().catch(e=>{console.error(e);process.exit(1)});

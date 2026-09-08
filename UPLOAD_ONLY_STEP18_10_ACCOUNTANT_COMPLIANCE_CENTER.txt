@@ -1,0 +1,43 @@
+PLEASE / CAL — STEP 18.10 Accountant & Compliance Center
+
+UPLOAD ONLY — preserve every relative path exactly.
+Do not delete any other repository files.
+Database order: run STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.sql, then STEP18_10_VERIFY.sql (36 PASS), then upload this package to GitHub.
+
+Files to upload (34):
+1. STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.md
+2. STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.sql
+3. STEP18_10_VERIFY.sql
+4. UPLOAD_ONLY_STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.txt
+5. cal-compliance.js
+6. cal/accounts.html
+7. cal/audit.html
+8. cal/banking.html
+9. cal/compliance.html
+10. cal/css/style.css
+11. cal/dashboard.html
+12. cal/disclaimer.html
+13. cal/documents.html
+14. cal/expenses.html
+15. cal/fixed-assets.html
+16. cal/inventory.html
+17. cal/invoices.html
+18. cal/journal.html
+19. cal/js/compliance.js
+20. cal/master-data.html
+21. cal/payroll.html
+22. cal/period-close.html
+23. cal/purchases.html
+24. cal/reports.html
+25. cal/settings.html
+26. cal/supabase/STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.sql
+27. cal/supabase/STEP18_10_VERIFY.sql
+28. cal/taxes.html
+29. netlify/functions/cal-compliance.js
+30. supabase/STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.sql
+31. supabase/STEP18_10_VERIFY.sql
+32. tests/step18_10_accountant_compliance_api_runtime.test.js
+33. tests/step18_10_accountant_compliance_static.test.js
+34. tests/step18_10_accountant_package_integrity.test.js
+
+No files are deleted by STEP 18.10.

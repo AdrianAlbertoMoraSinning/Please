@@ -1,0 +1,25 @@
+'use strict';
+const fs=require('fs'),path=require('path'),crypto=require('crypto');const root=path.join(__dirname,'..');const read=p=>fs.readFileSync(path.join(root,p),'utf8');const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(path.join(root,p))).digest('hex');
+function pass(name,ok){if(!ok){console.error('FAIL',name);process.exitCode=1}else console.log('PASS',name)}
+const sql=read('STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.sql'),verify=read('STEP18_10_VERIFY.sql'),html=read('cal/compliance.html'),ui=read('cal/js/compliance.js'),api=read('netlify/functions/cal-compliance.js');
+pass('STEP 18.10 migration additive',!(/\\b(drop table|truncate table)\\b/i.test(sql))&&['accounting_gifi_codes','accounting_gifi_account_mappings','accounting_gifi_working_papers','accounting_compliance_obligations','accounting_filing_evidence','accounting_accountant_packages'].every(x=>sql.includes(`create table if not exists public.${x}`)));
+pass('GIFI current CAL account map included',sql.includes("('1000','1002',1")&&sql.includes("('1510','1741',1")&&sql.includes("('6300','8210',-1"));
+pass('GIFI paper approval guardrails',sql.includes('Non-zero GL accounts remain unmapped to GIFI')&&sql.includes('Source Trial Balance is not balanced')&&sql.includes('Fiscal year is not fully covered by closed period locks'));
+pass('Complete accountant package sections',['trial_balance','balance_sheet','income_statement','general_ledger','accounts_receivable_open','accounts_payable_open','inventory_detail_as_of','fixed_asset_register','payroll_runs','t4_working_papers','compliance_obligations','filing_payment_evidence'].every(x=>sql.includes(`'${x}'`)));
+pass('Package approval guards',['GIFI working paper must be APPROVED','Fiscal year is not fully closed','Inventory subledger does not reconcile','Fixed Assets subledger does not reconcile'].every(x=>sql.includes(x)));
+pass('Compliance calendar supports major obligations',['T2_RETURN','AT1_RETURN','GST_HST_RETURN','PAYROLL_REMITTANCE','T4_INFORMATION_RETURN'].every(x=>sql.includes(`'${x}'`)));
+pass('Payroll remitter frequencies supported',['QUARTERLY','REGULAR','THRESHOLD_1','THRESHOLD_2'].every(x=>sql.includes(`rt='${x}'`)));
+pass('Three-month corporate balance requires basis',sql.includes('Document the eligibility basis before using a three-month corporate balance-due date'));
+pass('Evidence append-only and correction-aware',sql.includes('trg_accounting_filing_evidence_immutable')&&sql.includes('supersedes_evidence_id')&&sql.includes('has already been superseded'));
+pass('Compliance does not enqueue financial events',!sql.includes('accounting_enqueue_event(')&&!api.includes('please_accounting_outbox'));
+pass('Compliance API admin-only and same-origin',api.includes('requireAdmin(event)')&&api.includes("event.httpMethod==='POST'&&!lib.sameOrigin(event)"));
+pass('Compliance API actions exposed',['SAVE_SETTINGS','SAVE_GIFI_MAPPING','GENERATE_GIFI','REVIEW_GIFI','APPROVE_GIFI','GENERATE_CALENDAR','ADVANCE_OBLIGATION','RECORD_EVIDENCE','GENERATE_PACKAGE','REVIEW_PACKAGE','APPROVE_PACKAGE'].every(x=>api.includes(`'${x}'`)));
+pass('Compliance UI has all required workspaces',html.includes('Compliance Calendar')&&html.includes('GIFI Mapping & Working Papers')&&html.includes('Accountant Packages')&&html.includes('Filing / Payment Evidence')&&html.includes('Approval History'));
+pass('UI explicitly disclaims direct filing',html.includes('does <strong>not</strong> transmit T2, AT1, GST/HST or T4 returns'));
+pass('API mirrors identical',read('cal-compliance.js')===api);
+pass('SQL mirrors identical',sql===read('supabase/STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.sql')&&sql===read('cal/supabase/STEP18_10_ACCOUNTANT_COMPLIANCE_CENTER.sql'));
+pass('Verify contains 36 controls',verify.includes("select 36,'compliance_center_ready'")&&(verify.match(/union all/g)||[]).length===35);
+const navPages=fs.readdirSync(path.join(root,'cal')).filter(x=>x.endsWith('.html')&&x!=='index.html');pass('Every authenticated CAL page includes Compliance navigation',navPages.every(f=>read(`cal/${f}`).includes('data-page="compliance"')));
+const protectedHashes={'index.html':'37606e19e13b019e6ae7465e0723edd5896f2cc5e15760d8de6b341f0f7dae57','provider.html':'1b63e313b17c5213869181bc25fd3cf6f235c7bff4013c72515caa5f46c05969','admin-dashboard.html':'82d9f83eeaf65fcfe80bf09478dfe0e7ceb512e13189b047d245ad10b1cf03a9','service-request.html':'bf8001b0669a45108d6eb71d05e5df11e6902252742e29cdf902c83179d4525d','track-request.html':'658412a1179cc9fd47af989394ce438fab4120485aaa14394bb48cd0abd1f33e','payment.html':'122a5eea2ca3315e605778adbe19a1db54de5160a50f98f94a3a62ce9dd0d420','stripe-webhook.js':'ae22531e33508826be005cb9d5dc9e0dabba1bef4ed2179af9d37dcc9a567812','admin-provider-payment-action.js':'f74fa51e9b45e91bc2ee4b2d53672a760a1df7a03e627944441022101b639e02'};
+pass('Public PLEASE Stripe and Provider Payment baseline stays byte-identical',Object.entries(protectedHashes).every(([f,h])=>hash(f)===h));
+if(process.exitCode)process.exit(process.exitCode);console.log('STEP 18.10 Accountant & Compliance static audit completed successfully.');
