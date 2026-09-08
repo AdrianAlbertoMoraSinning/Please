@@ -1,0 +1,18 @@
+STEP 18.7.1 — Fixed Asset Party Role Guardrails
+
+NO SUPABASE SQL REQUIRED.
+
+Upload these files to GitHub preserving the exact folder structure:
+- cal-fixed-assets.js
+- cal/fixed-assets.html
+- cal/js/fixed-assets.js
+- netlify/functions/cal-fixed-assets.js
+- STEP18_7_1_FIXED_ASSET_PARTY_ROLE_GUARDRAILS.md
+- tests/step18_7_1_fixed_asset_party_role_guardrails.test.js
+- UPLOAD_ONLY_STEP18_7_1_FIXED_ASSET_PARTY_ROLE_GUARDRAILS.txt
+
+Purpose:
+- Responsible person only allows active Employee / Contractor / Operational Provider roles.
+- Supplier only allows active Supplier roles.
+- Server-side validation mirrors the UI restrictions.
+- No accounting data, journal, SQL schema or existing asset balances are changed.
