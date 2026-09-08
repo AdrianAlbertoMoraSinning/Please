@@ -49,8 +49,8 @@ const protectedHashes={
 'admin-invoice-action.js':'8afe9a402e088da72f682c38f132f17e77d636c9b046358141ab1836e2ece9f4',
 'cal-receivables.js':'0d595ba25e86d326613ea12a9447e84b4f3cf5809e432290be29f23d1152e724',
 'cal/js/receivables.js':'83b8b2223eee71a76182b430aa09646104d3581c74d31511d8613aadaa6d9943',
-'cal-banking.js':'535b98e3fabf54c1311b3481cf0c43c829a175ba673ebf21e079857853097fee',
 'cal/js/banking.js':'38e525fe64d0cb6a57e952a0aa2cb228164f422ed9f968b92bab9e0399511712'
 };
-pass('Public operations, Stripe, Provider Payments, A/R and Banking remain byte-identical',Object.entries(protectedHashes).every(([p,h])=>hash(p)===h));
+pass('Public operations, Stripe, Provider Payments, A/R and Banking UI remain byte-identical',Object.entries(protectedHashes).every(([p,h])=>hash(p)===h));
+const bankingApi=read('netlify/functions/cal-banking.js');pass('Banking backend extensions preserve STEP 18.5 reconciliation controls',bankingApi===read('cal-banking.js')&&['START_RECONCILIATION','UPDATE_RECONCILIATION_CONTROL','IMPORT_STATEMENT','AUTO_MATCH','MATCH_TRANSACTION','UNMATCH_TRANSACTION','CLOSE_RECONCILIATION'].every(x=>bankingApi.includes(`action==='${x}'`)));
 if(process.exitCode)process.exit(process.exitCode);console.log('STEP 18.6 Inventory Accounting static audit completed successfully.');

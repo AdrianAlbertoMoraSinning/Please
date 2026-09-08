@@ -1,0 +1,57 @@
+PLEASE / CAL — STEP 18.8 PAYROLL
+Deployment package: UPLOAD ONLY
+Date: 2026-09-07
+
+DEPLOYMENT ORDER
+1. Run STEP18_8_PAYROLL.sql in the existing PLEASE Supabase project.
+2. Run STEP18_8_VERIFY.sql and confirm all 28 controls are PASS.
+3. Only then upload the files in this package to GitHub, preserving the folder structure.
+4. Wait for Netlify to report Published.
+5. Perform the controlled Payroll smoke test before live payroll use.
+
+IMPORTANT
+- Do not delete other repository files.
+- This package extends the existing STEP 17 accounting engine; it does not replace PLEASE operational workflows.
+- Full SIN values are not stored in CAL Payroll tables.
+- Book/operational payroll accounting and CRA filing/remittance evidence remain separately controlled.
+
+FILES TO UPLOAD
+STEP18_8_PAYROLL.md
+STEP18_8_PAYROLL.sql
+STEP18_8_VERIFY.sql
+_cal-accounting-lib.js
+cal-banking.js
+cal-payroll.js
+cal/accounts.html
+cal/audit.html
+cal/banking.html
+cal/css/style.css
+cal/dashboard.html
+cal/disclaimer.html
+cal/documents.html
+cal/expenses.html
+cal/fixed-assets.html
+cal/inventory.html
+cal/invoices.html
+cal/journal.html
+cal/js/payroll.js
+cal/master-data.html
+cal/payroll.html
+cal/purchases.html
+cal/reports.html
+cal/settings.html
+cal/supabase/STEP18_8_PAYROLL.sql
+cal/supabase/STEP18_8_VERIFY.sql
+cal/taxes.html
+netlify/functions/_cal-accounting-lib.js
+netlify/functions/cal-banking.js
+netlify/functions/cal-payroll.js
+supabase/STEP18_8_PAYROLL.sql
+supabase/STEP18_8_VERIFY.sql
+tests/step18_5_treasury_runtime.test.js
+tests/step18_6_inventory_accounting_static.test.js
+tests/step18_8_accounting_worker_runtime.test.js
+tests/step18_8_payroll_formula_runtime.test.js
+tests/step18_8_payroll_static.test.js
+tests/step18_8_treasury_payroll_runtime.test.js
+UPLOAD_ONLY_STEP18_8_PAYROLL.txt

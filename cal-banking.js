@@ -7,6 +7,8 @@ function bodyOf(event){try{return JSON.parse(event.body||'{}')}catch{const e=new
 function bad(message,status=400){const e=new Error(message);e.status=status;throw e}
 function rpcScalar(v){if(Array.isArray(v))v=v[0];if(v&&typeof v==='object'){const k=Object.keys(v);if(k.length===1)return v[k[0]];}return v}
 function addDays(date,n){const d=new Date(`${date}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+function payrollRemittanceDueDate(remitterType,paymentDate){const d=new Date(`${paymentDate}T12:00:00`),y=d.getFullYear(),m=d.getMonth(),day=d.getDate(),type=String(remitterType||'REGULAR').toUpperCase();let due;if(type==='REGULAR')due=new Date(y,m+1,15);else if(type==='QUARTERLY'){const q=Math.floor(m/3);due=new Date(q===3?y+1:y,q===3?0:(q+1)*3,15)}else if(type==='THRESHOLD_1')due=day<=15?new Date(y,m,25):new Date(y,m+1,10);else{const end=day<=7?7:day<=14?14:day<=21?21:new Date(y,m+1,0).getDate();due=new Date(y,m,end);let added=0;while(added<3){due.setDate(due.getDate()+1);const wd=due.getDay();if(wd!==0&&wd!==6)added++;}}return `${due.getFullYear()}-${String(due.getMonth()+1).padStart(2,'0')}-${String(due.getDate()).padStart(2,'0')}`}
+function payrollSourceAmount(r){return money(Number(r.employee_cpp||0)+Number(r.employer_cpp||0)+Number(r.employee_cpp2||0)+Number(r.employer_cpp2||0)+Number(r.employee_ei||0)+Number(r.employer_ei||0)+Number(r.income_tax||0))}
 function lineEffect(line,accountType){return money(String(accountType||'').toUpperCase()==='LIABILITY'?Number(line.credit||0)-Number(line.debit||0):Number(line.debit||0)-Number(line.credit||0))}
 async function safe(path,fallback=[]){try{return await lib.sbJson(path)}catch(e){if(/does not exist|schema cache|42P01|42703/i.test(String(e.message||e)))return fallback;throw e}}
 async function audit(auth,event,objectType,objectId,eventType,afterData){try{await lib.sbJson('/rest/v1/accounting_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_user_id:null,event_type:eventType,object_type:objectType,object_id:String(objectId||''),after_data:afterData||null,metadata:{step:'18.5',source:'CAL_BANKING_API',please_admin_user_id:auth.user.id,actor_email:auth.user.email,ip:lib.requestIp(event)||null,user_agent:lib.requestUserAgent(event)||null}})});}catch(e){console.warn('cal-banking audit',e?.message||e)}}
@@ -38,12 +40,15 @@ function balanceAsOf(fin,date){return money((fin.movements||[]).filter(l=>String
 
 async function treasuryPosition(ledger){
   const asOf=today(),d7=addDays(asOf,7),d30=addDays(asOf,30);
-  const [bills,reimbursements,providerPayments,invoices,creditNotes]=await Promise.all([
+  const [bills,reimbursements,providerPayments,invoices,creditNotes,payrollRuns,payrollRemittances,payrollSettings]=await Promise.all([
     safe('/rest/v1/accounting_supplier_bills?select=id,due_date,status,total,amount_paid&status=in.(POSTED,PARTIAL)&limit=5000',[]),
     safe('/rest/v1/accounting_expense_claims?select=id,status,payment_mode,total,amount_reimbursed&payment_mode=eq.REIMBURSEMENT&status=eq.POSTED&limit=5000',[]),
     safe('/rest/v1/provider_payments?select=id,status,amount,needs_rate_review,created_at&status=eq.PENDING&needs_rate_review=eq.false&limit=5000',[]),
     safe('/rest/v1/accounting_invoices?select=id,due_date,status,total,paid_total&status=in.(SENT,PARTIAL,OVERDUE,PAID)&limit=5000',[]),
-    safe('/rest/v1/accounting_credit_notes?select=invoice_id,status,total&status=eq.POSTED&limit=5000',[])
+    safe('/rest/v1/accounting_credit_notes?select=invoice_id,status,total&status=eq.POSTED&limit=5000',[]),
+    safe('/rest/v1/accounting_payroll_runs?select=id,status,payment_date,net_pay,employee_cpp,employee_cpp2,employee_ei,income_tax,employer_cpp,employer_cpp2,employer_ei&status=in.(POSTED,PAID)&order=payment_date.asc,created_at.asc&limit=5000',[]),
+    safe('/rest/v1/accounting_payroll_remittances?select=id,status,total_remittance,period_end,remittance_date&status=eq.PAID&order=remittance_date.asc,created_at.asc&limit=5000',[]),
+    safe('/rest/v1/accounting_payroll_settings?select=remitter_type&limit=1',[])
   ]);
   const creditByInvoice=new Map();for(const c of creditNotes||[])creditByInvoice.set(c.invoice_id,money((creditByInvoice.get(c.invoice_id)||0)+Number(c.total||0)));
   const bankCash=money(ledger.financialAccounts.filter(f=>['BANK','CASH'].includes(String(f.financial_type).toUpperCase())).reduce((n,f)=>n+Number(f.balance||0),0));
@@ -53,9 +58,19 @@ async function treasuryPosition(ledger){
   const apDue=cut=>money((bills||[]).filter(b=>!b.due_date||String(b.due_date)<=cut).reduce((n,b)=>n+openBill(b),0));
   const reimburseDue=money((reimbursements||[]).reduce((n,x)=>n+Math.max(0,Number(x.total||0)-Number(x.amount_reimbursed||0)),0));
   const providerDue=money((providerPayments||[]).reduce((n,x)=>n+Number(x.amount||0),0));
-  const commitmentsToday=money(apDue(asOf)+reimburseDue+providerDue),commitments7=money(apDue(d7)+reimburseDue+providerDue),commitments30=money(apDue(d30)+reimburseDue+providerDue);
+  const payrollNetDue=cut=>money((payrollRuns||[]).filter(r=>r.status==='POSTED'&&String(r.payment_date||'')<=cut).reduce((n,r)=>n+Number(r.net_pay||0),0));
+  // Source deductions are remitted in aggregate. Allocate paid remittances FIFO against
+  // posted/paid payroll source liabilities, then schedule only the unpaid remainder by
+  // the CRA remitter-type due date. This keeps Daily Cash Position from treating future
+  // remittances as due today while still surfacing them in the 7/30-day horizons.
+  let remittedPool=money((payrollRemittances||[]).reduce((n,r)=>n+Number(r.total_remittance||0),0));
+  const remitterType=payrollSettings?.[0]?.remitter_type||'REGULAR',unpaidSource=[],orderedPayrollRuns=[...(payrollRuns||[])].sort((a,b)=>String(a.payment_date||'').localeCompare(String(b.payment_date||'')));
+  for(const r of orderedPayrollRuns){let remaining=payrollSourceAmount(r);const applied=Math.min(remaining,Math.max(0,remittedPool));remaining=money(remaining-applied);remittedPool=money(Math.max(0,remittedPool-applied));if(remaining>0.004)unpaidSource.push({amount:remaining,due_date:payrollRemittanceDueDate(remitterType,r.payment_date),payment_date:r.payment_date});}
+  const payrollSourceDue=cut=>money(unpaidSource.filter(x=>x.due_date<=cut).reduce((n,x)=>n+x.amount,0));
+  const payrollSourceOutstanding=money(unpaidSource.reduce((n,x)=>n+x.amount,0));
+  const commitmentsToday=money(apDue(asOf)+reimburseDue+providerDue+payrollNetDue(asOf)+payrollSourceDue(asOf)),commitments7=money(apDue(d7)+reimburseDue+providerDue+payrollNetDue(d7)+payrollSourceDue(d7)),commitments30=money(apDue(d30)+reimburseDue+providerDue+payrollNetDue(d30)+payrollSourceDue(d30));
   const receivableDue=cut=>money((invoices||[]).filter(i=>i.status!=='VOID'&&(!i.due_date||String(i.due_date)<=cut)).reduce((n,i)=>n+Math.max(0,Number(i.total||0)-Number(i.paid_total||0)-Number(creditByInvoice.get(i.id)||0)),0));
-  return{asOf,bankCash,clearing,liquidResources:money(bankCash+clearing),creditCardAndLoanBalance:cardDebt,commitmentsToday,commitments7,commitments30,availableResources:money(bankCash+clearing-commitmentsToday),receivables7:receivableDue(d7),receivables30:receivableDue(d30),components:{supplierAPToday:apDue(asOf),reimbursements:reimburseDue,providerPayables:providerDue}};
+  return{asOf,bankCash,clearing,liquidResources:money(bankCash+clearing),creditCardAndLoanBalance:cardDebt,commitmentsToday,commitments7,commitments30,availableResources:money(bankCash+clearing-commitmentsToday),receivables7:receivableDue(d7),receivables30:receivableDue(d30),components:{supplierAPToday:apDue(asOf),reimbursements:reimburseDue,providerPayables:providerDue,payrollNetToday:payrollNetDue(asOf),payrollSourceDueToday:payrollSourceDue(asOf),payrollSourceOutstanding,nextPayrollRemittanceDue:unpaidSource[0]?.due_date||null,remitterType}};
 }
 
 async function getData(event){

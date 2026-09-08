@@ -244,6 +244,20 @@ async function fixedAssetDepLines(runId){
   if(!runId)return[];
   return await safeSb(`/rest/v1/accounting_fixed_asset_depreciation_lines?depreciation_run_id=eq.${enc(runId)}&select=*&order=asset_id.asc`).catch(()=>[]);
 }
+async function payrollRun(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_payroll_runs?id=eq.${enc(id)}&select=*&limit=1`).catch(()=>[]);
+  return rows?.[0]||null;
+}
+async function payrollRunLines(runId){
+  if(!runId)return[];
+  return await safeSb(`/rest/v1/accounting_payroll_run_lines?payroll_run_id=eq.${enc(runId)}&select=*&order=employee_id.asc`).catch(()=>[]);
+}
+async function payrollRemittance(id){
+  if(!id)return null;
+  const rows=await safeSb(`/rest/v1/accounting_payroll_remittances?id=eq.${enc(id)}&select=*&limit=1`).catch(()=>[]);
+  return rows?.[0]||null;
+}
 function fixedAssetDependency(a){
   const type=String(a?.source_type||'').toUpperCase();
   if(type==='OPENING')return `PLEASE:FIXED_ASSET_OPENING_POSTED:${a.id}`;
@@ -262,7 +276,7 @@ async function dependencyPosted(eventKey,{allowIgnored=false}={}){
 async function buildPosting(row){
   const type=String(row.event_type||'').toUpperCase();
   const rule=await postingRule(type);
-  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED','EXPENSE_POSTED','EXPENSE_REIMBURSEMENT_PAID','INVENTORY_OPENING_POSTED','INVENTORY_ISSUE_POSTED','INVENTORY_ADJUSTMENT_POSTED','FIXED_ASSET_OPENING_POSTED','FIXED_ASSET_DEPRECIATION_POSTED','FIXED_ASSET_DISPOSAL_POSTED'].includes(type)&&!rule){
+  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED','EXPENSE_POSTED','EXPENSE_REIMBURSEMENT_PAID','INVENTORY_OPENING_POSTED','INVENTORY_ISSUE_POSTED','INVENTORY_ADJUSTMENT_POSTED','FIXED_ASSET_OPENING_POSTED','FIXED_ASSET_DEPRECIATION_POSTED','FIXED_ASSET_DISPOSAL_POSTED','PAYROLL_POSTED','PAYROLL_PAID','PAYROLL_REMITTANCE_PAID'].includes(type)&&!rule){
     throw new Error(`No enabled CAL posting rule is configured for ${type}.`);
   }
 
@@ -495,6 +509,42 @@ async function buildPosting(row){
     return{payload:{fixed_asset:asset},entryDate:asset.disposal_date||current.disposal_date||today(),memo:`Fixed asset disposal ${asset.asset_number||current.asset_number}`,lines};
   }
 
+
+  if(type==='PAYROLL_POSTED'){
+    const current=await payrollRun(row.source_record_id);if(!current)throw new Error('Payroll run source record not found.');
+    const run=snap(row,'payroll_run',current),payLines=Array.isArray(row?.payload_json?.lines)&&row.payload_json.lines.length?row.payload_json.lines:await payrollRunLines(row.source_record_id);
+    if(String(current.status||run.status||'').toUpperCase()!=='POSTED'&&String(current.status||run.status||'').toUpperCase()!=='PAID')return{ignored:true,reason:'Payroll run is not POSTED/PAID.',payload:{payroll_run:run,lines:payLines}};
+    const gross=MONEY(run.gross_pay??current.gross_pay),net=MONEY(run.net_pay??current.net_pay),ecpp=MONEY(run.employee_cpp??current.employee_cpp),ecpp2=MONEY(run.employee_cpp2??current.employee_cpp2),eei=MONEY(run.employee_ei??current.employee_ei),tax=MONEY(run.income_tax??current.income_tax),other=MONEY(run.other_deductions??current.other_deductions),mcpp=MONEY(run.employer_cpp??current.employer_cpp),mcpp2=MONEY(run.employer_cpp2??current.employer_cpp2),mei=MONEY(run.employer_ei??current.employer_ei),cfg=rule.configuration_json||{};
+    if(gross<=0)return{ignored:true,reason:'Payroll run gross pay is zero.',payload:{payroll_run:run,lines:payLines}};
+    const lines=[{code:rule.debit_account_code||'7000',debit:gross,description:`Gross payroll ${run.run_number||current.run_number}`}];
+    if(mcpp+mcpp2>0)lines.push({code:cfg.employer_cpp_expense||'7010',debit:MONEY(mcpp+mcpp2),description:`Employer CPP/CPP2 ${run.run_number||current.run_number}`});
+    if(mei>0)lines.push({code:cfg.employer_ei_expense||'7020',debit:mei,description:`Employer EI ${run.run_number||current.run_number}`});
+    if(net>0)lines.push({code:rule.credit_account_code||'2030',credit:net,description:`Net payroll payable ${run.run_number||current.run_number}`});
+    if(ecpp+ecpp2+mcpp+mcpp2>0)lines.push({code:cfg.cpp_payable||'2040',credit:MONEY(ecpp+ecpp2+mcpp+mcpp2),description:`CPP/CPP2 payable ${run.run_number||current.run_number}`});
+    if(eei+mei>0)lines.push({code:cfg.ei_payable||'2050',credit:MONEY(eei+mei),description:`EI payable ${run.run_number||current.run_number}`});
+    if(tax>0)lines.push({code:cfg.tax_payable||'2060',credit:tax,description:`Payroll income tax payable ${run.run_number||current.run_number}`});
+    if(other>0)lines.push({code:cfg.other_payable||'2070',credit:other,description:`Other payroll deductions payable ${run.run_number||current.run_number}`});
+    return{payload:{payroll_run:run,lines:payLines},entryDate:run.payment_date||current.payment_date||today(),memo:`Payroll posted ${run.run_number||current.run_number}`,lines};
+  }
+
+  if(type==='PAYROLL_PAID'){
+    const dep=`PLEASE:PAYROLL_POSTED:${row.source_record_id}`;if(!(await dependencyPosted(dep)))throw new Error(`Dependency pending: ${dep}`);
+    const current=await payrollRun(row.source_record_id);if(!current)throw new Error('Payroll run source record not found.');
+    const run=snap(row,'payroll_run',current);if(String(current.status||run.status||'').toUpperCase()!=='PAID')return{ignored:true,reason:'Payroll run is not PAID.',payload:{payroll_run:run}};
+    const amount=MONEY(run.net_pay??current.net_pay);if(amount<=0)return{ignored:true,reason:'Payroll net pay is zero.',payload:{payroll_run:run}};
+    const fin=await financialAccount(run.payment_financial_account_id||current.payment_financial_account_id);if(!fin||fin.active===false)throw new Error('Payroll payment financial account is missing or inactive.');const gl=await glAccountById(fin.gl_account_id);if(!gl||gl.active===false)throw new Error('Payroll payment GL mapping is missing or inactive.');
+    return{payload:{payroll_run:run},entryDate:String(run.paid_at||current.paid_at||row.occurred_at||new Date().toISOString()).slice(0,10),memo:`Payroll paid ${run.run_number||current.run_number}`,lines:[{code:rule.debit_account_code||'2030',debit:amount,description:`Clear payroll payable ${run.run_number||current.run_number}`},{code:gl.code,credit:amount,description:`Payroll payment ${run.payment_reference||current.payment_reference||''}`}]};
+  }
+
+  if(type==='PAYROLL_REMITTANCE_PAID'){
+    const current=await payrollRemittance(row.source_record_id);if(!current)throw new Error('Payroll remittance source record not found.');
+    const rem=snap(row,'payroll_remittance',current);if(String(current.status||rem.status||'').toUpperCase()!=='PAID')return{ignored:true,reason:'Payroll remittance is not PAID.',payload:{payroll_remittance:rem}};
+    const cpp=MONEY(Number(rem.employee_cpp??current.employee_cpp)+Number(rem.employer_cpp??current.employer_cpp)+Number(rem.employee_cpp2??current.employee_cpp2)+Number(rem.employer_cpp2??current.employer_cpp2)),ei=MONEY(Number(rem.employee_ei??current.employee_ei)+Number(rem.employer_ei??current.employer_ei)),tax=MONEY(rem.income_tax??current.income_tax),amount=MONEY(rem.total_remittance??current.total_remittance),cfg=rule.configuration_json||{};
+    const fin=await financialAccount(rem.financial_account_id||current.financial_account_id);if(!fin||fin.active===false)throw new Error('Payroll remittance financial account is missing or inactive.');const gl=await glAccountById(fin.gl_account_id);if(!gl||gl.active===false)throw new Error('Payroll remittance GL mapping is missing or inactive.');
+    const lines=[];if(cpp>0)lines.push({code:rule.debit_account_code||'2040',debit:cpp,description:`CPP/CPP2 remittance ${rem.remittance_number||current.remittance_number}`});if(ei>0)lines.push({code:cfg.ei_payable||'2050',debit:ei,description:`EI remittance ${rem.remittance_number||current.remittance_number}`});if(tax>0)lines.push({code:cfg.tax_payable||'2060',debit:tax,description:`Income tax remittance ${rem.remittance_number||current.remittance_number}`});lines.push({code:gl.code,credit:amount,description:`Payroll remittance ${rem.reference||current.reference||''}`});
+    return{payload:{payroll_remittance:rem},entryDate:rem.remittance_date||current.remittance_date||today(),memo:`Payroll remittance ${rem.remittance_number||current.remittance_number}`,lines};
+  }
+
   return{ignored:true,reason:`No automatic posting handler is configured for ${type}.`,payload:row.payload_json||{}};
 }
 
@@ -560,7 +610,7 @@ async function runWorker({limit=25,workerId=`netlify-${crypto.randomBytes(4).toS
   await releaseStaleClaims(Number(process.env.CAL_ACCOUNTING_STALE_MINUTES||10)).catch(e=>console.warn('cal-release-stale',e?.message||e));
   let rows=[];
   try{rows=await claimEvents(limit,workerId)||[];}catch(e){if(schemaMissing(e))return{ok:false,schema_missing:true,error:e.message||String(e),claimed:0};throw e;}
-  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,INVENTORY_OPENING_POSTED:10,FIXED_ASSET_OPENING_POSTED:10,INVENTORY_ISSUE_POSTED:20,INVENTORY_ADJUSTMENT_POSTED:20,FIXED_ASSET_DEPRECIATION_POSTED:20,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,EXPENSE_REIMBURSEMENT_PAID:30,FIXED_ASSET_DISPOSAL_POSTED:30,STRIPE_FEE_RECORDED:40};
+  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,INVENTORY_OPENING_POSTED:10,FIXED_ASSET_OPENING_POSTED:10,PAYROLL_POSTED:10,INVENTORY_ISSUE_POSTED:20,INVENTORY_ADJUSTMENT_POSTED:20,FIXED_ASSET_DEPRECIATION_POSTED:20,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,EXPENSE_REIMBURSEMENT_PAID:30,FIXED_ASSET_DISPOSAL_POSTED:30,PAYROLL_PAID:30,PAYROLL_REMITTANCE_PAID:30,STRIPE_FEE_RECORDED:40};
   rows=[...rows].sort((a,b)=>(priority[String(a.event_type||'').toUpperCase()]||100)-(priority[String(b.event_type||'').toUpperCase()]||100)||String(a.occurred_at||a.created_at||'').localeCompare(String(b.occurred_at||b.created_at||'')));
   const summary={ok:true,enabled:true,worker_id:workerId,claimed:rows.length,posted:0,ignored:0,duplicates:0,retried:0,dead_letter:0,errors:[]};
   for(const row of rows){
@@ -584,7 +634,7 @@ async function enqueueLegacy(type,sourceTable,id,reference,payload,occurredAt,co
 }
 async function reconcile(limit=200){
   const max=Math.max(25,Math.min(500,Number(limit)||200));
-  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,expenses:0,expense_reimbursements:0,inventory_events:0,fixed_asset_events:0,errors:[]};
+  const summary={queued:0,invoices:0,payments:0,provider_payments:0,supplier_bills:0,supplier_payments:0,credit_notes:0,refunds:0,expenses:0,expense_reimbursements:0,inventory_events:0,fixed_asset_events:0,payroll_events:0,errors:[]};
   const invoices=await safeSb(`/rest/v1/invoices?select=*&status=in.(ISSUED,SENT,OVERDUE,PAID,VOID)&order=created_at.asc&limit=${max}`).catch(e=>{summary.errors.push(e.message);return[];});
   for(const inv of invoices||[]){
     try{
@@ -616,6 +666,10 @@ async function reconcile(limit=200){
   for(const r of drs||[]){try{const lines=await fixedAssetDepLines(r.id);await enqueueLegacy('FIXED_ASSET_DEPRECIATION_POSTED','accounting_fixed_asset_depreciation_runs',r.id,r.run_number,{depreciation_run:r,lines},r.posted_at||r.created_at,r.id);summary.queued++;summary.fixed_asset_events++;}catch(e){summary.errors.push(e.message||String(e));}}
   const disposals=await safeSb(`/rest/v1/accounting_fixed_assets?select=*&status=eq.DISPOSED&order=disposed_at.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
   for(const a of disposals||[]){try{await enqueueLegacy('FIXED_ASSET_DISPOSAL_POSTED','accounting_fixed_assets',a.id,a.asset_number,{fixed_asset:a},a.disposed_at||a.updated_at||a.created_at,a.id,fixedAssetDependency(a));summary.queued++;summary.fixed_asset_events++;}catch(e){summary.errors.push(e.message||String(e));}}
+  const prs=await safeSb(`/rest/v1/accounting_payroll_runs?select=*&status=in.(POSTED,PAID)&order=payment_date.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const r of prs||[]){try{const lines=await payrollRunLines(r.id);await enqueueLegacy('PAYROLL_POSTED','accounting_payroll_runs',r.id,r.run_number,{payroll_run:r,lines},r.posted_at||r.updated_at||r.created_at,r.id);summary.queued++;summary.payroll_events++;if(r.status==='PAID'){await enqueueLegacy('PAYROLL_PAID','accounting_payroll_runs',r.id,r.run_number,{payroll_run:r},r.paid_at||r.updated_at||r.created_at,r.id,`PLEASE:PAYROLL_POSTED:${r.id}`);summary.queued++;summary.payroll_events++;}}catch(e){summary.errors.push(e.message||String(e));}}
+  const prems=await safeSb(`/rest/v1/accounting_payroll_remittances?select=*&status=eq.PAID&order=remittance_date.asc&limit=${max}`).catch(e=>{if(!schemaMissing(e))summary.errors.push(e.message);return[];});
+  for(const r of prems||[]){try{await enqueueLegacy('PAYROLL_REMITTANCE_PAID','accounting_payroll_remittances',r.id,r.remittance_number,{payroll_remittance:r},r.paid_at||r.created_at,r.id);summary.queued++;summary.payroll_events++;}catch(e){summary.errors.push(e.message||String(e));}}
   return summary;
 }
 
