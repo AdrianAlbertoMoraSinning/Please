@@ -1,0 +1,5 @@
+'use strict';const fs=require('fs'),path=require('path'),assert=require('node:assert/strict'),test=require('node:test');const root=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const p=read('js/provider.js'),u=read('netlify/functions/provider-service-evidence-upload.js'),sw=read('service-worker.js');
+test('photo preparation stays below gateway limits and has compact 413 retry',()=>{assert.match(p,/file\.size<=1800000/);assert.match(p,/maxBytes:forceCompact\?1400000:2400000/);assert.match(p,/maxDimension:forceCompact\?1600:1920/);assert.match(p,/e\.status!==413/);assert.match(u,/MAX=3\*1024\*1024/);assert.match(u,/IMAGE_TOO_LARGE/)});
+test('photo actions are single-flight with explicit phases and recovery',()=>{assert.match(p,/liveBusy/);assert.match(p,/Preparing and uploading completion photo/);assert.match(p,/Finalizing service/);assert.match(p,/completion is already saved/);assert.match(p,/35000,1/);assert.match(p,/20000,1/)});
+test('provider cache is advanced for STEP 19',()=>assert.match(sw,/please-provider-v19/));

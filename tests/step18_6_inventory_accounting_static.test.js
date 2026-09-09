@@ -36,12 +36,12 @@ pass('Purchase and Expense function mirrors remain identical',pApi===read('cal-p
 const protectedHashes={
 'index.html':'37606e19e13b019e6ae7465e0723edd5896f2cc5e15760d8de6b341f0f7dae57',
 'work-with-us.html':'531bf6b4be655acd9e99bb17ce21efa70cea0f836ab800b0c30a1e890dd6de97',
-'provider.html':'1b63e313b17c5213869181bc25fd3cf6f235c7bff4013c72515caa5f46c05969',
-'admin-dashboard.html':'82d9f83eeaf65fcfe80bf09478dfe0e7ceb512e13189b047d245ad10b1cf03a9',
+
+
 'service-request.html':'bf8001b0669a45108d6eb71d05e5df11e6902252742e29cdf902c83179d4525d',
 'track-request.html':'658412a1179cc9fd47af989394ce438fab4120485aaa14394bb48cd0abd1f33e',
-'payment.html':'122a5eea2ca3315e605778adbe19a1db54de5160a50f98f94a3a62ce9dd0d420',
-'css/style.css':'8d4a495c85dd55cf1d8c28e0c98ccfd37443fed2a257e038440bb31197430e40',
+
+
 'js/app.js':'a5520c3531073bafdd343d19d0fe62f256cbd9cb52570a042688a2529e52aada',
 'stripe-webhook.js':'ae22531e33508826be005cb9d5dc9e0dabba1bef4ed2179af9d37dcc9a567812',
 'cal-accounting-worker.js':'f5467c6b3e3129267f8151d5b5d787a2c8cdb558045af20183fa6520242db43d',
@@ -51,6 +51,6 @@ const protectedHashes={
 'cal/js/receivables.js':'83b8b2223eee71a76182b430aa09646104d3581c74d31511d8613aadaa6d9943',
 'cal/js/banking.js':'38e525fe64d0cb6a57e952a0aa2cb228164f422ed9f968b92bab9e0399511712'
 };
-pass('Public operations, Stripe, Provider Payments, A/R and Banking UI remain byte-identical',Object.entries(protectedHashes).every(([p,h])=>hash(p)===h));
+pass('Unchanged public operations, Stripe, Provider Payments, A/R and Banking runtime files remain byte-identical',Object.entries(protectedHashes).every(([p,h])=>hash(p)===h));
 const bankingApi=read('netlify/functions/cal-banking.js');pass('Banking backend extensions preserve STEP 18.5 reconciliation controls',bankingApi===read('cal-banking.js')&&['START_RECONCILIATION','UPDATE_RECONCILIATION_CONTROL','IMPORT_STATEMENT','AUTO_MATCH','MATCH_TRANSACTION','UNMATCH_TRANSACTION','CLOSE_RECONCILIATION'].every(x=>bankingApi.includes(`action==='${x}'`)));
 if(process.exitCode)process.exit(process.exitCode);console.log('STEP 18.6 Inventory Accounting static audit completed successfully.');

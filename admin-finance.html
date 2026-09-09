@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head>
+<link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32.png"><link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive">
+<title>PLEASE Administration — Finance</title><link rel="stylesheet" href="css/style.css?v=19.0">
+</head><body class="admin-portal-page"><div id="admin-loading" class="admin-loading">Checking secure session…</div><div id="admin-app" hidden>
+<header class="admin-topbar"><div class="admin-topbar-inner"><div class="admin-topbar-brand"><img src="images/please-logo.png" alt="PLEASE"><div><strong>Administration</strong><span>Operational Finance</span></div></div><div class="admin-user-block"><div><strong id="admin-name">PLEASE Administrator</strong><span id="admin-email"></span></div><a class="admin-outline-button" href="admin-password.html">Change password</a><button id="admin-signout" class="admin-outline-button">Sign out</button></div></div></header>
+<div class="admin-layout"><aside class="admin-sidebar"><span class="admin-sidebar-label">OPERATIONS</span><a href="admin-dashboard.html">Dashboard</a><a href="admin.html">Professional Applications</a><a href="admin-providers.html">Providers</a><a href="admin-customers.html">Customers</a><a href="admin-calendar.html">Master Calendar</a><a href="admin-live-operations.html">Live Operations</a><a href="admin-service-requests.html">Service Requests</a><a href="admin-jobs.html">Jobs</a><a href="admin-invoices.html">Invoices</a><a href="admin-provider-payments.html">Provider Payments</a><a href="admin-reports.html">Reports</a><a href="admin-service-maintenance.html">Service Maintenance</a><a class="active" href="admin-finance.html">Finance</a><a href="cal/dashboard.html">CAL Accounting</a><div class="admin-sidebar-separator"></div><a href="index.html">View public website ↗</a></aside>
+<main class="admin-main finance-page"><div class="admin-page-heading"><div><p class="eyebrow dark">STEP 19 · OPERATIONAL FINANCE</p><h1>Finance</h1><p>Record business facts only. PLEASE handles classification, GST/ITC, A/R, A/P and accounting events automatically. GL accounts, debits/credits and Journals stay out of daily Administration.</p></div><button id="finance-refresh" class="admin-outline-button">Refresh</button></div>
+<div id="finance-alert" class="form-alert" hidden></div>
+
+<section class="finance-kpi-grid">
+<a href="#sales"><span>Sales & Collections</span><strong id="fin-ar">$0.00</strong><small>Accounts receivable</small></a>
+<a href="#quick-expense"><span>Expenses</span><strong id="fin-expenses">0</strong><small>Draft / recovery items</small></a>
+<a href="#purchases"><span>Purchases & Payables</span><strong id="fin-ap">$0.00</strong><small>Open supplier balance</small></a>
+<a href="#sales"><span>Payments</span><strong id="fin-collected">$0.00</strong><small>Recorded collections</small></a>
+<a href="#bank-cash"><span>Bank & Cash</span><strong id="fin-bank">0</strong><small>Unmatched bank items</small></a>
+<a href="#exceptions"><span>Finance Exceptions</span><strong id="fin-exceptions">0</strong><small>Needs business/accountant review</small></a>
+<a href="#automation"><span>Automation Status</span><strong id="fin-queue">0</strong><small>Pending / processing</small></a>
+<a href="cal/dashboard.html"><span>Advanced Accounting</span><strong>CAL</strong><small>Accountant area · Journal · Compliance</small></a>
+</section>
+
+<section id="sales" class="admin-panel"><div class="admin-section-title-row"><div><p class="eyebrow dark">SALES & COLLECTIONS</p><h2>Customer Invoices</h2><p class="admin-muted">Completed Jobs can create Draft invoices automatically. Issue, send or record a real payment here; PLEASE/STEP 17 handles the accounting.</p></div><a class="admin-outline-button" href="admin-invoices.html">Full Invoice Center →</a></div><div id="finance-invoice-list" class="finance-table-list"></div></section>
+
+<div class="finance-two-column finance-two-equal">
+<section id="quick-expense" class="admin-panel"><div class="admin-section-title-row"><div><p class="eyebrow dark">EXPENSES</p><h2>Record Expense</h2><p class="admin-muted">Choose a business category, payment source and receipt. PLEASE maps the accounting automatically and posts the controlled expense after evidence is attached.</p></div></div>
+<form id="quick-expense-form" class="finance-form-grid">
+<label><span>Date</span><input id="qe-date" type="date" required></label><label><span>Category</span><select id="qe-category" required></select></label>
+<label class="full"><span>Description</span><input id="qe-description" maxlength="500" placeholder="e.g. Fuel for PLEASE truck" required></label>
+<label><span>Amount before GST</span><input id="qe-subtotal" type="number" min="0.01" step="0.01" inputmode="decimal" required></label><label><span>Paid from</span><select id="qe-account" required></select></label>
+<label id="qe-item-wrap" hidden><span>Inventory item</span><select id="qe-item"></select></label><label id="qe-location-wrap" hidden><span>Receiving location</span><select id="qe-location"></select></label>
+<label class="finance-check"><input id="qe-gst" type="checkbox" checked><span>Alberta GST 5% paid and eligible for ITC</span></label>
+<label class="full"><span>Receipt / invoice</span><input id="qe-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"></label>
+<label class="full"><span>Reference (optional)</span><input id="qe-reference" maxlength="160" placeholder="Receipt #, card reference…"></label>
+<div class="full finance-form-actions"><button id="qe-save" type="submit" class="btn primary">RECORD EXPENSE →</button><small>For “Other / Needs Review”, PLEASE creates a Finance Exception instead of guessing the accounting.</small></div>
+</form><div id="quick-expense-recent" class="finance-mini-list"></div></section>
+
+<section id="purchases" class="admin-panel"><div class="admin-section-title-row"><div><p class="eyebrow dark">PURCHASES & A/P</p><h2>Supplier Invoice / Receipt</h2><p class="admin-muted">Record a supplier bill without selecting GL accounts. A/P, inventory/fixed-asset routing and STEP 17 posting are system-controlled.</p></div><button id="add-supplier" class="admin-outline-button" type="button">+ Supplier</button></div>
+<form id="quick-bill-form" class="finance-form-grid">
+<label><span>Supplier</span><select id="qb-supplier" required></select></label><label><span>Supplier invoice #</span><input id="qb-number" maxlength="120"></label>
+<label><span>Bill date</span><input id="qb-date" type="date" required></label><label><span>Due date</span><input id="qb-due" type="date"></label>
+<label class="full"><span>Purchase description</span><input id="qb-description" maxlength="500" required placeholder="e.g. Cleaning materials"></label>
+<label><span>Category</span><select id="qb-category" required></select></label><label><span>Amount before GST</span><input id="qb-subtotal" type="number" min="0.01" step="0.01" required></label>
+<label id="qb-item-wrap" hidden><span>Inventory item</span><select id="qb-item"></select></label><label id="qb-location-wrap" hidden><span>Receiving location</span><select id="qb-location"></select></label>
+<label class="finance-check"><input id="qb-gst" type="checkbox" checked><span>Alberta GST 5% paid and eligible for ITC</span></label>
+<label class="full"><span>Supplier invoice / receipt</span><input id="qb-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"></label>
+<label class="full"><span>Reference / PO (optional)</span><input id="qb-reference" maxlength="160"></label>
+<div class="full finance-form-actions"><button id="qb-save" type="submit" class="btn primary">RECORD SUPPLIER BILL →</button></div>
+</form><div id="finance-bill-list" class="finance-table-list finance-compact-list"></div></section>
+</div>
+
+<section id="bank-cash" class="admin-panel"><div class="admin-section-title-row"><div><p class="eyebrow dark">BANK & CASH</p><h2>Reconciliation & Cash Closing</h2><p class="admin-muted">Statement balances and physical cash counts are operational facts. Auto-match handles clear bank matches; unmatched/variance items stay visible instead of generating guessed Journals.</p></div><a class="admin-outline-button" href="cal/banking.html">Accountant Review →</a></div>
+<div class="finance-two-column finance-two-equal finance-inner-grid">
+<div><h3>Bank statement</h3><form id="bank-form" class="finance-form-grid">
+<label><span>Bank account</span><select id="bank-account" required></select></label><label><span>Statement reference</span><input id="bank-reference" maxlength="200"></label>
+<label><span>Period start</span><input id="bank-start" type="date" required></label><label><span>Period end</span><input id="bank-end" type="date" required></label>
+<label><span>Opening balance</span><input id="bank-opening" type="number" step="0.01" required></label><label><span>Ending balance</span><input id="bank-ending" type="number" step="0.01" required></label>
+<label class="full"><span>Statement CSV</span><input id="bank-file" type="file" accept="text/csv,.csv"><small>Date + Description + Amount, or Date + Debit + Credit. Negative Amount = money out.</small></label>
+<div class="full finance-form-actions"><button id="bank-start-btn" type="submit" class="btn primary">START & AUTO-MATCH →</button></div></form><div id="bank-recon-list" class="finance-mini-list"></div></div>
+<div><h3>Physical cash count</h3><form id="cash-form" class="finance-form-grid">
+<label><span>Cash account</span><select id="cash-account" required></select></label><label><span>Count date</span><input id="cash-date" type="date" required></label>
+<label><span>Physical cash counted</span><input id="cash-physical" type="number" min="0" step="0.01" required></label><label><span>Reference (optional)</span><input id="cash-reference" maxlength="200"></label>
+<div class="full finance-form-actions"><button id="cash-save" type="submit" class="btn primary">RECORD CASH COUNT →</button></div></form><div id="cash-count-list" class="finance-mini-list"></div></div>
+</div><div id="bank-unmatched-list" class="finance-table-list"></div></section>
+
+<div class="finance-two-column">
+<section id="automation" class="admin-panel"><div class="admin-section-title-row"><div><p class="eyebrow dark">AUTOMATION</p><h2>Completed Job → Invoice</h2><p class="admin-muted">Job completion creates a durable event before the worker runs. Amounts come from frozen Job billing; duplicate invoices are blocked.</p></div></div>
+<form id="finance-settings-form" class="finance-settings"><label><input id="fs-draft" type="checkbox"><span><b>Auto-create invoice DRAFT</b><small>Recommended: ON</small></span></label><label><input id="fs-issue" type="checkbox"><span><b>Auto-Issue invoice</b><small>Default OFF — commercial decision</small></span></label><label><input id="fs-email" type="checkbox"><span><b>Auto-email issued invoice</b><small>Requires Auto-Issue; default OFF</small></span></label><label><span><b>Default GST rate</b><small>Canada / Alberta default</small></span><input id="fs-gst" type="number" min="0" max="100" step="0.01"></label><button type="submit" class="admin-primary-button">SAVE AUTOMATION SETTINGS</button></form>
+<div class="finance-control-note"><b>Accounting boundary:</b> DRAFT invoices do not post to the ledger. When an invoice is issued, the existing STEP 17 event engine—not this page—creates the Journal/Ledger posting.</div></section>
+<section class="admin-panel"><div class="admin-section-title-row"><div><p class="eyebrow dark">ACCOUNTANT / ADVANCED</p><h2>Technical Accounting</h2><p class="admin-muted">Chart of Accounts, Journals, GIFI, period adjustments, fixed-asset setup, tax review and compliance remain outside normal daily operations.</p></div></div><div class="finance-control-note"><b>Daily users should not need this area.</b> Use it for accountant review, period close, compliance and exceptions only.</div><p style="margin-top:16px"><a class="admin-primary-button" href="cal/dashboard.html">OPEN ADVANCED ACCOUNTING →</a></p></section>
+</div>
+
+<section id="exceptions" class="admin-panel"><div class="admin-section-title-row"><div><p class="eyebrow dark">CONTROL</p><h2>Finance Exceptions</h2><p class="admin-muted">Unknown classifications, cash variances and automation failures requiring a human decision. PLEASE never fabricates an accounting treatment.</p></div></div><div id="finance-exception-list" class="finance-table-list"></div></section>
+<section class="admin-panel"><div class="admin-section-title-row"><div><p class="eyebrow dark">TRACEABILITY</p><h2>Operational Finance Queue</h2><p class="admin-muted">Durable completed-Job → invoice preparation queue.</p></div></div><div id="finance-queue-list" class="finance-table-list"></div></section>
+</main></div></div><script src="js/admin-finance.js?v=19.0"></script></body></html>

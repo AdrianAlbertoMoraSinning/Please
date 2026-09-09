@@ -15,11 +15,11 @@ pass('Server enforces prepaid and fixed-asset posting accounts',api.includes('PR
 pass('Netlify and root function mirrors remain identical',api===mirror);
 const protectedHashes={
 'index.html':'37606e19e13b019e6ae7465e0723edd5896f2cc5e15760d8de6b341f0f7dae57',
-'provider.html':'1b63e313b17c5213869181bc25fd3cf6f235c7bff4013c72515caa5f46c05969',
-'admin-dashboard.html':'82d9f83eeaf65fcfe80bf09478dfe0e7ceb512e13189b047d245ad10b1cf03a9',
+
+
 'service-request.html':'bf8001b0669a45108d6eb71d05e5df11e6902252742e29cdf902c83179d4525d',
 'track-request.html':'658412a1179cc9fd47af989394ce438fab4120485aaa14394bb48cd0abd1f33e',
-'payment.html':'122a5eea2ca3315e605778adbe19a1db54de5160a50f98f94a3a62ce9dd0d420',
+
 'stripe-webhook.js':'ae22531e33508826be005cb9d5dc9e0dabba1bef4ed2179af9d37dcc9a567812',
 'admin-provider-payment-action.js':'f74fa51e9b45e91bc2ee4b2d53672a760a1df7a03e627944441022101b639e02'
 };

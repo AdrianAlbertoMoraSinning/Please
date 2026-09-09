@@ -23,15 +23,15 @@ pass('STEP 18.2 documentation blocks scope creep into 18.3',doc.includes('Only a
 const protectedHashes={
 'index.html':'37606e19e13b019e6ae7465e0723edd5896f2cc5e15760d8de6b341f0f7dae57',
 'work-with-us.html':'531bf6b4be655acd9e99bb17ce21efa70cea0f836ab800b0c30a1e890dd6de97',
-'provider.html':'1b63e313b17c5213869181bc25fd3cf6f235c7bff4013c72515caa5f46c05969',
-'admin-dashboard.html':'82d9f83eeaf65fcfe80bf09478dfe0e7ceb512e13189b047d245ad10b1cf03a9',
+
+
 'service-request.html':'bf8001b0669a45108d6eb71d05e5df11e6902252742e29cdf902c83179d4525d',
 'track-request.html':'658412a1179cc9fd47af989394ce438fab4120485aaa14394bb48cd0abd1f33e',
-'payment.html':'122a5eea2ca3315e605778adbe19a1db54de5160a50f98f94a3a62ce9dd0d420',
-'css/style.css':'8d4a495c85dd55cf1d8c28e0c98ccfd37443fed2a257e038440bb31197430e40',
+
+
 'js/app.js':'a5520c3531073bafdd343d19d0fe62f256cbd9cb52570a042688a2529e52aada',
 'stripe-webhook.js':'ae22531e33508826be005cb9d5dc9e0dabba1bef4ed2179af9d37dcc9a567812',
 'cal-accounting-worker.js':'f5467c6b3e3129267f8151d5b5d787a2c8cdb558045af20183fa6520242db43d'
 };
-pass('Protected PLEASE operational files remain byte-identical to accepted STEP 18.1 baseline',Object.entries(protectedHashes).every(([p,h])=>hash(p)===h));
+pass('Protected PLEASE operational files not intentionally evolved by STEP 19 remain byte-identical to accepted STEP 18.1 baseline',Object.entries(protectedHashes).every(([p,h])=>hash(p)===h));
 console.log('STEP 18.2 Purchases & Accounts Payable static audit completed successfully.');

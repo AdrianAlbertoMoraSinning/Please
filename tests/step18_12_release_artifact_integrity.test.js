@@ -8,7 +8,7 @@ pass('Final verification defines exactly 64 acceptance controls',verify.includes
 pass('Final verification SQL mirrors are identical',verify===read('supabase/STEP18_12_VERIFY.sql')&&verify===read('cal/supabase/STEP18_12_VERIFY.sql'));
 pass('Final verification uses actual STEP 18.10 GIFI schema names and columns',verify.includes('accounting_gifi_account_mappings')&&verify.includes('sign_multiplier')&&!verify.includes('accounting_gifi_mapping ')&&!/accounting_gifi_account_mappings[^\n]*m\.active/.test(verify));
 pass('Verification covers STEP 17 queue, Trial Balance, Inventory, Fixed Assets, Payroll, Period Close, Compliance and Integration',['please_accounting_outbox','global_trial_balance_balanced','inventory_reconciles','fixed_asset_gross_reconciles','payroll_core_exists','period_close_core_exists','compliance_core_exists','integration_zero_blockers'].every(x=>verify.includes(x)));
-const historical=fs.readdirSync(path.join(root,'tests')).filter(f=>f.endsWith('.test.js')&&!f.startsWith('step18_12_'));
+const historical=fs.readdirSync(path.join(root,'tests')).filter(f=>f.endsWith('.test.js')&&!f.startsWith('step18_12_')&&!f.startsWith('step19_'));
 pass('All 59 pre-acceptance regression files are retained',historical.length===59);
 pass('STEP 18.12 acceptance documentation exists',exists('STEP18_12_REGRESSION_ACCEPTANCE.md')&&exists('STEP18_12_ACCEPTANCE_REPORT.md'));
 pass('STEP 18.11 production-close evidence is recorded in Acceptance Report',/Reconciliation scan[\s\S]*20[\s\S]*Errors[\s\S]*0/i.test(read('STEP18_12_ACCEPTANCE_REPORT.md'))&&/Worker[\s\S]*Claimed[\s\S]*0/i.test(read('STEP18_12_ACCEPTANCE_REPORT.md')));

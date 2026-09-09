@@ -5,5 +5,5 @@ ok(js.includes('End Time')&&js.includes('Total Hours')&&js.includes('End Time an
 ok(js.includes('Customer Rate')&&js.includes('Provider Cost / Rate')&&js.includes('AFTER SAVE'),'Job editor previews customer charge, provider cost and PLEASE margin separately');
 ok(fn.includes('billing_overrides')&&lib.includes('billingOverrides')&&lib.includes('billing_summary'),'Backend accepts billing rate review and returns persisted financial confirmation');
 ok(fn.includes('out.preferred_date=before.preferred_date')&&fn.includes('syncHourlyBilling:false'),'Linked Request preserves its original requested schedule instead of accidentally overwriting the Job');
-ok(html.includes('css/style.css?v=15.9.2')&&html.includes('js/admin-service-maintenance.js?v=15.9.2'),'Service Maintenance assets are cache-busted for STEP 15.9.2');
+ok(/css\/style\.css\?v=(?:15\.9\.2|19\.0)/.test(html)&&/js\/admin-service-maintenance\.js\?v=(?:15\.9\.2|19\.0)/.test(html),'Service Maintenance assets are cache-busted for STEP 15.9.2');
 if(fail)process.exit(1);console.log('STEP 15.9.2 UNIFIED JOB EDITING STATIC PASS');

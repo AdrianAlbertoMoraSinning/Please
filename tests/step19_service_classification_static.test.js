@@ -1,0 +1,5 @@
+'use strict';const fs=require('fs'),path=require('path'),assert=require('node:assert/strict'),test=require('node:test');const root=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const h=read('admin-service-maintenance.html'),j=read('js/admin-service-maintenance.js'),f=read('netlify/functions/admin-service-maintenance.js');
+test('Service Maintenance exposes editable Service Type',()=>{assert.match(j,/Service Type/);assert.match(j,/service_id/);assert.match(f,/serviceChoice/);assert.match(f,/\/rest\/v1\/services\?select=id,name,active/)});
+test('inactive historical classification may remain but cannot be newly selected',()=>assert.match(f,/x\.active===false&&String\(x\.id\)!==String\(currentId/));
+test('request-job classification synchronization uses rollback on failure',()=>{assert.match(f,/related Job edited in Service Maintenance/);assert.match(f,/source-request-classification-rollback/);assert.match(f,/job-classification-rollback/);assert.match(f,/sourceBefore/)});

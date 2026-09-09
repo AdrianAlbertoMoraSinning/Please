@@ -6,6 +6,10 @@
 [functions."cal-accounting-worker"]
   schedule = "* * * * *"
 
+# STEP 19 — Operational Finance worker. Completed Jobs are durably queued in Supabase first.
+[functions."operational-finance-worker"]
+  schedule = "* * * * *"
+
 # STEP 13.2 — browser security baseline. CSP remains compatible with the
 # current Supabase browser library, Google Fonts and existing static assets.
 [[headers]]

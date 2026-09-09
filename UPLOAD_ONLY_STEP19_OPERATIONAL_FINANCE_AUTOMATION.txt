@@ -1,0 +1,75 @@
+PLEASE STEP 19 — UPLOAD ONLY FILE LIST
+Baseline: STEP 18.12.1
+
+Existing files intentionally changed: 42
+New files: 17
+Deleted baseline files: 0
+
+UPLOAD / REPLACE THESE PATHS:
+STEP19_OPERATIONAL_FINANCE_AUTOMATION.md
+STEP19_OPERATIONAL_FINANCE_AUTOMATION.sql
+STEP19_REGRESSION_REPORT.md
+STEP19_VERIFY.sql
+admin-calendar.html
+admin-customers.html
+admin-dashboard.html
+admin-finance.html
+admin-invoices.html
+admin-jobs.html
+admin-live-operations.html
+admin-provider-payments.html
+admin-providers.html
+admin-reports.html
+admin-service-maintenance.html
+admin-service-requests.html
+admin.html
+css/style.css
+js/admin-finance.js
+js/admin-service-maintenance.js
+js/provider.js
+netlify.toml
+netlify/functions/_provider-evidence-lib.js
+netlify/functions/admin-finance-supplier-document-upload.js
+netlify/functions/admin-finance.js
+netlify/functions/admin-service-maintenance.js
+netlify/functions/operational-finance-worker.js
+netlify/functions/provider-dashboard.js
+netlify/functions/provider-live-service-action.js
+netlify/functions/provider-service-evidence-upload.js
+payment.html
+provider.html
+service-worker.js
+supabase/STEP19_OPERATIONAL_FINANCE_AUTOMATION.sql
+supabase/STEP19_VERIFY.sql
+tests/step15_8_5_mobile_camera_normalization.test.js
+tests/step15_9_1_active_job_schedule_duration.test.js
+tests/step15_9_1_photo_upload_recovery.test.js
+tests/step15_9_2_unified_job_editing_static.test.js
+tests/step15_9_client_operations_control.test.js
+tests/step18_10_accountant_compliance_static.test.js
+tests/step18_11_integration_static.test.js
+tests/step18_12_public_operations_regression.test.js
+tests/step18_12_release_artifact_integrity.test.js
+tests/step18_2_purchases_ap_static.test.js
+tests/step18_3_ar_credit_notes_refunds_static.test.js
+tests/step18_4_1_expense_ui_posting_guardrails.test.js
+tests/step18_4_advanced_expense_workflow_static.test.js
+tests/step18_6_inventory_accounting_static.test.js
+tests/step18_7_1_fixed_asset_party_role_guardrails.test.js
+tests/step18_7_fixed_assets_static.test.js
+tests/step18_8_payroll_static.test.js
+tests/step18_9_period_close_static.test.js
+tests/step19_critical_baseline_hashes.test.js
+tests/step19_daily_staff_shift_static.test.js
+tests/step19_operational_finance_static.test.js
+tests/step19_photo_recovery_static.test.js
+tests/step19_release_integrity.test.js
+tests/step19_service_classification_static.test.js
+
+DEPLOYMENT ORDER:
+1. Run supabase/STEP19_OPERATIONAL_FINANCE_AUTOMATION.sql
+2. Run supabase/STEP19_VERIFY.sql and require 20 PASS / 0 FAIL
+3. Upload/replace the listed application files
+4. Wait for Netlify Published
+5. Hard refresh Admin and refresh/reopen Provider PWA
+6. Perform STEP19_OPERATIONAL_FINANCE_AUTOMATION.md manual production smoke checks
