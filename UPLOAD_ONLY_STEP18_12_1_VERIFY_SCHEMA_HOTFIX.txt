@@ -1,0 +1,6 @@
+STEP18_12_1_VERIFY_SCHEMA_HOTFIX.md
+STEP18_12_VERIFY.sql
+UPLOAD_ONLY_STEP18_12_1_VERIFY_SCHEMA_HOTFIX.txt
+cal/supabase/STEP18_12_VERIFY.sql
+supabase/STEP18_12_VERIFY.sql
+tests/step18_12_release_artifact_integrity.test.js

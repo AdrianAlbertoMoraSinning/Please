@@ -1,0 +1,16 @@
+'use strict';
+const fs=require('fs'),path=require('path');
+const root=path.join(__dirname,'..');const read=p=>fs.readFileSync(path.join(root,p),'utf8'),exists=p=>fs.existsSync(path.join(root,p));
+let failed=false;const pass=(name,ok)=>{console.log(`${ok?'PASS':'FAIL'} ${name}`);if(!ok)failed=true};
+const verify=read('STEP18_12_VERIFY.sql');
+pass('STEP 18.12 is verification-only and contains no migration DDL',!/\b(create table|alter table|drop table|truncate table|create trigger|drop trigger)\b/i.test(verify));
+pass('Final verification defines exactly 64 acceptance controls',verify.includes("64,'release_database_ready'")&&(verify.match(/union all select/g)||[]).length===63);
+pass('Final verification SQL mirrors are identical',verify===read('supabase/STEP18_12_VERIFY.sql')&&verify===read('cal/supabase/STEP18_12_VERIFY.sql'));
+pass('Final verification uses actual STEP 18.10 GIFI schema names and columns',verify.includes('accounting_gifi_account_mappings')&&verify.includes('sign_multiplier')&&!verify.includes('accounting_gifi_mapping ')&&!/accounting_gifi_account_mappings[^\n]*m\.active/.test(verify));
+pass('Verification covers STEP 17 queue, Trial Balance, Inventory, Fixed Assets, Payroll, Period Close, Compliance and Integration',['please_accounting_outbox','global_trial_balance_balanced','inventory_reconciles','fixed_asset_gross_reconciles','payroll_core_exists','period_close_core_exists','compliance_core_exists','integration_zero_blockers'].every(x=>verify.includes(x)));
+const historical=fs.readdirSync(path.join(root,'tests')).filter(f=>f.endsWith('.test.js')&&!f.startsWith('step18_12_'));
+pass('All 59 pre-acceptance regression files are retained',historical.length===59);
+pass('STEP 18.12 acceptance documentation exists',exists('STEP18_12_REGRESSION_ACCEPTANCE.md')&&exists('STEP18_12_ACCEPTANCE_REPORT.md'));
+pass('STEP 18.11 production-close evidence is recorded in Acceptance Report',/Reconciliation scan[\s\S]*20[\s\S]*Errors[\s\S]*0/i.test(read('STEP18_12_ACCEPTANCE_REPORT.md'))&&/Worker[\s\S]*Claimed[\s\S]*0/i.test(read('STEP18_12_ACCEPTANCE_REPORT.md')));
+pass('Release does not claim privileged live workflows were browser-automated',/manual production smoke/i.test(read('STEP18_12_ACCEPTANCE_REPORT.md')));
+if(failed)process.exit(1);console.log('STEP 18.12 release-artifact integrity gate completed successfully.');
