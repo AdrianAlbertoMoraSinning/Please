@@ -7,6 +7,16 @@ const enc=v=>encodeURIComponent(String(v??''));
 const today=()=>new Date().toISOString().slice(0,10);
 const clean=(v,n=1000)=>String(v??'').trim().slice(0,n);
 const sleepMs=attempt=>Math.min(60*60*1000,Math.max(5*1000,Math.pow(2,Math.max(0,attempt-1))*15*1000));
+const FINANCIAL_EVENT_PRIORITY=Object.freeze({
+  INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,INVENTORY_OPENING_POSTED:10,FIXED_ASSET_OPENING_POSTED:10,PAYROLL_POSTED:10,
+  PERIOD_CLOSE_ADJUSTMENT_POSTED:15,
+  PAYMENT_RECEIVED:20,CREDIT_NOTE_ISSUED:20,INVENTORY_ISSUE_POSTED:20,INVENTORY_ADJUSTMENT_POSTED:20,FIXED_ASSET_DEPRECIATION_POSTED:20,
+  INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,REFUND_COMPLETED:30,EXPENSE_REIMBURSEMENT_PAID:30,FIXED_ASSET_DISPOSAL_POSTED:30,PAYROLL_PAID:30,PAYROLL_REMITTANCE_PAID:30,
+  STRIPE_FEE_RECORDED:40
+});
+const SUPPORTED_FINANCIAL_EVENT_TYPES=Object.freeze(Object.keys(FINANCIAL_EVENT_PRIORITY));
+const CUSTOM_POSTING_EVENT_TYPES=new Set(['PERIOD_CLOSE_ADJUSTMENT_POSTED']);
+const RULE_DRIVEN_FINANCIAL_EVENT_TYPES=new Set(SUPPORTED_FINANCIAL_EVENT_TYPES.filter(x=>!CUSTOM_POSTING_EVENT_TYPES.has(x)));
 
 function enabled(){return !['false','0','off','no'].includes(String(process.env.CAL_INTEGRATION_ENABLED||process.env.CAL_ACCOUNTING_ENABLED||'true').toLowerCase());}
 function schemaMissing(e){const m=String(e?.message||e||'').toLowerCase();return e?.status===404||m.includes('could not find')||m.includes('schema cache')||m.includes('does not exist')||m.includes('relation');}
@@ -280,7 +290,7 @@ async function dependencyPosted(eventKey,{allowIgnored=false}={}){
 async function buildPosting(row){
   const type=String(row.event_type||'').toUpperCase();
   const rule=await postingRule(type);
-  if(['INVOICE_ISSUED','INVOICE_VOIDED','PAYMENT_RECEIVED','STRIPE_FEE_RECORDED','PROVIDER_PAYABLE_CREATED','PROVIDER_PAYMENT_PAID','VENDOR_BILL_POSTED','SUPPLIER_PAYMENT_PAID','CREDIT_NOTE_ISSUED','REFUND_COMPLETED','EXPENSE_POSTED','EXPENSE_REIMBURSEMENT_PAID','INVENTORY_OPENING_POSTED','INVENTORY_ISSUE_POSTED','INVENTORY_ADJUSTMENT_POSTED','FIXED_ASSET_OPENING_POSTED','FIXED_ASSET_DEPRECIATION_POSTED','FIXED_ASSET_DISPOSAL_POSTED','PAYROLL_POSTED','PAYROLL_PAID','PAYROLL_REMITTANCE_PAID'].includes(type)&&!rule){
+  if(RULE_DRIVEN_FINANCIAL_EVENT_TYPES.has(type)&&!rule){
     throw new Error(`No enabled CAL posting rule is configured for ${type}.`);
   }
 
@@ -622,8 +632,7 @@ async function runWorker({limit=25,workerId=`netlify-${crypto.randomBytes(4).toS
   await releaseStaleClaims(Number(process.env.CAL_ACCOUNTING_STALE_MINUTES||10)).catch(e=>console.warn('cal-release-stale',e?.message||e));
   let rows=[];
   try{rows=await claimEvents(limit,workerId)||[];}catch(e){if(schemaMissing(e))return{ok:false,schema_missing:true,error:e.message||String(e),claimed:0};throw e;}
-  const priority={INVOICE_ISSUED:10,PROVIDER_PAYABLE_CREATED:10,VENDOR_BILL_POSTED:10,EXPENSE_POSTED:10,INVENTORY_OPENING_POSTED:10,FIXED_ASSET_OPENING_POSTED:10,PAYROLL_POSTED:10,PERIOD_CLOSE_ADJUSTMENT_POSTED:15,INVENTORY_ISSUE_POSTED:20,INVENTORY_ADJUSTMENT_POSTED:20,FIXED_ASSET_DEPRECIATION_POSTED:20,PAYMENT_RECEIVED:20,INVOICE_VOIDED:30,PROVIDER_PAYMENT_PAID:30,SUPPLIER_PAYMENT_PAID:30,EXPENSE_REIMBURSEMENT_PAID:30,FIXED_ASSET_DISPOSAL_POSTED:30,PAYROLL_PAID:30,PAYROLL_REMITTANCE_PAID:30,STRIPE_FEE_RECORDED:40};
-  rows=[...rows].sort((a,b)=>(priority[String(a.event_type||'').toUpperCase()]||100)-(priority[String(b.event_type||'').toUpperCase()]||100)||String(a.occurred_at||a.created_at||'').localeCompare(String(b.occurred_at||b.created_at||'')));
+  rows=[...rows].sort((a,b)=>(FINANCIAL_EVENT_PRIORITY[String(a.event_type||'').toUpperCase()]||100)-(FINANCIAL_EVENT_PRIORITY[String(b.event_type||'').toUpperCase()]||100)||String(a.occurred_at||a.created_at||'').localeCompare(String(b.occurred_at||b.created_at||'')));
   const summary={ok:true,enabled:true,worker_id:workerId,claimed:rows.length,posted:0,ignored:0,duplicates:0,retried:0,dead_letter:0,errors:[]};
   for(const row of rows){
     const r=await processOutboxEvent(row,{workerId});
@@ -695,4 +704,4 @@ async function handleInvoicePaid(id){const rows=await safeSb(`/rest/v1/payment_t
 async function handleProviderPayableCreated(id){const p=await providerPayment(id);return p?enqueueLegacy('PROVIDER_PAYABLE_CREATED','provider_payments',id,p.payment_reference||id,{provider_payment:p},p.created_at,p.job_id||id):null;}
 async function handleProviderPaymentPaid(id){const p=await providerPayment(id);return p?enqueueLegacy('PROVIDER_PAYMENT_PAID','provider_payments',id,p.payment_reference||id,{provider_payment:p},p.paid_at||p.updated_at||p.created_at,p.job_id||id,`PLEASE:PROVIDER_PAYABLE_CREATED:${id}`):null;}
 
-module.exports={MONEY,enabled,runWorker,processOutboxEvent,reconcile,handleInvoiceIssued,handleInvoiceVoided,handleInvoicePaid,handlePaymentTransaction,handleProviderPayableCreated,handleProviderPaymentPaid};
+module.exports={MONEY,enabled,FINANCIAL_EVENT_PRIORITY,SUPPORTED_FINANCIAL_EVENT_TYPES,runWorker,processOutboxEvent,reconcile,handleInvoiceIssued,handleInvoiceVoided,handleInvoicePaid,handlePaymentTransaction,handleProviderPayableCreated,handleProviderPaymentPaid};

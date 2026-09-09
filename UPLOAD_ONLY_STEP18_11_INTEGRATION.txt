@@ -1,0 +1,41 @@
+STEP 18.11 — Integration
+Upload only these files to GitHub, preserving exact paths.
+No files should be deleted.
+
+STEP18_11_INTEGRATION.md
+STEP18_11_INTEGRATION.sql
+STEP18_11_VERIFY.sql
+UPLOAD_ONLY_STEP18_11_INTEGRATION.txt
+_cal-accounting-lib.js
+cal-integration.js
+cal/accounts.html
+cal/audit.html
+cal/banking.html
+cal/compliance.html
+cal/css/style.css
+cal/dashboard.html
+cal/disclaimer.html
+cal/documents.html
+cal/expenses.html
+cal/fixed-assets.html
+cal/integration.html
+cal/inventory.html
+cal/invoices.html
+cal/journal.html
+cal/js/integration.js
+cal/master-data.html
+cal/payroll.html
+cal/period-close.html
+cal/purchases.html
+cal/reports.html
+cal/settings.html
+cal/supabase/STEP18_11_INTEGRATION.sql
+cal/supabase/STEP18_11_VERIFY.sql
+cal/taxes.html
+netlify/functions/_cal-accounting-lib.js
+netlify/functions/cal-integration.js
+supabase/STEP18_11_INTEGRATION.sql
+supabase/STEP18_11_VERIFY.sql
+tests/step18_11_event_contract_coverage.test.js
+tests/step18_11_integration_api_runtime.test.js
+tests/step18_11_integration_static.test.js
