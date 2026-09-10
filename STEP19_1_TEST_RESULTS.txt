@@ -1,0 +1,1366 @@
+TAP version 13
+# PASS: Jobs Provider column renders every assignment for each Job
+# PASS: Every Provider row includes the current individual assignment status
+# PASS: Primary Provider remains visibly identified in the team list
+# PASS: Provider team list has compact Administration-only presentation
+# PASS: Admin Jobs keeps STEP 15.8.3-or-newer cache-busting
+# STEP 15.8.3 Provider team column compatibility audit completed successfully.
+# Subtest: tests/step15_8_2_pending_provider_column.test.js
+ok 1 - tests/step15_8_2_pending_provider_column.test.js
+  ---
+  duration_ms: 40.156638
+  type: 'test'
+  ...
+# PASS: Public booking no longer top-level requires notification helper
+# PASS: Public booking no longer top-level requires security helper
+# PASS: Security loads only inside POST workflow
+# PASS: Admin notification is non-blocking after request creation
+# PASS: Fresh public-booking function route exists
+# PASS: Browser prefers fresh public-booking route
+# PASS: GET may safely fall back to legacy route
+# PASS: POST does not retry after arbitrary 5xx/network responses
+# PASS: Booking page cache-busts STEP 15.8.4-or-newer JavaScript
+# STEP 15.8.4 public booking runtime audit completed successfully.
+# Subtest: tests/step15_8_4_public_booking_runtime.test.js
+ok 2 - tests/step15_8_4_public_booking_runtime.test.js
+  ---
+  duration_ms: 43.314838
+  type: 'test'
+  ...
+# PASS: Provider portal has a reusable client-side photo normalizer
+# PASS: Photo normalizer converts browser-decodable phone images to JPEG
+# PASS: Arrival/completion and service photos are optimized below backend upload limits
+# PASS: Profile photos are optimized below the 4 MB profile limit
+# PASS: Live evidence capture explicitly supports direct camera-to-upload workflow
+# PASS: Live camera overlay accepts phone image formats for camera and library
+# PASS: Service portfolio supports direct rear-camera capture with normalization
+# PASS: Profile photo supports direct front-camera capture with normalization
+# PASS: Provider page cache-busts the updated camera JavaScript
+# PASS: Provider PWA service-worker cache version advanced
+# PASS: Provider PWA removes older Provider caches on activation
+# Subtest: tests/step15_8_5_mobile_camera_normalization.test.js
+ok 3 - tests/step15_8_5_mobile_camera_normalization.test.js
+  ---
+  duration_ms: 38.310416
+  type: 'test'
+  ...
+# PASS: Admin Service Request transitions no longer depend on legacy RPC
+# PASS: Transitions enforce state rules and optimistic current-status guard
+# PASS: Repeated transition clicks remain idempotent
+# PASS: Internal notes are saved without customer notification
+# PASS: Status history remains audited without false transaction failure on auxiliary history warning
+# PASS: Email delivery remains non-blocking after the business transition
+# PASS: Auxiliary drawer queries no longer collapse the Service Request queue
+# PASS: Administration surfaces useful HTTP errors and distinguishes refresh failure from transaction failure
+# PASS: Service Request page cache-busts the repaired browser code
+# PASS: STEP 15.8.6.1 requires no new SQL migration
+# STEP 15.8.6.1 transition recovery audit completed successfully.
+# Subtest: tests/step15_8_6_1_service_request_transition_recovery.test.js
+ok 4 - tests/step15_8_6_1_service_request_transition_recovery.test.js
+  ---
+  duration_ms: 31.581315
+  type: 'test'
+  ...
+# PASS: Supabase calls are bounded so gateway stalls become controlled 504 responses
+# PASS: Resend delivery has a bounded network timeout
+# PASS: Master Calendar parallelizes and isolates all independent catalog/operational reads
+# PASS: Assignment drawer has an independent lightweight catalog endpoint
+# PASS: Service Request assignment retries its catalog independently of calendar background data
+# PASS: Post-create/reassignment refresh failure can no longer masquerade as transaction failure
+# PASS: A calendar background error no longer blocks the Service Request assignment drawer
+# PASS: Service Request history and email run in parallel after the state change
+# PASS: Multi-provider validation and post-create work are parallelized to stay within function runtime
+# PASS: Master Calendar cache-busts STEP 15.8.6.2 or newer runtime recovery JavaScript
+# PASS: STEP 15.8.6.2 requires no database migration
+# STEP 15.8.6.2 gateway timeout recovery audit completed successfully.
+# Subtest: tests/step15_8_6_2_gateway_timeout_recovery.test.js
+ok 5 - tests/step15_8_6_2_gateway_timeout_recovery.test.js
+  ---
+  duration_ms: 34.682047
+  type: 'test'
+  ...
+# PASS: Needs Assignment reuses the normal multi-provider card instead of switching to the legacy form
+# PASS: Rejected Provider, schedule and billing snapshot are prefilled in the normal team card
+# PASS: Changing Provider clears incompatible billing lines and refreshes Provider Rate choices exactly like original Job creation
+# PASS: Unified card preserves the replaced assignment Primary flag and team position
+# PASS: Latest compatible UI keeps the normal Add Another Provider control available during reassignment
+# PASS: Reassignment submission reads the same multi-provider team-card state that Administration edits
+# PASS: Drawer keeps the same Provider/Billing workflow and add-provider control used for original Job creation
+# PASS: Legacy assignment controls remain hidden and are no longer the visible reassignment UI
+# PASS: Master Calendar cache-busts the unified reassignment releases
+# PASS: Needs Assignment also restores linked PLS-REQ context when available
+# PASS: Reassignment shows the original customer Request reference and preference when linked
+# PASS: STEP 15.8.6.3.1 requires no SQL migration
+# STEP 15.8.6.3.1 unified reassignment UI compatibility audit completed successfully.
+# Subtest: tests/step15_8_6_3_1_unified_reassignment_ui.test.js
+ok 6 - tests/step15_8_6_3_1_unified_reassignment_ui.test.js
+  ---
+  duration_ms: 35.866403
+  type: 'test'
+  ...
+# PASS: Correct & Reassign exposes + ADD ANOTHER PROVIDER and creates additional team cards
+# PASS: Browser sends replacement plus added Providers together in one reassignment request
+# PASS: Only the failed slot is labelled as a replacement; extra Providers are labelled as additions
+# PASS: Newly added reassignment Providers can be removed without removing the required replacement slot
+# PASS: UI explains that team expansion remains inside the same Job
+# PASS: STEP 15.8.6.3.2-or-newer cache-bust is active
+# PASS: Backend plans one replacement plus zero or more additional Provider assignments
+# PASS: Backend blocks duplicate Providers against both current active team and new selections
+# PASS: Every new/replacement Provider is checked for published availability and overlap
+# PASS: New assignments preserve replacement primary/order and create added Providers as independent PENDING assignments
+# PASS: Same Job expands its required team count when additional Providers are added
+# PASS: Each new Provider receives an assignment notification while customer coordination remains one Job
+# PASS: No SQL migration is required for multi-provider reassignment
+# STEP 15.8.6.3.2 multi-provider reassignment static audit completed successfully.
+# Subtest: tests/step15_8_6_3_2_multi_provider_reassignment.test.js
+ok 7 - tests/step15_8_6_3_2_multi_provider_reassignment.test.js
+  ---
+  duration_ms: 41.426041
+  type: 'test'
+  ...
+# 200 {"ok":true,"job_id":"11111111-1111-1111-1111-111111111111","job_reference":"PLS-JOB-X","assignment_ids":["77777777-7777-7777-7777-777777777777","88888888-8888-8888-8888-888888888888"],"provider_count":2,"added_provider_count":1,"active_team_count":2,"billing_items_replaced":1,"billing_items_created":2,"provider_rates_updated":1,"notifications_sent":4,"replaced_assignment_id":"33333333-3333-3333-3333-333333333333"}
+# MULTI REASSIGNMENT RUNTIME MOCK PASS
+# Subtest: tests/step15_8_6_3_2_multi_provider_runtime.test.js
+ok 8 - tests/step15_8_6_3_2_multi_provider_runtime.test.js
+  ---
+  duration_ms: 35.476075
+  type: 'test'
+  ...
+# PASS: Needs Assignment opens an explicit correction/reassignment workflow
+# PASS: Reassignment billing exposes quantity, customer rate and provider rate
+# PASS: Reassignment submits a billing-aware multi-provider correction tied to the declined/cancelled assignment
+# PASS: Master Calendar loads the prior declined/cancelled assignment so provider/order/schedule can be prefilled
+# PASS: Frozen billing rows include their Provider compensation snapshot for editing
+# PASS: Reassignment uses the same team totals for Provider Cost and PLEASE Gross Profit as original Job creation
+# PASS: Master Calendar cache-busts STEP 15.8.6.3.2 or newer
+# PASS: Backend has a dedicated billing-aware multi-provider reassignment action
+# PASS: Replacement Provider preserves team order and primary status
+# PASS: Adding Providers expands the required team count on the same Job
+# PASS: Backend writes corrected/new billing snapshots and removes only the replaced assignment billing snapshot
+# PASS: Changed Provider Rates persist to their selected Provider profiles and remain audited
+# PASS: Job subtotal and duration are synchronized after multi-provider correction
+# PASS: Partial multi-provider reassignment failures attempt rollback of new assignments/billing and Provider Rate changes
+# PASS: STEP 15.8.6.3.2 requires no new Supabase migration
+# STEP 15.8.6.3 multi-provider compatible editable billing audit completed successfully.
+# Subtest: tests/step15_8_6_3_editable_reassignment_billing.test.js
+ok 9 - tests/step15_8_6_3_editable_reassignment_billing.test.js
+  ---
+  duration_ms: 35.546941
+  type: 'test'
+  ...
+# 200 {"ok":true,"job_id":"11111111-1111-1111-1111-111111111111","assignment_id":"77777777-7777-7777-7777-777777777777","status":"PENDING","job_reference":"PLS-JOB-X","billing_items_replaced":1,"billing_items_created":1,"provider_rates_updated":1,"notifications_sent":3,"replaced_assignment_id":"33333333-3333-3333-3333-333333333333"}
+# RUNTIME MOCK PASS
+# Subtest: tests/step15_8_6_3_reassignment_runtime.test.js
+ok 10 - tests/step15_8_6_3_reassignment_runtime.test.js
+  ---
+  duration_ms: 33.29661
+  type: 'test'
+  ...
+# PASS: Book Your Service is the primary compact heading
+# PASS: Booking page has compact intro/disclaimer styling
+# PASS: Public booking no longer asks for Moving-specific intake
+# PASS: New public requests leave legacy Moving fields empty without validation
+# PASS: Administration no longer requires Moving-specific fields
+# PASS: Service Requests expose and search the related Service Job reference
+# PASS: Service Request search explicitly supports both reference types
+# PASS: Jobs search explicitly supports both Service Job and Customer Tracking references
+# PASS: Job detail keeps both references visible together
+# PASS: Related Job links can prefill the Jobs search directly
+# PASS: Master Calendar service catalog has a schema-compatible fallback
+# PASS: Auxiliary Master Calendar queries are isolated instead of collapsing the whole function
+# PASS: Job creation UI includes editable Provider Rate/percentage values
+# PASS: Customer pricing and Provider compensation remain visibly separate
+# PASS: Server persists a changed Rate Item only to the corresponding Provider
+# PASS: Server attempts to restore Provider Rates when multi-provider Job creation fails
+# PASS: Provider Rate changes are audited and communicated to the Provider
+# PASS: Request-to-Job linking has a post-create recovery path
+# PASS: STEP 15.8.6 requires no new SQL migration
+# STEP 15.8.6 client adjustments audit completed successfully.
+# Subtest: tests/step15_8_6_client_adjustments.test.js
+ok 11 - tests/step15_8_6_client_adjustments.test.js
+  ---
+  duration_ms: 47.853177
+  type: 'test'
+  ...
+# PASS: Public tracking filters team to CONFIRMED/COMPLETED only
+# PASS: Public tracking no longer exposes awaiting provider confirmation status
+# PASS: PENDING_PROVIDER maps to generic Scheduling service
+# PASS: Timeline hides internal provider assignment state
+# PASS: Administration shows exact pending Provider names
+# PASS: Administration links PLS-JOB to PLS-REQ and tracking
+# PASS: Admin Job tracking preview does not email the customer just for opening the page
+# PASS: Provider assignment emails include direct portal CTA
+# PASS: Provider login preserves Assignments destination
+# PASS: Home includes Book Your Service CTA
+# PASS: Booking form includes address, drop-off and estimated hours
+# PASS: Booking uses existing service_requests architecture without new table
+# PASS: Server validates 15-minute booking increments
+# PASS: Provider declines stay internal and are not emailed to the customer
+# PASS: Selected-service panel stays hidden until a service is actually selected
+# PASS: Public booking service loader depends only on required service columns
+# PASS: Public booking service loader has compatibility fallback ordering
+# PASS: Booking form shows a clear recovery message if service loading fails
+# PASS: STEP 15.8 requires no database migration
+# STEP 15.8 client adjustment audit completed successfully.
+# Subtest: tests/step15_8_client_adjustments.test.js
+ok 12 - tests/step15_8_client_adjustments.test.js
+  ---
+  duration_ms: 41.659984
+  type: 'test'
+  ...
+# PASS: Active Job schedule/duration has one reusable authenticated backend mutation path
+# PASS: Only active Provider assignments are rescheduled and started work protects its original start time
+# PASS: Changing service hours synchronizes hourly customer/provider billing quantities and totals without changing rates
+# PASS: Job subtotal and operational duration are recalculated after schedule/hour changes
+# PASS: Linked Customer Tracking request schedule is synchronized and audited
+# PASS: Provider/customer schedule-change notifications preserve Customer Tracking privacy and cannot turn a saved mutation into a false failure
+# PASS: Master Calendar can reduce/increase date, start and service hours on an existing active Job
+# PASS: Assigned Service Requests synchronize the existing Job atomically and block conflicting service changes
+# PASS: Service Request editor uses the actual linked Job schedule instead of stale request preferences
+# PASS: Service Maintenance can edit active Job date/start/end/hours and confirm synchronized billing
+# PASS: Admin schedule screens are cache-busted for STEP 15.9.1
+# STEP 15.9.1 active Job schedule/duration static audit completed successfully.
+# Subtest: tests/step15_9_1_active_job_schedule_duration.test.js
+ok 13 - tests/step15_9_1_active_job_schedule_duration.test.js
+  ---
+  duration_ms: 36.09721
+  type: 'test'
+  ...
+# {"ok":true,"job_id":"11111111-1111-1111-1111-111111111111","job_reference":"PLS-JOB-HOURS","updated_assignments":2,"updated_assignment_ids":["33333333-3333-3333-3333-333333333333","44444444-4444-4444-4444-444444444444"],"estimated_duration_minutes":120,"job_estimated_duration_minutes":120,"hourly_billing_items_updated":2,"billing_rate_items_reviewed":0,"notifications_sent":3,"scheduled_start":"2026-09-03T15:00:00.000Z","scheduled_end":"2026-09-03T17:00:00.000Z","billing_summary":{"customer_subtotal":160,"provider_total":90,"gross_profit_total":70,"provider_complete":true}}
+# STEP 15.9.1 ACTIVE JOB SCHEDULE RUNTIME MOCK PASS
+# Subtest: tests/step15_9_1_active_job_schedule_runtime.test.js
+ok 14 - tests/step15_9_1_active_job_schedule_runtime.test.js
+  ---
+  duration_ms: 46.023289
+  type: 'test'
+  ...
+# STEP 15.9.1 PHOTO READINESS RUNTIME MOCK PASS
+# Subtest: tests/step15_9_1_photo_readiness_runtime.test.js
+ok 15 - tests/step15_9_1_photo_readiness_runtime.test.js
+  ---
+  duration_ms: 47.201685
+  type: 'test'
+  ...
+# PASS: Provider Portal performs server-side lifecycle readiness before opening camera/gallery
+# PASS: Photo preflight returns explicit lifecycle error codes and next available time
+# PASS: All official live evidence photo actions preflight before asking the Provider for a photo
+# PASS: Safe JPG/PNG/WEBP photos bypass unnecessary canvas decoding only when small; larger phone images are optimized well below gateway limits
+# PASS: Evidence endpoint enforces the stricter STEP 19 payload limit, image magic bytes and Job linkage with actionable codes
+# PASS: Database/storage deployment problems are mapped through the shared evidence recovery layer instead of becoming a generic photo failure
+# PASS: Provider UI/manual explains direct camera workflow and readiness messages
+# PASS: Provider PWA/cache advances to the STEP 19 Provider runtime
+# PASS: Completion handler has one authoritative implementation with readiness preflight
+# STEP 15.9.1 photo upload recovery static audit completed successfully.
+# Subtest: tests/step15_9_1_photo_upload_recovery.test.js
+ok 16 - tests/step15_9_1_photo_upload_recovery.test.js
+  ---
+  duration_ms: 25.764959
+  type: 'test'
+  ...
+# STEP 15.9.2 UNIFIED JOB BILLING RUNTIME PASS
+# Subtest: tests/step15_9_2_unified_job_billing_runtime.test.js
+ok 17 - tests/step15_9_2_unified_job_billing_runtime.test.js
+  ---
+  duration_ms: 63.258073
+  type: 'test'
+  ...
+# PASS: Linked Request explicitly directs Administration to the operational Job
+# PASS: Job editor exposes synchronized end time and total hours
+# PASS: Job editor previews customer charge, provider cost and PLEASE margin separately
+# PASS: Backend accepts billing rate review and returns persisted financial confirmation
+# PASS: Linked Request preserves its original requested schedule instead of accidentally overwriting the Job
+# PASS: Service Maintenance assets are cache-busted for STEP 15.9.2
+# STEP 15.9.2 UNIFIED JOB EDITING STATIC PASS
+# Subtest: tests/step15_9_2_unified_job_editing_static.test.js
+ok 18 - tests/step15_9_2_unified_job_editing_static.test.js
+  ---
+  duration_ms: 50.203279
+  type: 'test'
+  ...
+# PASS: Dedicated payment success page exists and calls public payment result endpoint
+# PASS: Dedicated payment cancelled page exists and provides Pay Again behavior
+# PASS: Checkout success URL includes token and Checkout Session ID
+# PASS: Checkout cancel URL uses dedicated cancelled page
+# PASS: Checkout no longer blocks an unpaid invoice only because a previous session is active
+# PASS: Public invoice can resolve by token or session id
+# PASS: Public payment result exposes safe paid/pending state
+# PASS: Invoice page handles cancelled, success and pending states without false invalid-link messaging
+# PASS: Paid invoices hide pay button and show payment received details
+# PASS: Webhook resolves invoice by id or Checkout Session fallback
+# PASS: Webhook safely acknowledges duplicate deliveries after already-paid state
+# PASS: Webhook records Stripe payment details in existing payment transaction note
+# PASS: Admin Invoices renders Stripe Payment Details panel
+# PASS: Documentation states no SQL migration required
+# STEP 15.9.3 Stripe payment return recovery static audit completed successfully.
+# Subtest: tests/step15_9_3_stripe_payment_return_recovery.test.js
+ok 19 - tests/step15_9_3_stripe_payment_return_recovery.test.js
+  ---
+  duration_ms: 49.927624
+  type: 'test'
+  ...
+# STEP 15.9.3 STRIPE WEBHOOK RUNTIME PASS
+# Subtest: tests/step15_9_3_stripe_webhook_runtime.test.js
+ok 20 - tests/step15_9_3_stripe_webhook_runtime.test.js
+  ---
+  duration_ms: 31.124876
+  type: 'test'
+  ...
+# PASS: Service Request drawer is half-width on desktop and exposes editable date/time
+# PASS: Service Request address is visible and editable before Job creation
+# PASS: Administration has a Customer Master with customer detail/history data
+# PASS: Public Service Requests link to the Customer Master server-side
+# PASS: Returning public intake fills blanks instead of overwriting established Customer Master data
+# PASS: Provider Confirm/Decline responses notify Administration
+# PASS: Administration has an operational priority Dashboard
+# PASS: Master Calendar Provider rows no longer print the complete authorized-service list
+# PASS: Master Calendar has MONTH view with daily service counts
+# PASS: Administration can maintain Provider Service Rates
+# PASS: Worker Type is restricted, persisted, re-read and audited
+# PASS: PLEASE Staff retains all four evidence types while STEP 19 applies Check In/Out at the daily workday boundary
+# PASS: Provider UI/manual exposes one Daily Check In/Out for PLEASE Staff while retaining per-service arrival/completion
+# PASS: Public Customer Tracking excludes internal Check In/Check Out photos
+# PASS: Service Maintenance supports confirmed audited deletion
+# PASS: Provider PWA cache advances for the STEP 19 daily workflow
+# PASS: STEP 15.9 deployment/manual documentation is included
+# STEP 15.9 client operations control audit completed successfully.
+# Subtest: tests/step15_9_client_operations_control.test.js
+ok 21 - tests/step15_9_client_operations_control.test.js
+  ---
+  duration_ms: 33.891857
+  type: 'test'
+  ...
+# PASS: CAL app hides raw Netlify 404 HTML from agreement alert
+# PASS: CAL legal acceptance calls the correct Netlify function path
+# PASS: CAL backend bundle functions are present
+# PASS: admin-calendar.html includes CAL Accounting in sidebar
+# PASS: admin-customers.html includes CAL Accounting in sidebar
+# PASS: admin-dashboard.html includes CAL Accounting in sidebar
+# PASS: admin-finance.html includes CAL Accounting in sidebar
+# PASS: admin-invoices.html includes CAL Accounting in sidebar
+# PASS: admin-jobs.html includes CAL Accounting in sidebar
+# PASS: admin-live-operations.html includes CAL Accounting in sidebar
+# PASS: admin-provider-payments.html includes CAL Accounting in sidebar
+# PASS: admin-providers.html includes CAL Accounting in sidebar
+# PASS: admin-reports.html includes CAL Accounting in sidebar
+# PASS: admin-service-maintenance.html includes CAL Accounting in sidebar
+# PASS: admin-service-requests.html includes CAL Accounting in sidebar
+# PASS: admin.html includes CAL Accounting in sidebar
+# PASS: Service Maintenance specifically includes CAL Accounting
+# STEP 16.0.2 CAL acceptance/menu repair static audit completed successfully.
+# Subtest: tests/step16_0_2_cal_acceptance_menu_repair.test.js
+ok 22 - tests/step16_0_2_cal_acceptance_menu_repair.test.js
+  ---
+  duration_ms: 28.00213
+  type: 'test'
+  ...
+# PASS: Root index is the PLEASE public Home
+# PASS: PLEASE hero is restored
+# PASS: Home BOOK YOUR SERVICE CTA is restored
+# PASS: Home quote CTA and Netlify quote form are restored
+# PASS: CAL content does not replace the public Home
+# PASS: CAL accounts.html remains under /cal
+# PASS: CAL audit.html remains under /cal
+# PASS: CAL banking.html remains under /cal
+# PASS: CAL dashboard.html remains under /cal
+# PASS: CAL disclaimer.html remains under /cal
+# PASS: CAL documents.html remains under /cal
+# PASS: CAL expenses.html remains under /cal
+# PASS: CAL index.html remains under /cal
+# PASS: CAL invoices.html remains under /cal
+# PASS: CAL journal.html remains under /cal
+# PASS: CAL reports.html remains under /cal
+# PASS: CAL settings.html remains under /cal
+# PASS: CAL taxes.html remains under /cal
+# PASS: Legacy root CAL accounts.html is removed
+# PASS: Legacy root CAL audit.html is removed
+# PASS: Legacy root CAL banking.html is removed
+# PASS: Legacy root CAL dashboard.html is removed
+# PASS: Legacy root CAL disclaimer.html is removed
+# PASS: Legacy root CAL documents.html is removed
+# PASS: Legacy root CAL expenses.html is removed
+# PASS: Legacy root CAL invoices.html is removed
+# PASS: Legacy root CAL journal.html is removed
+# PASS: Legacy root CAL reports.html is removed
+# PASS: Legacy root CAL settings.html is removed
+# PASS: Legacy root CAL taxes.html is removed
+# PASS: Legacy accounts.html redirects into /cal
+# PASS: Legacy audit.html redirects into /cal
+# PASS: Legacy banking.html redirects into /cal
+# PASS: Legacy dashboard.html redirects into /cal
+# PASS: Legacy disclaimer.html redirects into /cal
+# PASS: Legacy documents.html redirects into /cal
+# PASS: Legacy expenses.html redirects into /cal
+# PASS: Legacy invoices.html redirects into /cal
+# PASS: Legacy journal.html redirects into /cal
+# PASS: Legacy reports.html redirects into /cal
+# PASS: Legacy settings.html redirects into /cal
+# PASS: Legacy taxes.html redirects into /cal
+# PASS: Canonical /cal route remains active
+# PASS: favicon-16.png exists under /images
+# PASS: favicon-32.png exists under /images
+# PASS: favicon-48.png exists under /images
+# PASS: apple-touch-icon.png exists under /images
+# PASS: Root favicon.ico remains available
+# PASS: Accidental root CAL frontend support files are removed
+# PASS: Broken root agenda copies are removed
+# PASS: Legacy agenda routes redirect to canonical module pages
+# STEP 16.0.3 PLEASE Home restoration / CAL isolation audit completed successfully.
+# Subtest: tests/step16_0_3_home_cal_isolation.test.js
+ok 23 - tests/step16_0_3_home_cal_isolation.test.js
+  ---
+  duration_ms: 32.778489
+  type: 'test'
+  ...
+# PASS: STEP 16 accounting tables remain the preserved foundation
+# PASS: STEP 17 upgrades rather than deletes the STEP 16 outbox
+# PASS: CAL remains isolated under /cal
+# PASS: Admin still exposes CAL Accounting
+# PASS: Manual Sync UI is intentionally superseded by STEP 17
+# PASS: STEP 16 accounting history remains compatible with STEP 17 event source uniqueness
+# STEP 16 foundation / STEP 17 compatibility audit completed successfully.
+# Subtest: tests/step16_0_cal_accounting_bridge_static.test.js
+ok 24 - tests/step16_0_cal_accounting_bridge_static.test.js
+  ---
+  duration_ms: 35.423755
+  type: 'test'
+  ...
+# STEP 17 ACCOUNTING WORKER MODULE PASS
+# Subtest: tests/step17_accounting_worker_module.test.js
+ok 25 - tests/step17_accounting_worker_module.test.js
+  ---
+  duration_ms: 33.771495
+  type: 'test'
+  ...
+# PASS: STEP 17 creates separate immutable domain event ledger
+# PASS: Financial source triggers enqueue durable accounting events inside PostgreSQL
+# PASS: Queue lifecycle includes processing, retry and dead letter states
+# PASS: STEP 16 ERROR rows remain rollout-compatible and are claimable
+# PASS: Queue claims are concurrency safe
+# PASS: Journal posting is atomic inside PostgreSQL
+# PASS: Posted journal lines are immutable
+# PASS: Worker is scheduled automatically
+# PASS: Accounting worker uses retry and Dead Letter controls
+# PASS: Dead Letter recovery resets retry budget
+# PASS: Posting rules table is actively read by worker
+# PASS: Financial action handlers no longer post CAL synchronously
+# PASS: Issued invoice financial edits are locked
+# PASS: Operational responses identify event-driven accounting without waiting for posting
+# PASS: Stripe still stores fee and net reconciliation details
+# PASS: Stripe webhook id is stored structurally when STEP 17 schema is available
+# PASS: CAL dashboard has no user-facing Sync button
+# PASS: CAL dashboard exposes native engine health
+# PASS: Engine health degrades on stale pending events
+# PASS: Recovery remains protected and exceptional
+# PASS: Posted journals are immutable and corrections use reversal entries
+# PASS: Event versioning, hashes and correlation/causation are present
+# PASS: Refunds are not auto-posted without a dedicated source document
+# PASS: STEP 17 documentation defines safe deployment order and rollback principle
+# STEP 17 Native Accounting Engine static audit completed successfully.
+# Subtest: tests/step17_native_accounting_engine_static.test.js
+ok 26 - tests/step17_native_accounting_engine_static.test.js
+  ---
+  duration_ms: 31.937806
+  type: 'test'
+  ...
+# STEP 18.10 ACCOUNTANT COMPLIANCE API RUNTIME PASS
+# Subtest: tests/step18_10_accountant_compliance_api_runtime.test.js
+ok 27 - tests/step18_10_accountant_compliance_api_runtime.test.js
+  ---
+  duration_ms: 32.797658
+  type: 'test'
+  ...
+# PASS STEP 18.10 migration additive
+# PASS GIFI current CAL account map included
+# PASS GIFI paper approval guardrails
+# PASS Complete accountant package sections
+# PASS Package approval guards
+# PASS Compliance calendar supports major obligations
+# PASS Payroll remitter frequencies supported
+# PASS Three-month corporate balance requires basis
+# PASS Evidence append-only and correction-aware
+# PASS Compliance does not enqueue financial events
+# PASS Compliance API admin-only and same-origin
+# PASS Compliance API actions exposed
+# PASS Compliance UI has all required workspaces
+# PASS UI explicitly disclaims direct filing
+# PASS API mirrors identical
+# PASS SQL mirrors identical
+# PASS Verify contains 36 controls
+# PASS Every authenticated CAL page includes Compliance navigation
+# PASS Unchanged public PLEASE Stripe and Provider Payment baseline stays byte-identical
+# STEP 18.10 Accountant & Compliance static audit completed successfully.
+# Subtest: tests/step18_10_accountant_compliance_static.test.js
+ok 28 - tests/step18_10_accountant_compliance_static.test.js
+  ---
+  duration_ms: 33.750484
+  type: 'test'
+  ...
+# PASS GIFI realized gain/loss included in revenue-side total
+# PASS Accumulated amortization remains negative in asset total
+# PASS Package includes detailed General Ledger
+# PASS Package includes source subledgers
+# PASS Package approval depends on closed periods and reconciliation
+# PASS No direct tax transmission implementation
+# STEP 18.10 ACCOUNTANT PACKAGE INTEGRITY PASS
+# Subtest: tests/step18_10_accountant_package_integrity.test.js
+ok 29 - tests/step18_10_accountant_package_integrity.test.js
+  ---
+  duration_ms: 34.848224
+  type: 'test'
+  ...
+# PASS Contract has exactly 22 financial event types
+# PASS Worker has exactly 22 supported event types
+# PASS SQL financial contract and worker event set are identical
+# PASS Every statically enqueued financial event is in STEP 18.11 contract
+# PASS No compliance contract is worker-supported
+# STEP 18.11 event contract coverage PASS
+# Subtest: tests/step18_11_event_contract_coverage.test.js
+ok 30 - tests/step18_11_event_contract_coverage.test.js
+  ---
+  duration_ms: 41.113991
+  type: 'test'
+  ...
+# STEP 18.11 INTEGRATION API RUNTIME PASS
+# Subtest: tests/step18_11_integration_api_runtime.test.js
+ok 31 - tests/step18_11_integration_api_runtime.test.js
+  ---
+  duration_ms: 36.755242
+  type: 'test'
+  ...
+# PASS STEP 18.11 additive migration
+# PASS 22 financial contracts registered
+# PASS 5 compliance domain-only contracts registered
+# PASS Outbox contract guard enforced
+# PASS Source fact coverage view includes all financial events
+# PASS Integration exception controls complete
+# PASS Compliance bridge never uses financial outbox
+# PASS Credit note and refund worker priorities explicit
+# PASS Worker supported event registry centralized
+# PASS Integration API admin-only same-origin
+# PASS Integration API recovery actions controlled
+# PASS Integration UI exposes health not manual journal injection
+# PASS API mirrors identical
+# PASS Accounting lib mirrors identical
+# PASS SQL mirrors identical
+# PASS Verify contains 40 controls
+# PASS Every authenticated CAL page includes Integration Health navigation
+# PASS Unchanged public PLEASE Stripe and Provider Payment baseline stays byte-identical
+# STEP 18.11 integration static audit completed successfully.
+# Subtest: tests/step18_11_integration_static.test.js
+ok 32 - tests/step18_11_integration_static.test.js
+  ---
+  duration_ms: 34.052059
+  type: 'test'
+  ...
+# PASS 21 CAL HTML pages are present
+# PASS All expected CAL modules exist
+# PASS Authenticated CAL pages include data-page="inventory"
+# PASS Authenticated CAL pages include data-page="fixed-assets"
+# PASS Authenticated CAL pages include data-page="payroll"
+# PASS Authenticated CAL pages include data-page="period-close"
+# PASS Authenticated CAL pages include data-page="compliance"
+# PASS Authenticated CAL pages include data-page="integration"
+# PASS Every CAL HTML page carries favicon metadata
+# PASS Core CAL Netlify functions exist
+# PASS Root/Netlify mirrors match for mirrored CAL functions
+# PASS Accounting library root/Netlify mirrors match
+# PASS STEP 18.11 contract matrix remains canonical
+# PASS Compliance actions remain domain-only in 18.11 contract
+# PASS Period-close boundary guard remains active
+# PASS No legacy root CAL HTML copies were reintroduced
+# STEP 18.12 CAL release-surface gate completed successfully.
+# Subtest: tests/step18_12_cal_release_surface.test.js
+ok 33 - tests/step18_12_cal_release_surface.test.js
+  ---
+  duration_ms: 36.841197
+  type: 'test'
+  ...
+# PASS Legacy protected public/operations files not intentionally evolved by STEP 19 remain byte-identical to accepted STEP 18.11 baseline
+# PASS Public Home remains PLEASE, not CAL
+# PASS Public Home keeps quote and booking CTAs
+# PASS Service Request surface exists and remains public workflow
+# PASS Customer tracking surface remains present
+# PASS Payment page remains connected to Stripe checkout path
+# PASS Stripe success/cancel recovery surfaces remain present
+# PASS Provider application and Provider Portal surfaces remain present
+# PASS Admin operational surfaces remain present
+# PASS Provider payment action remains separate from CAL supplier payments
+# PASS No CAL page replaced root Home
+# STEP 18.12 public/operations regression gate completed successfully.
+# Subtest: tests/step18_12_public_operations_regression.test.js
+ok 34 - tests/step18_12_public_operations_regression.test.js
+  ---
+  duration_ms: 33.173189
+  type: 'test'
+  ...
+# PASS STEP 18.12 is verification-only and contains no migration DDL
+# PASS Final verification defines exactly 64 acceptance controls
+# PASS Final verification SQL mirrors are identical
+# PASS Final verification uses actual STEP 18.10 GIFI schema names and columns
+# PASS Verification covers STEP 17 queue, Trial Balance, Inventory, Fixed Assets, Payroll, Period Close, Compliance and Integration
+# PASS All 59 pre-acceptance regression files are retained
+# PASS STEP 18.12 acceptance documentation exists
+# PASS STEP 18.11 production-close evidence is recorded in Acceptance Report
+# PASS Release does not claim privileged live workflows were browser-automated
+# STEP 18.12 release-artifact integrity gate completed successfully.
+# Subtest: tests/step18_12_release_artifact_integrity.test.js
+ok 35 - tests/step18_12_release_artifact_integrity.test.js
+  ---
+  duration_ms: 39.605112
+  type: 'test'
+  ...
+# PASS: Business Partner Master is additive
+# PASS: Party supports customer, operational provider and supplier roles
+# PASS: Legacy accounting_contacts is linked rather than replaced
+# PASS: Financial account registry maps identity to GL without balances
+# PASS: STEP 17 control accounts are protected
+# PASS: Seeded Canadian tax codes are protected
+# PASS: Source sync is best-effort and cannot block PLEASE operations
+# PASS: Operational customer/provider tables are not structurally altered
+# PASS: STEP 18.1 introduces no financial posting event
+# PASS: New master tables are RLS hardened
+# PASS: Business partner deletion is prevented for audit continuity
+# PASS: Master-data API requires PLEASE Admin and same-origin writes
+# PASS: PLEASE-managed party identity remains protected while financial attributes/roles are editable
+# PASS: Financial account mappings validate asset/liability semantics
+# PASS: Master Data UI exposes all STEP 18.1 master areas
+# PASS: Master Data UI declares PLEASE source protection
+# PASS: All existing CAL sidebar pages expose Financial Master Data
+# PASS: Master Data styles are isolated under STEP 18.1 section
+# PASS: Convenience route stays under CAL namespace
+# PASS: Documentation explicitly blocks scope creep into STEP 18.2+
+# STEP 18.1 Financial Master Data static audit completed successfully.
+# Subtest: tests/step18_1_financial_master_data_static.test.js
+ok 36 - tests/step18_1_financial_master_data_static.test.js
+  ---
+  duration_ms: 45.24448
+  type: 'test'
+  ...
+# PASS CAL accounting library mirrors remain identical
+# PASS CAL dashboard function mirrors remain identical
+# PASS Payment-derived paid total helper exists
+# PASS Paid total is derived from accounting_payments
+# PASS Invoice mirror no longer copies PLEASE amount_paid into paid_total
+# PASS Payment mirror no longer incrementally adds to cached paid_total
+# PASS Payment mirror recomputes paid_total idempotently
+# PASS A/R read model builds payment-derived totals
+# PASS A/R display uses payment history instead of cached paid_total
+# PASS Repair SQL only recalculates accounting invoice paid cache
+# PASS Repair SQL does not touch operational payments or journals
+# PASS Verification checks A/R mirror integrity
+# PASS Verification checks payment mirror idempotency
+# Subtest: tests/step18_2_1_ar_payment_integrity_fix.test.js
+ok 37 - tests/step18_2_1_ar_payment_integrity_fix.test.js
+  ---
+  duration_ms: 33.127534
+  type: 'test'
+  ...
+# PASS - Trial Balance aggregates POSTED journal lines
+# PASS - Trial Balance uses real debit and credit amounts
+# PASS - Placeholder zero rendering removed
+# PASS - Debit credit integrity control rendered
+# PASS - Reports declare ledger-derived control
+# Subtest: tests/step18_2_2_ledger_trial_balance_integrity.test.js
+ok 38 - tests/step18_2_2_ledger_trial_balance_integrity.test.js
+  ---
+  duration_ms: 42.253177
+  type: 'test'
+  ...
+# STEP 18.2 PURCHASE/AP WORKER RUNTIME PASS
+# Subtest: tests/step18_2_accounting_worker_runtime.test.js
+ok 39 - tests/step18_2_accounting_worker_runtime.test.js
+  ---
+  duration_ms: 38.381493
+  type: 'test'
+  ...
+# PASS: Supplier AP uses new tables and does not replace operational provider payments
+# PASS: Supplier bills have controlled approval/posting lifecycle
+# PASS: Draft save is atomic PostgreSQL RPC
+# PASS: Supplier payment is atomic and rejects overpayment
+# PASS: Bill posting and payment enqueue durable STEP 17 events
+# PASS: Posting rules remain compatible with STEP 16 non-null and composite uniqueness
+# PASS: Supplier payment event is causally dependent on posted bill
+# PASS: Worker posts supplier bill to expense/asset + recoverable tax + AP
+# PASS: Worker pays AP through mapped Financial Account GL
+# PASS: Posted purchase documents are protected from destructive edits
+# PASS: Purchases API requires PLEASE Admin and same-origin writes
+# PASS: Purchases API normalizes tax server-side from active tax codes
+# PASS: Purchases UI exposes controlled workflow and A/P aging
+# PASS: CAL has friendly Purchases route
+# PASS: All CAL application sidebars expose Purchases & A/P
+# PASS: STEP 18.2 documentation blocks scope creep into 18.3
+# PASS: Protected PLEASE operational files not intentionally evolved by STEP 19 remain byte-identical to accepted STEP 18.1 baseline
+# STEP 18.2 Purchases & Accounts Payable static audit completed successfully.
+# Subtest: tests/step18_2_purchases_ap_static.test.js
+ok 40 - tests/step18_2_purchases_ap_static.test.js
+  ---
+  duration_ms: 33.689908
+  type: 'test'
+  ...
+# STEP 18.3 CREDIT NOTE / REFUND WORKER RUNTIME PASS
+# Subtest: tests/step18_3_accounting_worker_runtime.test.js
+ok 41 - tests/step18_3_accounting_worker_runtime.test.js
+  ---
+  duration_ms: 35.156382
+  type: 'test'
+  ...
+# PASS: STEP 18.3 is additive and preserves operational invoice/payment/provider tables
+# PASS: Accounting invoices gain Business Partner and operational source linkage
+# PASS: Credit Notes have controlled Draft Submit Approve Post lifecycle
+# PASS: Credit Note save is server-side atomic and validates invoice/tax/revenue limits
+# PASS: Credit Note posting serializes same-invoice postings and rechecks subtotal/tax/total
+# PASS: Posted Credit Notes and completed Refunds are immutable
+# PASS: Refund is separate from original successful payment and cannot exceed customer credit
+# PASS: Concurrent refunds are serialized per customer
+# PASS: STEP 17 receives durable Credit Note and Refund events
+# PASS: Posting rules preserve non-null debit/credit compatibility
+# PASS: Worker posts Credit Note as revenue/tax debit and A/R credit
+# PASS: Worker posts Refund as A/R debit and actual mapped financial-account credit
+# PASS: Credit Note depends on original invoice event and linked Refund depends on Credit Note
+# PASS: Recovery scanner includes posted Credit Notes and completed Refunds
+# PASS: Receivables API requires Admin and same-origin writes
+# PASS: Receivables API exposes real customer linkage and server RPC actions
+# PASS: A/R UI exposes aging, customer credits, Credit Notes and Refunds
+# PASS: Credit Note printable document includes prescribed business/original-invoice/tax context
+# PASS: Refund UI records accounting completion only and does not call Stripe refund API
+# PASS: Dashboard and CAL calculations include Credit Notes, Refunds and customer A/R
+# PASS: Documentation blocks progression until STEP 18.3 acceptance
+# PASS: Protected PLEASE operational files not intentionally evolved by STEP 19 remain byte-identical
+# STEP 18.3 A/R + Credit Notes + Refunds static audit completed successfully.
+# Subtest: tests/step18_3_ar_credit_notes_refunds_static.test.js
+ok 42 - tests/step18_3_ar_credit_notes_refunds_static.test.js
+  ---
+  duration_ms: 28.491208
+  type: 'test'
+  ...
+# PASS Expense KPI cards use standard CAL KPI structure
+# PASS Expense KPI CSS prevents inline overlap and wraps safely
+# PASS Vendor selector is supplier-scoped
+# PASS Expense payment accounts exclude clearing/loan/other accounts
+# PASS Expense GL selector is classification-aware
+# PASS Inventory guardrail is superseded safely by STEP 18.6
+# PASS Server enforces prepaid and fixed-asset posting accounts
+# PASS Netlify and root function mirrors remain identical
+# PASS Protected operational baseline unchanged: index.html
+# PASS Protected operational baseline unchanged: service-request.html
+# PASS Protected operational baseline unchanged: track-request.html
+# PASS Protected operational baseline unchanged: stripe-webhook.js
+# PASS Protected operational baseline unchanged: admin-provider-payment-action.js
+# STEP 18.4.1 Expense UI & Posting Guardrails audit completed successfully.
+# Subtest: tests/step18_4_1_expense_ui_posting_guardrails.test.js
+ok 43 - tests/step18_4_1_expense_ui_posting_guardrails.test.js
+  ---
+  duration_ms: 32.222611
+  type: 'test'
+  ...
+# STEP 18.4 EXPENSE WORKER RUNTIME PASS
+# Subtest: tests/step18_4_accounting_worker_runtime.test.js
+ok 44 - tests/step18_4_accounting_worker_runtime.test.js
+  ---
+  duration_ms: 35.343354
+  type: 'test'
+  ...
+# PASS: STEP 18.4 creates additive expense workflow tables
+# PASS: Supplier A/P and Provider Payments remain separate
+# PASS: Expense workflow controls Draft Submit Approve Post Paid
+# PASS: Receipt control blocks submission when missing
+# PASS: Expense lines support classification and ITC controls
+# PASS: Expense and reimbursement durable events are configured
+# PASS: Worker posts direct expense through actual mapped financial account
+# PASS: Worker posts reimbursement payable and later clears it
+# PASS: Recovery scanner includes advanced expenses
+# PASS: Expenses API is admin-only and same-origin for writes
+# PASS: Expense API revalidates account types and ITC percentages
+# PASS: Expense UI exposes receipt, approval, GL, ITC and reimbursement controls
+# PASS: Legacy operational Provider expense visibility remains
+# PASS: Dashboard incorporates posted advanced expenses without rewriting old mirrors
+# PASS: Protected PLEASE and A/R runtime files not intentionally evolved by STEP 19 remain byte-identical
+# STEP 18.4 Advanced Expense Workflow static audit completed successfully.
+# Subtest: tests/step18_4_advanced_expense_workflow_static.test.js
+ok 45 - tests/step18_4_advanced_expense_workflow_static.test.js
+  ---
+  duration_ms: 31.930791
+  type: 'test'
+  ...
+# PASS STEP 18.5 creates reconciliation, import, transaction and match tables
+# PASS Reconciliation close uses statement control, unmatched statement and difference gates
+# PASS Closed reconciliation and evidence are immutable
+# PASS Closed periods cannot be overlapped by later reconciliation records
+# PASS Closed evidence protection checks both OLD and NEW reconciliation ownership
+# PASS Database-level overlap trigger protects reconciliation periods
+# PASS Statement fingerprint preserves legitimate duplicate-looking CSV rows
+# PASS Auto Match cannot reach beyond reconciliation period end
+# PASS Close and evidence-changing operations serialize on the reconciliation row
+# PASS Multi-line exact statement matching is supported
+# PASS Auto Match is conservative and ambiguity-safe
+# PASS Banking UI exposes Daily Cash Position and controlled reconciliation
+# PASS CSV, OFX and QFX parsing is client-side without bank credentials
+# PASS Statement import stores a SHA-256 file fingerprint
+# PASS API does not post journals during reconciliation
+# PASS Treasury position includes bank/cash, clearing and due commitments
+# PASS Operating bank reporting is ledger-derived after STEP 18.5
+# PASS Treasury account balances prefer the exact SQL balance RPC
+# PASS Legacy app banking renderer is disabled in favor of dedicated banking module
+# PASS Netlify and root Banking function mirrors remain identical
+# PASS SQL root and Supabase mirrors remain identical
+# STEP 18.5 Treasury & Bank Reconciliation static audit completed successfully.
+# Subtest: tests/step18_5_treasury_bank_reconciliation_static.test.js
+ok 46 - tests/step18_5_treasury_bank_reconciliation_static.test.js
+  ---
+  duration_ms: 28.024425
+  type: 'test'
+  ...
+# STEP 18.5 TREASURY RUNTIME PASS
+# Subtest: tests/step18_5_treasury_runtime.test.js
+ok 47 - tests/step18_5_treasury_runtime.test.js
+  ---
+  duration_ms: 29.691903
+  type: 'test'
+  ...
+# PASS Adjustment direction uses an explicit modal instead of ambiguous browser confirm
+# PASS Inventory date defaults use browser-local calendar date instead of UTC ISO rollover
+# PASS Transfer UI requires at least two active locations and excludes origin from destination
+# PASS Transfer submit also blocks identical origin/destination in UI
+# PASS Database remains the final transfer safety control
+# PASS No accounting backend or STEP 17 behavior changed for this UI hotfix
+# STEP 18.6.1 Inventory UI guardrails audit completed successfully.
+# Subtest: tests/step18_6_1_inventory_ui_guardrails.test.js
+ok 48 - tests/step18_6_1_inventory_ui_guardrails.test.js
+  ---
+  duration_ms: 29.302776
+  type: 'test'
+  ...
+# STEP 18.6 INVENTORY WORKER RUNTIME PASS
+# Subtest: tests/step18_6_accounting_worker_runtime.test.js
+ok 49 - tests/step18_6_accounting_worker_runtime.test.js
+  ---
+  duration_ms: 33.740103
+  type: 'test'
+  ...
+# PASS STEP 18.6 is additive and creates the inventory subledger tables
+# PASS Moving-average is the only enabled valuation method
+# PASS Manufacturing remains hard-disabled
+# PASS Inventory movements are immutable and negative inventory is blocked
+# PASS Stock cannot be stranded by deactivating non-empty items/locations or changing UOM after movements
+# PASS Open physical counts freeze location movements and block unsafe historical counts
+# PASS Inventory adjustments require a documented reason at database level
+# PASS Inventory movement engine supports receipts, opening, issues, transfers and adjustments
+# PASS Manual opening, issue and adjustment retries use stable operation keys
+# PASS Transfers carry source moving-average cost, are retry-idempotent and do not enqueue a financial event
+# PASS Supplier Bill inventory receipt updates subledger without a second GL event
+# PASS Advanced Expense inventory receipt updates subledger without duplicate GL
+# PASS Supplier Bill mapping requires account 1600 plus active item and location
+# PASS Advanced Expense INVENTORY classification is enabled only against account 1600
+# PASS Issues and adjustments are routed through STEP 17 durable events
+# PASS Worker has Inventory Opening, COGS and adjustment posting handlers
+# PASS Recovery scanner includes missing financial inventory events
+# PASS Physical counts require every active item and post immutable variance movements
+# PASS Inventory GL-to-subledger reconciliation RPCs exist
+# PASS Inventory UI exposes item, location, movement, transfer and count controls
+# PASS Inventory API is admin-only and same-origin for writes
+# PASS Inventory database tables are RLS-protected and browser roles revoked
+# PASS Verification covers 20 inventory controls
+# PASS Root and Netlify Inventory function mirrors are identical
+# PASS Inventory SQL root and Supabase mirrors are identical
+# PASS Purchase and Expense function mirrors remain identical
+# PASS Unchanged public operations, Stripe, Provider Payments, A/R and Banking runtime files remain byte-identical
+# PASS Banking backend extensions preserve STEP 18.5 reconciliation controls
+# STEP 18.6 Inventory Accounting static audit completed successfully.
+# Subtest: tests/step18_6_inventory_accounting_static.test.js
+ok 50 - tests/step18_6_inventory_accounting_static.test.js
+  ---
+  duration_ms: 32.70654
+  type: 'test'
+  ...
+# PASS Fixed Asset API loads active Business Partner roles
+# PASS Responsible person assignment is role-guarded server-side
+# PASS Opening supplier assignment requires Supplier role server-side
+# PASS UI filters Responsible and Supplier selectors by role
+# PASS UI explains Fixed Asset role constraints
+# PASS No STEP 18.7 SQL change is required by this hotfix
+# PASS Fixed Asset function mirrors remain identical
+# PASS Unchanged public PLEASE and Stripe baseline stays byte-identical
+# STEP 18.7.1 Fixed Asset role guardrails audit completed successfully.
+# Subtest: tests/step18_7_1_fixed_asset_party_role_guardrails.test.js
+ok 51 - tests/step18_7_1_fixed_asset_party_role_guardrails.test.js
+  ---
+  duration_ms: 28.637578
+  type: 'test'
+  ...
+# STEP 18.7 FIXED ASSET WORKER RUNTIME PASS
+# Subtest: tests/step18_7_accounting_worker_runtime.test.js
+ok 52 - tests/step18_7_accounting_worker_runtime.test.js
+  ---
+  duration_ms: 36.505846
+  type: 'test'
+  ...
+# PASS STEP 18.7 creates additive Fixed Asset, depreciation and CCA tables
+# PASS Book depreciation and CCA are explicitly separated
+# PASS Fixed Asset control accounts are seeded
+# PASS Common CRA CCA classes are seeded as reference metadata
+# PASS Supplier Bill and Advanced Expense create source-backed asset intake without duplicate acquisition event
+# PASS Source fixed asset lines are idempotently linked
+# PASS Posted source lines are not rewritten after capitalization intake
+# PASS Opening asset supports gross cost and opening accumulated depreciation
+# PASS Book depreciation uses straight-line full-month convention and immutable posted runs
+# PASS Depreciation policy locks after posted depreciation exists
+# PASS Depreciation run refresh/post routes through STEP 17
+# PASS Disposal captures proceeds, accumulated depreciation, NBV and gain/loss
+# PASS Positive disposal proceeds require a real financial account
+# PASS CCA working paper tracks UCC continuity and review flags
+# PASS CCA claim does not create a financial posting event
+# PASS Fixed Asset GL reconciliation functions exist
+# PASS Worker handles opening, book depreciation and disposal
+# PASS Worker recovery scans missing Fixed Asset events
+# PASS Fixed Assets UI exposes register, depreciation, disposal and CCA controls
+# PASS Fixed Asset API is admin-only and same-origin for writes
+# PASS Root and Netlify Fixed Asset function mirrors are identical
+# PASS Accounting engine mirrors remain identical
+# PASS Fixed Asset SQL root and mirrors are identical
+# PASS Verification contains 24 controls
+# PASS Every authenticated CAL page includes Fixed Assets navigation
+# PASS Unchanged public PLEASE, Stripe and Provider Payment baseline stays byte-identical
+# STEP 18.7 Fixed Assets static audit completed successfully.
+# Subtest: tests/step18_7_fixed_assets_static.test.js
+ok 53 - tests/step18_7_fixed_assets_static.test.js
+  ---
+  duration_ms: 32.974775
+  type: 'test'
+  ...
+# STEP 18.8 PAYROLL WORKER RUNTIME PASS
+# Subtest: tests/step18_8_accounting_worker_runtime.test.js
+ok 54 - tests/step18_8_accounting_worker_runtime.test.js
+  ---
+  duration_ms: 32.179206
+  type: 'test'
+  ...
+# STEP 18.8 PAYROLL FORMULA RUNTIME PASS
+# Subtest: tests/step18_8_payroll_formula_runtime.test.js
+ok 55 - tests/step18_8_payroll_formula_runtime.test.js
+  ---
+  duration_ms: 26.384833
+  type: 'test'
+  ...
+# PASS Payroll migration is additive and creates core tables
+# PASS Payroll control accounts are seeded
+# PASS 2026 CRA parameter versions are effective-dated
+# PASS 2026 CPP CPP2 and EI seed values are present
+# PASS 2026 federal and Alberta brackets are versioned
+# PASS Payroll employee requires EMPLOYEE business role
+# PASS Full SIN is not a payroll database field
+# PASS Pay runs have controlled lifecycle
+# PASS Duplicate active payroll periods are blocked
+# PASS Posted payroll lines and financial fields are protected
+# PASS Payroll calculations are Alberta regular-periodic and allow documented PDOC override
+# PASS Payroll uses remaining-period YTD CPP/EI credit projection
+# PASS Employee and employer EI annual maximums are enforced
+# PASS Payroll statutory events use STEP 17
+# PASS Worker posts payroll expense/liability split
+# PASS Payroll payment clears net payroll payable
+# PASS CRA remittance clears CPP EI and income-tax liabilities
+# PASS Worker recovery scans payroll and remittance events
+# PASS T4 working paper uses expected boxes
+# PASS T4 generation does not claim direct CRA filing
+# PASS Payroll remitter types are explicit
+# PASS Payroll UI exposes employee run remittance and T4 workflows
+# PASS Payroll API is admin-only and same-origin for writes
+# PASS Payroll API root and Netlify mirrors are identical
+# PASS Payroll SQL root and mirrors are identical
+# PASS Accounting engine root and Netlify mirrors are identical
+# PASS Payroll verification contains 28 controls
+# PASS Every authenticated CAL page includes Payroll navigation
+# PASS Reports advertises payroll report family
+# PASS Treasury Daily Cash Position includes payroll net pay and source-deduction due horizons
+# PASS Unchanged public PLEASE Stripe and Provider Payment baseline stays byte-identical
+# STEP 18.8 Payroll static audit completed successfully.
+# Subtest: tests/step18_8_payroll_static.test.js
+ok 56 - tests/step18_8_payroll_static.test.js
+  ---
+  duration_ms: 34.297678
+  type: 'test'
+  ...
+# STEP 18.8 TREASURY PAYROLL RUNTIME PASS
+# Subtest: tests/step18_8_treasury_payroll_runtime.test.js
+ok 57 - tests/step18_8_treasury_payroll_runtime.test.js
+  ---
+  duration_ms: 34.130196
+  type: 'test'
+  ...
+# cal-period-close Error: Partial/custom fiscal periods require explicit confirmation. Use Custom Fiscal Period and document the reason.
+#     at bad (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:5:42)
+#     at prepare (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:47:21)
+#     at exports.handler (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:67:51)
+#     at async /mnt/data/please_step19_1_final/tests/step18_9_1_period_boundary_api_runtime.test.js:19:8 {
+#   status: 400
+# }
+# cal-period-close Error: Custom-period reason must be at least 10 characters.
+#     at bad (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:5:42)
+#     at prepare (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:48:25)
+#     at exports.handler (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:67:51)
+#     at async /mnt/data/please_step19_1_final/tests/step18_9_1_period_boundary_api_runtime.test.js:20:4 {
+#   status: 400
+# }
+# STEP 18.9.1 PERIOD BOUNDARY API RUNTIME PASS
+# Subtest: tests/step18_9_1_period_boundary_api_runtime.test.js
+ok 58 - tests/step18_9_1_period_boundary_api_runtime.test.js
+  ---
+  duration_ms: 33.107515
+  type: 'test'
+  ...
+# PASS Boundary hotfix is additive
+# PASS Database prevents overlapping fiscal periods
+# PASS Legacy prepare RPC remains safe
+# PASS Custom periods require explicit reason
+# PASS UI defaults to last completed month
+# PASS UI separates monthly and custom boundaries
+# PASS API requires custom confirmation for partial periods
+# PASS API mirrors are identical
+# PASS SQL mirrors are identical
+# PASS Verification contains 14 controls
+# STEP 18.9.1 Period Boundary Guardrails static audit completed successfully.
+# Subtest: tests/step18_9_1_period_boundary_guardrails.test.js
+ok 59 - tests/step18_9_1_period_boundary_guardrails.test.js
+  ---
+  duration_ms: 32.519178
+  type: 'test'
+  ...
+# STEP 18.9 PERIOD CLOSE WORKER RUNTIME PASS
+# Subtest: tests/step18_9_accounting_worker_runtime.test.js
+ok 60 - tests/step18_9_accounting_worker_runtime.test.js
+  ---
+  duration_ms: 37.283117
+  type: 'test'
+  ...
+# cal-period-close Error: Type CLOSE to confirm the period lock.
+#     at bad (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:5:42)
+#     at closePeriod (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:57:212)
+#     at exports.handler (/mnt/data/please_step19_1_final/netlify/functions/cal-period-close.js:72:61)
+#     at async /mnt/data/please_step19_1_final/tests/step18_9_period_close_api_runtime.test.js:19:8 {
+#   status: 400
+# }
+# STEP 18.9 PERIOD CLOSE API RUNTIME PASS
+# Subtest: tests/step18_9_period_close_api_runtime.test.js
+ok 61 - tests/step18_9_period_close_api_runtime.test.js
+  ---
+  duration_ms: 36.825057
+  type: 'test'
+  ...
+# PASS Period close migration is additive
+# PASS Fiscal period workflow metadata is additive
+# PASS Durable accounting events are blocked at closed-period boundary
+# PASS Event date resolver covers every STEP 17 through STEP 18.9 financial event
+# PASS Checklist contains hard ledger/subledger controls
+# PASS Checklist contains review controls
+# PASS Hard controls cannot be overridden
+# PASS Close creates immutable snapshot and exact period lock
+# PASS Reopen requires reason and chronological control
+# PASS Adjustments are event-driven and balanced
+# PASS Historical inventory/fixed-asset close controls are as-of-date
+# PASS Close evidence tables use RLS
+# PASS Period Close API is admin-only and same-origin on writes
+# PASS Period Close API exposes prepare refresh sign-off adjust close reopen
+# PASS Period Close UI exposes checklist adjustments close and reopen
+# PASS Close confirmation phrases are explicit
+# PASS Period Close API mirrors are identical
+# PASS Period Close SQL mirrors are identical
+# PASS Accounting engine root and Netlify mirrors are identical
+# PASS Worker supports period-close adjustment posting and recovery
+# PASS Verification contains 30 controls
+# PASS Every authenticated CAL page includes Period Close navigation
+# PASS Unchanged public PLEASE Stripe and Provider Payment baseline stays byte-identical
+# STEP 18.9 Advanced Period Close static audit completed successfully.
+# Subtest: tests/step18_9_period_close_static.test.js
+ok 62 - tests/step18_9_period_close_static.test.js
+  ---
+  duration_ms: 41.338118
+  type: 'test'
+  ...
+# Subtest: STEP 19.1 adds controlled one-click invoice delivery without changing core payment engine
+ok 63 - STEP 19.1 adds controlled one-click invoice delivery without changing core payment engine
+  ---
+  duration_ms: 2.699538
+  type: 'test'
+  ...
+# Subtest: customer invoice email includes direct PAY NOW and e-Transfer instructions
+ok 64 - customer invoice email includes direct PAY NOW and e-Transfer instructions
+  ---
+  duration_ms: 0.455526
+  type: 'test'
+  ...
+# Subtest: completed Jobs expose review-and-send entry point into the invoice center
+ok 65 - completed Jobs expose review-and-send entry point into the invoice center
+  ---
+  duration_ms: 0.294594
+  type: 'test'
+  ...
+# Subtest: paid invoices expose selective review request with duplicate guard and configurable Google URL
+ok 66 - paid invoices expose selective review request with duplicate guard and configurable Google URL
+  ---
+  duration_ms: 0.348406
+  type: 'test'
+  ...
+# Subtest: STEP 19.1 is additive and requires no SQL migration
+ok 67 - STEP 19.1 is additive and requires no SQL migration
+  ---
+  duration_ms: 0.191859
+  type: 'test'
+  ...
+# admin-invoice-delivery-action Error: Invoice was issued, but the customer email was not delivered. No payment data was lost. Use SEND TO CUSTOMER to retry. temporary mail error
+#     at invoiceEmail (/mnt/data/please_step19_1_final/netlify/functions/admin-invoice-delivery-action.js:77:25)
+#     at async exports.handler (/mnt/data/please_step19_1_final/netlify/functions/admin-invoice-delivery-action.js:127:52)
+#     at async TestContext.<anonymous> (/mnt/data/please_step19_1_final/tests/step19_1_invoice_delivery_runtime.test.js:66:13)
+#     at async Test.run (node:internal/test_runner/test:1054:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+#   status: 502
+# }
+# admin-invoice-delivery-action Error: A Google review request was already sent for this invoice.
+#     at reviewEmail (/mnt/data/please_step19_1_final/netlify/functions/admin-invoice-delivery-action.js:92:40)
+#     at async exports.handler (/mnt/data/please_step19_1_final/netlify/functions/admin-invoice-delivery-action.js:128:51)
+#     at async TestContext.<anonymous> (/mnt/data/please_step19_1_final/tests/step19_1_invoice_delivery_runtime.test.js:84:13)
+#     at async Test.run (node:internal/test_runner/test:1054:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+#   status: 409
+# }
+# Subtest: DRAFT invoice becomes SENT only after successful customer email
+ok 68 - DRAFT invoice becomes SENT only after successful customer email
+  ---
+  duration_ms: 3.704061
+  type: 'test'
+  ...
+# Subtest: email failure leaves invoice ISSUED and retryable instead of falsely SENT
+ok 69 - email failure leaves invoice ISSUED and retryable instead of falsely SENT
+  ---
+  duration_ms: 2.026605
+  type: 'test'
+  ...
+# Subtest: review request is selective, paid-only and traceable
+ok 70 - review request is selective, paid-only and traceable
+  ---
+  duration_ms: 1.807814
+  type: 'test'
+  ...
+# Subtest: duplicate Google review request is blocked before sending
+ok 71 - duplicate Google review request is blocked before sending
+  ---
+  duration_ms: 0.957453
+  type: 'test'
+  ...
+# Subtest: baseline protected: index.html
+ok 72 - baseline protected: index.html
+  ---
+  duration_ms: 1.634353
+  type: 'test'
+  ...
+# Subtest: baseline protected: service-request.html
+ok 73 - baseline protected: service-request.html
+  ---
+  duration_ms: 0.254303
+  type: 'test'
+  ...
+# Subtest: baseline protected: track-request.html
+ok 74 - baseline protected: track-request.html
+  ---
+  duration_ms: 0.150237
+  type: 'test'
+  ...
+# Subtest: baseline protected: stripe-webhook.js
+ok 75 - baseline protected: stripe-webhook.js
+  ---
+  duration_ms: 0.210197
+  type: 'test'
+  ...
+# Subtest: baseline protected: admin-provider-payment-action.js
+ok 76 - baseline protected: admin-provider-payment-action.js
+  ---
+  duration_ms: 0.22537
+  type: 'test'
+  ...
+# Subtest: baseline protected: invoice.html
+ok 77 - baseline protected: invoice.html
+  ---
+  duration_ms: 0.151238
+  type: 'test'
+  ...
+# Subtest: baseline protected: js/invoice.js
+ok 78 - baseline protected: js/invoice.js
+  ---
+  duration_ms: 0.224368
+  type: 'test'
+  ...
+# Subtest: baseline protected: netlify/functions/invoice-checkout.js
+ok 79 - baseline protected: netlify/functions/invoice-checkout.js
+  ---
+  duration_ms: 0.240943
+  type: 'test'
+  ...
+# Subtest: baseline protected: payment-success.html
+ok 80 - baseline protected: payment-success.html
+  ---
+  duration_ms: 0.566454
+  type: 'test'
+  ...
+# Subtest: baseline protected: payment-cancelled.html
+ok 81 - baseline protected: payment-cancelled.html
+  ---
+  duration_ms: 0.458801
+  type: 'test'
+  ...
+# Subtest: baseline protected: netlify/functions/public-booking.js
+ok 82 - baseline protected: netlify/functions/public-booking.js
+  ---
+  duration_ms: 0.20586
+  type: 'test'
+  ...
+# Subtest: baseline protected: netlify/functions/public-request-tracking.js
+ok 83 - baseline protected: netlify/functions/public-request-tracking.js
+  ---
+  duration_ms: 0.133932
+  type: 'test'
+  ...
+# Subtest: baseline protected: netlify/functions/admin-invoice-action.js
+ok 84 - baseline protected: netlify/functions/admin-invoice-action.js
+  ---
+  duration_ms: 0.116816
+  type: 'test'
+  ...
+# Subtest: baseline protected: netlify/functions/cal-purchases.js
+ok 85 - baseline protected: netlify/functions/cal-purchases.js
+  ---
+  duration_ms: 0.136596
+  type: 'test'
+  ...
+# Subtest: baseline protected: netlify/functions/cal-expenses.js
+ok 86 - baseline protected: netlify/functions/cal-expenses.js
+  ---
+  duration_ms: 0.120352
+  type: 'test'
+  ...
+# Subtest: baseline protected: netlify/functions/cal-banking.js
+ok 87 - baseline protected: netlify/functions/cal-banking.js
+  ---
+  duration_ms: 0.13942
+  type: 'test'
+  ...
+# Subtest: PLEASE Staff uses one daily Check In and one daily Check Out
+ok 88 - PLEASE Staff uses one daily Check In and one daily Check Out
+  ---
+  duration_ms: 1.190844
+  type: 'test'
+  ...
+# Subtest: server readiness enforces first-service and last-service boundaries
+ok 89 - server readiness enforces first-service and last-service boundaries
+  ---
+  duration_ms: 0.255345
+  type: 'test'
+  ...
+# Subtest: database live-action migration also enforces daily shift
+ok 90 - database live-action migration also enforces daily shift
+  ---
+  duration_ms: 0.203536
+  type: 'test'
+  ...
+# Subtest: Independent Provider workflow remains separate
+ok 91 - Independent Provider workflow remains separate
+  ---
+  duration_ms: 0.13291
+  type: 'test'
+  ...
+# Subtest: Admin Finance covers daily operational finance without GL/debit-credit UI
+ok 92 - Admin Finance covers daily operational finance without GL/debit-credit UI
+  ---
+  duration_ms: 0.888169
+  type: 'test'
+  ...
+# Subtest: business categories map internally and Other routes to exception
+ok 93 - business categories map internally and Other routes to exception
+  ---
+  duration_ms: 0.279251
+  type: 'test'
+  ...
+# Subtest: expenses and purchases require evidence then finalize through existing controlled engines
+ok 94 - expenses and purchases require evidence then finalize through existing controlled engines
+  ---
+  duration_ms: 0.246451
+  type: 'test'
+  ...
+# Subtest: completed job invoice automation is durable, idempotent and safe-default
+ok 95 - completed job invoice automation is durable, idempotent and safe-default
+  ---
+  duration_ms: 0.173342
+  type: 'test'
+  ...
+# Subtest: bank and cash are operational controls, not guessed journals
+ok 96 - bank and cash are operational controls, not guessed journals
+  ---
+  duration_ms: 0.191329
+  type: 'test'
+  ...
+# Subtest: legacy free-form Pay Now no longer launches Outlook and remains tied to tracked work
+ok 97 - legacy free-form Pay Now no longer launches Outlook and remains tied to tracked work
+  ---
+  duration_ms: 0.254263
+  type: 'test'
+  ...
+# Subtest: photo preparation stays below gateway limits and has compact 413 retry
+ok 98 - photo preparation stays below gateway limits and has compact 413 retry
+  ---
+  duration_ms: 1.041069
+  type: 'test'
+  ...
+# Subtest: photo actions are single-flight with explicit phases and recovery
+ok 99 - photo actions are single-flight with explicit phases and recovery
+  ---
+  duration_ms: 0.289005
+  type: 'test'
+  ...
+# Subtest: provider cache is advanced for STEP 19
+ok 100 - provider cache is advanced for STEP 19
+  ---
+  duration_ms: 0.123226
+  type: 'test'
+  ...
+# Subtest: STEP 19 migration and verify mirrors are present and identical
+ok 101 - STEP 19 migration and verify mirrors are present and identical
+  ---
+  duration_ms: 1.164155
+  type: 'test'
+  ...
+# Subtest: STEP 19 verification is read-only and defines 20 controls
+ok 102 - STEP 19 verification is read-only and defines 20 controls
+  ---
+  duration_ms: 1.218567
+  type: 'test'
+  ...
+# Subtest: STEP 19 documentation records safe defaults and deployment boundary
+ok 103 - STEP 19 documentation records safe defaults and deployment boundary
+  ---
+  duration_ms: 0.327664
+  type: 'test'
+  ...
+# Subtest: Service Maintenance exposes editable Service Type
+ok 104 - Service Maintenance exposes editable Service Type
+  ---
+  duration_ms: 0.71636
+  type: 'test'
+  ...
+# Subtest: inactive historical classification may remain but cannot be newly selected
+ok 105 - inactive historical classification may remain but cannot be newly selected
+  ---
+  duration_ms: 0.10614
+  type: 'test'
+  ...
+# Subtest: request-job classification synchronization uses rollback on failure
+ok 106 - request-job classification synchronization uses rollback on failure
+  ---
+  duration_ms: 0.157397
+  type: 'test'
+  ...
+1..106
+# tests 106
+# suites 0
+# pass 106
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 929.526122

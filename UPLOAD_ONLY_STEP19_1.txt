@@ -1,0 +1,39 @@
+PLEASE STEP 19.1 — CUSTOMER INVOICE DELIVERY & REVIEW REQUESTS
+Baseline: STEP 19 — Operational Finance Automation
+Baseline commit: bf9b54ef801005b74af785d359ff112b88a0fcf1
+
+Existing application files intentionally changed: 4
+New application functions: 1
+Deleted baseline files: 0
+SQL migration: NONE
+No SQL migration required.
+Regression: 106 PASS / 0 FAIL
+
+UPLOAD / REPLACE THESE PATHS:
+STEP19_1_CUSTOMER_INVOICE_DELIVERY_REVIEW_REQUESTS.md
+STEP19_1_REGRESSION_REPORT.md
+STEP19_1_SHA256_MANIFEST.txt
+STEP19_1_TEST_RESULTS.txt
+UPLOAD_ONLY_STEP19_1.txt
+admin-invoices.html
+admin-jobs.html
+js/admin-invoices.js
+js/admin-jobs.js
+netlify/functions/admin-invoice-delivery-action.js
+tests/step19_1_customer_invoice_delivery_review.test.js
+tests/step19_1_invoice_delivery_runtime.test.js
+
+NO SQL TO RUN.
+
+CONFIRMED PRODUCTION DESTINATIONS:
+PLEASE_ETRANSFER_EMAIL=info@pleaseservice.ca  # built-in default; Netlify override optional
+PLEASE_GOOGLE_REVIEW_URL=<built-in PLEASE Google review deep-link>  # Netlify override optional
+Google Business CID: 11821370300392660033 / 0xa40df1a7e941dc41
+
+DEPLOYMENT ORDER:
+1. Confirm current production is STEP 19 baseline.
+2. No new environment value is required for e-Transfer or Google Review; both confirmed defaults are included. Netlify variables may still be used later as overrides.
+3. Upload/replace the listed files preserving folders.
+4. Wait for Netlify Published.
+5. Hard-refresh Administration.
+6. Run the STEP19_1_REGRESSION_REPORT.md production smoke checks.
