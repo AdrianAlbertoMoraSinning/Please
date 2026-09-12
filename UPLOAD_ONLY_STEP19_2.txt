@@ -1,0 +1,42 @@
+PLEASE STEP 19.2 — Customer Journey Simplification & Final Billing Sync
+
+Baseline: PLEASE_STEP19_1_Customer_Invoice_Delivery_Review_Requests_FINAL_FULL.zip
+No SQL migration required.
+
+Changed existing files: 23
+New files before release metadata: 5
+Baseline files deleted: 0
+UPLOAD_ONLY total files: 30
+
+Upload these paths to GitHub preserving directories:
+
+STEP19_2_CUSTOMER_JOURNEY_SIMPLIFICATION.md
+STEP19_2_REGRESSION_REPORT.md
+STEP19_2_SHA256_MANIFEST.txt
+UPLOAD_ONLY_STEP19_2.txt
+admin-calendar.html
+admin-jobs.html
+admin-service-requests.html
+invoice.html
+js/admin-calendar.js
+js/admin-jobs.js
+js/admin-service-requests.js
+js/invoice.js
+netlify/functions/admin-calendar-data.js
+netlify/functions/admin-invoice-action.js
+netlify/functions/admin-invoice-delivery-action.js
+netlify/functions/admin-job-action.js
+netlify/functions/admin-jobs-data.js
+netlify/functions/admin-service-request-action.js
+netlify/functions/admin-service-requests.js
+netlify/functions/provider-assignment-action.js
+netlify/functions/provider-live-service-action.js
+payment-success.html
+tests/step15_8_6_1_service_request_transition_recovery.test.js
+tests/step15_8_6_3_2_multi_provider_reassignment.test.js
+tests/step15_9_1_active_job_schedule_duration.test.js
+tests/step19_1_customer_invoice_delivery_review.test.js
+tests/step19_2_customer_journey_simplification.test.js
+tests/step19_2_invoice_job_sync_runtime.test.js
+tests/step19_2_provider_confirmation_runtime.test.js
+tests/step19_critical_baseline_hashes.test.js

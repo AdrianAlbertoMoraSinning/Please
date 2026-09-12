@@ -41,7 +41,7 @@ exports.handler=async event=>{
 
     const have=new Set((assignments||[]).map(x=>x.id));
     const missing=[...new Set((scheduleChanges||[]).map(x=>x.assignment_id).filter(id=>id&&!have.has(id)))];
-    let extraPromise=Promise.resolve([]),billingPromise=Promise.resolve([]),sourceRequestsPromise=Promise.resolve([]);
+    let extraPromise=Promise.resolve([]),billingPromise=Promise.resolve([]),sourceRequestsPromise=Promise.resolve([]),invoicesPromise=Promise.resolve([]);
     if(missing.length){const ids=missing.map(encodeURIComponent).join(',');extraPromise=optional('schedule-change-assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=${ASSIGN_SELECT}&id=in.(${ids})`),warnings);}
     const jobIds=[...new Set([...(assignments||[]).map(a=>a.job_id),...(needsAssignment||[]).map(j=>j.id)].filter(Boolean))];
     let reassignmentPromise=Promise.resolve([]);
@@ -50,12 +50,16 @@ exports.handler=async event=>{
     if(jobIds.length){
       const list=jobIds.map(x=>encodeURIComponent(x)).join(',');
       billingPromise=optional('job-billing',()=>lib.sbJson(`/rest/v1/job_billing_items?select=id,job_id,assignment_id,provider_id,provider_service_rate_id,service_id,service_name,description,quantity,unit,customer_unit_rate,customer_line_total,provider_compensation_method,provider_compensation_value,provider_unit_rate,provider_line_total,gross_profit,unit_rate,line_total,sort_order&job_id=in.(${list})&order=sort_order.asc,id.asc`),warnings);
+      invoicesPromise=optional('job-invoices',()=>lib.sbJson(`/rest/v1/invoices?select=id,invoice_number,job_id,status,payment_status,subtotal,gst_amount,total_amount,created_at&job_id=in.(${list})&status=neq.VOID&order=created_at.desc`),warnings);
       const needsIds=(needsAssignment||[]).map(j=>j.id).filter(Boolean);
       if(needsIds.length){const needsList=needsIds.map(x=>encodeURIComponent(x)).join(',');reassignmentPromise=optional('reassignment-assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,sequence_no,is_primary,scheduled_start,scheduled_end,status,assignment_message,assigned_at,responded_at&job_id=in.(${needsList})&status=in.(DECLINED,CANCELLED)&order=assigned_at.desc`),warnings);}
     }
-    const [extra,billing,reassignmentAssignments,sourceRequests]=await Promise.all([extraPromise,billingPromise,reassignmentPromise,sourceRequestsPromise]);
+    const [extra,billing,reassignmentAssignments,sourceRequests,invoices]=await Promise.all([extraPromise,billingPromise,reassignmentPromise,sourceRequestsPromise,invoicesPromise]);
     if(extra?.length)assignments=[...(assignments||[]),...extra];
-    return lib.json(200,{from,to,providers:providers||[],provider_services:providerServices||[],services:services||[],availability:availability||[],exceptions:exceptions||[],assignments:assignments||[],needs_assignment:needsAssignment||[],reassignment_assignments:reassignmentAssignments||[],source_requests:sourceRequests||[],provider_rates:providerRates||[],job_billing_items:billing||[],schedule_changes:scheduleChanges||[],warnings,duration_ms:Date.now()-started});
+    const invoiceIds=[...new Set((invoices||[]).map(x=>x.id).filter(Boolean))];
+    let invoiceItems=[];
+    if(invoiceIds.length){const invoiceList=invoiceIds.map(encodeURIComponent).join(',');invoiceItems=await optional('invoice-items',()=>lib.sbJson(`/rest/v1/invoice_items?select=id,invoice_id,description,qty,unit,unit_rate,line_total,sort_order&invoice_id=in.(${invoiceList})&order=sort_order.asc,id.asc`),warnings);}
+    return lib.json(200,{from,to,providers:providers||[],provider_services:providerServices||[],services:services||[],availability:availability||[],exceptions:exceptions||[],assignments:assignments||[],needs_assignment:needsAssignment||[],reassignment_assignments:reassignmentAssignments||[],source_requests:sourceRequests||[],provider_rates:providerRates||[],job_billing_items:billing||[],final_invoices:invoices||[],invoice_items:invoiceItems||[],schedule_changes:scheduleChanges||[],warnings,duration_ms:Date.now()-started});
   }catch(e){
     console.error('admin-calendar-data',e);
     const status=e.status||500;

@@ -12,7 +12,7 @@ ok(action.includes("transitionPlan(action,current,p.value)")&&action.includes("s
 ok(action.includes('actionAlreadyApplied(action,current.status)')&&action.includes('already_applied:true'),'Repeated transition clicks remain idempotent');
 ok(action.includes("if(action==='SAVE_NOTES')")&&action.includes('notification_sent:false'),'Internal notes are saved without customer notification');
 ok(action.includes('history_recorded:historyRecorded')&&action.includes('history-warning'),'Status history remains audited without false transaction failure on auxiliary history warning');
-ok(action.includes('notify.send')&&action.includes('Email delivery is deliberately non-blocking'),'Email delivery remains non-blocking after the business transition');
+ok(action.includes("if(action==='CANCEL')")&&action.includes('notificationPromise=notify.send')&&action.includes('REVIEWING and READY_TO_ASSIGN'),'STEP 19.2 keeps cancellation customer-facing while routine REVIEWING / READY_TO_ASSIGN transitions stay internal');
 ok(list.includes("optional('history'")&&list.includes("optional('services'")&&list.includes('The list view does not need the service catalog'),'Auxiliary drawer queries no longer collapse the Service Request queue');
 ok(ui.includes('Request failed (HTTP ${r.status}).')&&ui.includes('Request updated successfully, but the screen could not refresh automatically'),'Administration surfaces useful HTTP errors and distinguishes refresh failure from transaction failure');
 ok(/js\/admin-service-requests\.js\?v=(?:15\.8\.6(?:\.\d+)?|15\.(?:9|\d{2,}))/.test(html),'Service Request page cache-busts the repaired browser code');

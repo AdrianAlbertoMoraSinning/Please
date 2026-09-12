@@ -13,6 +13,6 @@ ok(backend.includes('activeProviderIds.has(pid)')&&backend.includes('seen.has(pi
 ok(backend.includes('provider_is_available_for_window')&&backend.includes('status=in.(PENDING,CONFIRMED)&scheduled_start=lt.'),'Every new/replacement Provider is checked for published availability and overlap');
 ok(backend.includes("status:'PENDING'")&&backend.includes('sequence_no:a.sequence_no')&&backend.includes('is_primary:Boolean(a.is_primary)'),'New assignments preserve replacement primary/order and create added Providers as independent PENDING assignments');
 ok(backend.includes('requiredProviderCount=activeExisting.length+newAssignments.length'),'Same Job expands its required team count when additional Providers are added');
-ok(backend.includes('notifyAssignment(a.id')&&backend.includes("notifyCustomerJob(jobId,'SCHEDULED')"),'Each new Provider receives an assignment notification while customer coordination remains one Job');
+ok(backend.includes('notifyAssignment(a.id')&&!backend.includes("notifyCustomerJob(jobId,'SCHEDULED')"),'Each new Provider still receives the assignment while STEP 19.2 suppresses routine customer coordination email');
 ok(!fs.existsSync(path.join(root,'supabase/STEP15_8_6_3_2.sql')),'No SQL migration is required for multi-provider reassignment');
 if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.8.6.3.2 multi-provider reassignment static audit completed successfully.');

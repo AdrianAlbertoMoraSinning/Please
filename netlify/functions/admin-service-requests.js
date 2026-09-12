@@ -13,9 +13,15 @@ async function addJobReferences(requests){
   if(!ids.length)return rows;
   try{
     const list=ids.map(encodeURIComponent).join(',');
-    const [jobs,assignments]=await Promise.all([lib.sbJson(`/rest/v1/jobs?select=id,reference,service_id,estimated_duration_minutes&id=in.(${list})`),lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,is_primary,sequence_no,status,scheduled_start,scheduled_end&job_id=in.(${list})&status=in.(PENDING,CONFIRMED)&order=sequence_no.asc,assigned_at.asc`).catch(()=>[])]);
-    const map=new Map((jobs||[]).map(j=>[j.id,j])),byJob=new Map();for(const a of assignments||[]){if(!byJob.has(a.job_id))byJob.set(a.job_id,[]);byJob.get(a.job_id).push(a);}
-    rows.forEach(r=>{const j=r.job_id?map.get(r.job_id):null,aa=r.job_id?(byJob.get(r.job_id)||[]):[],primary=aa.find(x=>x.is_primary)||aa[0]||null;r.job_reference=j?.reference||null;r.job_service_id=j?.service_id||null;r.job_estimated_duration_minutes=j?.estimated_duration_minutes??null;r.job_scheduled_start=primary?.scheduled_start||null;r.job_scheduled_end=primary?.scheduled_end||null;r.job_active_assignment_count=aa.length;});
+    const [jobs,assignments,invoices]=await Promise.all([
+      lib.sbJson(`/rest/v1/jobs?select=id,reference,service_id,estimated_duration_minutes,quoted_subtotal,status&id=in.(${list})`),
+      lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,is_primary,sequence_no,status,scheduled_start,scheduled_end&job_id=in.(${list})&status=in.(PENDING,CONFIRMED)&order=sequence_no.asc,assigned_at.asc`).catch(()=>[]),
+      lib.sbJson(`/rest/v1/invoices?select=id,invoice_number,job_id,status,payment_status,subtotal,gst_amount,total_amount,created_at&job_id=in.(${list})&status=neq.VOID&order=created_at.desc`).catch(()=>[])
+    ]);
+    const map=new Map((jobs||[]).map(j=>[j.id,j])),byJob=new Map(),invoiceByJob=new Map();
+    for(const a of assignments||[]){if(!byJob.has(a.job_id))byJob.set(a.job_id,[]);byJob.get(a.job_id).push(a);}
+    for(const inv of invoices||[]){if(inv.job_id&&!invoiceByJob.has(inv.job_id))invoiceByJob.set(inv.job_id,inv);}
+    rows.forEach(r=>{const j=r.job_id?map.get(r.job_id):null,aa=r.job_id?(byJob.get(r.job_id)||[]):[],primary=aa.find(x=>x.is_primary)||aa[0]||null,inv=r.job_id?invoiceByJob.get(r.job_id):null;r.job_reference=j?.reference||null;r.job_service_id=j?.service_id||null;r.job_estimated_duration_minutes=j?.estimated_duration_minutes??null;r.job_quoted_subtotal=j?.quoted_subtotal??null;r.job_scheduled_start=primary?.scheduled_start||null;r.job_scheduled_end=primary?.scheduled_end||null;r.job_active_assignment_count=aa.length;r.final_invoice_id=inv?.id||null;r.final_invoice_number=inv?.invoice_number||null;r.final_invoice_status=inv?.status||null;r.final_invoice_payment_status=inv?.payment_status||null;r.final_invoice_subtotal=inv?.subtotal??null;r.final_invoice_total=inv?.total_amount??null;});
   }catch(e){console.warn('admin-service-requests:job-reference-link',e?.message||e);}
   return rows;
 }

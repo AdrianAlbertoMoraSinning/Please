@@ -23,6 +23,11 @@ async function addHistory(invoice,patch,note,user){
   })});
 }
 
+function greetingName(value){
+  const first=clean(value,200).split(/\s+/).filter(Boolean)[0]||'';
+  return first||'there';
+}
+
 function eTransferEmail(){
   const value=clean(process.env.PLEASE_ETRANSFER_EMAIL||'info@pleaseservice.ca',250).toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)?value:'';
@@ -55,21 +60,22 @@ async function invoiceEmail(invoice,user){
   const transfer=eTransferEmail();
   const invoiceUrl=`${notify.baseUrl()}/invoice.html?token=${encodeURIComponent(fresh.public_token||'')}`;
   const service=job?.service_name||'PLEASE service';
+  const customerFirstName=greetingName(job?.customers?.first_name||fresh.client_name);
   const delivery=await notify.send({
     to:fresh.client_email,
-    subject:`PLEASE — Your service invoice ${fresh.invoice_number}`,
-    title:'Your PLEASE service is ready for payment',
-    intro:`Hi ${fresh.client_name||'there'}, your service is complete and your final PLEASE invoice is ready.`,
+    subject:`PLEASE — Your service is complete · Invoice ${fresh.invoice_number}`,
+    title:`Your service is complete — Invoice ${fresh.invoice_number}`,
+    intro:`Hi ${customerFirstName}, your service is complete and your final PLEASE invoice is ready.`,
     details:[
       ['Service',service],
       ['Invoice',fresh.invoice_number],
       ['Total',notify.money(fresh.total_amount)],
       ['Due date',fresh.due_date||'Due on receipt']
     ],
-    message:`PAYMENT OPTIONS\n\nCard / Debit: use the PAY NOW button below to open the secure invoice and Stripe checkout.${transfer?`\n\ne-Transfer: send payment to ${transfer} and include ${fresh.invoice_number} in the message/reference. PLEASE will confirm the invoice as paid after the transfer is received.`:''}`,
+    message:`PAYMENT OPTIONS\n\nCard / Debit: click PAY NOW to securely pay online.${transfer?`\n\ne-Transfer: send payment to ${transfer} and include ${fresh.invoice_number} as the payment reference. PLEASE will confirm the invoice as paid after the transfer is received.`:''}`,
     ctaLabel:'PAY NOW',
     ctaUrl:invoiceUrl,
-    idempotencyKey:`please-step19-1-invoice-delivery-${fresh.id}`
+    idempotencyKey:`please-step19-2-invoice-delivery-${fresh.id}`
   });
 
   if(!delivery?.sent){
@@ -98,7 +104,7 @@ async function reviewEmail(invoice,user){
     to:invoice.client_email,
     subject:'PLEASE — How did we do?',
     title:'Thank you for choosing PLEASE',
-    intro:`Hi ${invoice.client_name||'there'}, thank you for trusting PLEASE with your recent service.`,
+    intro:`Hi ${greetingName(invoice.client_name)}, thank you for trusting PLEASE with your recent service.`,
     details:[['Service',job?.service_name||'PLEASE service'],['Invoice',invoice.invoice_number]],
     message:'★★★★★\n\nReviews from clients like you help other Calgary customers find reliable help. If you were happy with your service, we would really appreciate a Google review.',
     ctaLabel:'LEAVE A GOOGLE REVIEW',

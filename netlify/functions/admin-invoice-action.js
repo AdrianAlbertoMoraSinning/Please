@@ -2,6 +2,7 @@ const crypto=require('crypto');
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
 const MONEY=n=>Math.round((Number(n)||0)*100)/100;
+function greetingName(value){return String(value||'').trim().split(/\s+/).filter(Boolean)[0]||'there';}
 
 async function getInvoice(id){
   const rows=await lib.sbJson(`/rest/v1/invoices?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
@@ -23,6 +24,34 @@ function cleanItem(x,i){
   if(qty<=0||unit_rate<0) throw Object.assign(new Error(`Invalid quantity or rate on item ${i+1}.`),{status:400});
   return {description,qty,unit,unit_rate,line_total:MONEY(qty*unit_rate),sort_order:(i+1)*10};
 }
+function sameNumber(a,b){return Math.abs(Number(a)-Number(b))<0.005;}
+function sameUnit(a,b){return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();}
+
+async function syncFinalCustomerBilling(inv,items,subtotal){
+  if(!inv.job_id)return{job_synced:false,line_sync:'NOT_APPLICABLE'};
+  const job=(await lib.sbJson(`/rest/v1/jobs?select=id,billing_type,customer_rate,billable_quantity,billing_unit,quoted_subtotal&id=eq.${encodeURIComponent(inv.job_id)}&limit=1`))?.[0];
+  if(!job)throw Object.assign(new Error('The related Job could not be found while synchronizing the final invoice values.'),{status:409});
+  const billing=await lib.sbJson(`/rest/v1/job_billing_items?select=id,quantity,unit,customer_unit_rate,customer_line_total,provider_unit_rate,provider_line_total,sort_order&job_id=eq.${encodeURIComponent(inv.job_id)}&order=sort_order.asc,id.asc`).catch(()=>[]);
+  const now=new Date().toISOString();
+  const jobPatch={quoted_subtotal:MONEY(subtotal),updated_at:now};
+  if(items.length===1){
+    jobPatch.customer_rate=MONEY(items[0].unit_rate);
+    jobPatch.billable_quantity=MONEY(items[0].qty);
+    jobPatch.billing_unit=items[0].unit;
+  }
+  await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(inv.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(jobPatch)});
+
+  // Protect frozen Provider economics. Customer-side Job billing lines are updated only
+  // when the invoice still has the same line structure (same count, quantity and unit).
+  // Provider unit/line rates are never overwritten by invoice editing.
+  const structurallyCompatible=billing.length===items.length&&billing.every((row,i)=>sameNumber(row.quantity,items[i].qty)&&sameUnit(row.unit,items[i].unit));
+  if(structurallyCompatible){
+    for(let i=0;i<billing.length;i++){
+      await lib.sbJson(`/rest/v1/job_billing_items?id=eq.${encodeURIComponent(billing[i].id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({customer_unit_rate:MONEY(items[i].unit_rate),updated_at:now})});
+    }
+  }
+  return{job_synced:true,line_sync:structurallyCompatible?'CUSTOMER_RATES_SYNCED':'FINAL_TOTAL_ONLY',job_id:inv.job_id};
+}
 
 async function saveDraftFinancials(inv,body){
   if(inv.status!=='DRAFT') throw Object.assign(new Error('Issued invoices are financially locked. Void and reissue the invoice to correct customer-facing amounts.'),{status:409});
@@ -37,7 +66,8 @@ async function saveDraftFinancials(inv,body){
   await lib.sbJson('/rest/v1/invoice_items',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(items.map(x=>({...x,invoice_id:inv.id})))});
   const subtotal=MONEY(items.reduce((n,x)=>n+x.line_total,0)),gst=MONEY(subtotal*rate/100),total=MONEY(subtotal+gst);
   await lib.sbJson(`/rest/v1/invoices?id=eq.${encodeURIComponent(inv.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({subtotal,gst_amount:gst,total_amount:total,updated_at:new Date().toISOString()})});
-  return {subtotal,gst,total,items};
+  const jobSync=await syncFinalCustomerBilling(inv,items,subtotal);
+  return {subtotal,gst,total,items,...jobSync};
 }
 
 exports.handler=async event=>{
@@ -88,8 +118,8 @@ exports.handler=async event=>{
     if(!inv) return lib.json(404,{error:'Invoice not found'});
 
     if(action==='SAVE'){
-      await saveDraftFinancials(inv,body);
-      return lib.json(200,{ok:true});
+      const saved=await saveDraftFinancials(inv,body);
+      return lib.json(200,{ok:true,job_synced:saved.job_synced,line_sync:saved.line_sync,total_amount:saved.total});
     }
 
     if(action==='ISSUE'){
@@ -110,7 +140,7 @@ exports.handler=async event=>{
       const patch={status:'SENT',sent_at:new Date().toISOString(),updated_at:new Date().toISOString()};
       await lib.sbJson(`/rest/v1/invoices?id=eq.${id}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
       await history(inv,patch,'Invoice marked sent',auth.user);
-      const fresh=await notify.invoiceContext(id).catch(()=>inv),n=await notify.send({to:fresh?.client_email,subject:`PLEASE — Invoice ${fresh?.invoice_number||inv.invoice_number}`,title:'Your PLEASE invoice is ready',intro:`Hi ${fresh?.client_name||'there'}, PLEASE has sent your service invoice.`,details:[['Invoice',fresh?.invoice_number||inv.invoice_number],['Total',notify.money(fresh?.total_amount??inv.total_amount)],['Due date',fresh?.due_date||inv.due_date||'Due on receipt'],['Status','SENT']],ctaLabel:'View & Pay Invoice',ctaUrl:`${notify.baseUrl()}/invoice.html?token=${encodeURIComponent(fresh?.public_token||inv.public_token||'')}`,idempotencyKey:`please-invoice-sent-${id}`});
+      const fresh=await notify.invoiceContext(id).catch(()=>inv),n=await notify.send({to:fresh?.client_email,subject:`PLEASE — Invoice ${fresh?.invoice_number||inv.invoice_number}`,title:'Your PLEASE invoice is ready',intro:`Hi ${greetingName(fresh?.client_name)}, PLEASE has sent your service invoice.`,details:[['Invoice',fresh?.invoice_number||inv.invoice_number],['Total',notify.money(fresh?.total_amount??inv.total_amount)],['Due date',fresh?.due_date||inv.due_date||'Due on receipt'],['Status','SENT']],ctaLabel:'View & Pay Invoice',ctaUrl:`${notify.baseUrl()}/invoice.html?token=${encodeURIComponent(fresh?.public_token||inv.public_token||'')}`,idempotencyKey:`please-invoice-sent-${id}`});
       return lib.json(200,{ok:true,notification_sent:!!n?.sent,notification_error:n?.error||null});
     }
 
@@ -128,7 +158,7 @@ exports.handler=async event=>{
       await lib.sbJson('/rest/v1/payment_transactions',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({invoice_id:id,amount,currency:inv.currency||'CAD',provider:'MANUAL',status:'SUCCEEDED',external_reference:ref,note,created_by_admin_portal_user:auth.user.id})});
       await history(inv,patch,note,auth.user);
       const fresh=await notify.invoiceContext(id).catch(()=>inv),remainingAfter=MONEY(Math.max(0,Number(fresh?.total_amount??inv.total_amount)-paid));
-      const n=await notify.send({to:fresh?.client_email||inv.client_email,subject:`PLEASE — Payment ${isFull?'Received':'Recorded'} (${fresh?.invoice_number||inv.invoice_number})`,title:isFull?'Payment received — thank you':'Payment recorded',intro:`Hi ${fresh?.client_name||inv.client_name||'there'}, PLEASE recorded your payment.`,details:[['Invoice',fresh?.invoice_number||inv.invoice_number],['Payment',`${amount.toFixed(2)} ${inv.currency||'CAD'}`],['Total paid',`${paid.toFixed(2)} ${inv.currency||'CAD'}`],['Remaining balance',`${remainingAfter.toFixed(2)} ${inv.currency||'CAD'}`],['Method',method],['Reference',ref||'—']],ctaLabel:'View Invoice',ctaUrl:`${notify.baseUrl()}/invoice.html?token=${encodeURIComponent(fresh?.public_token||inv.public_token||'')}`,idempotencyKey:`please-invoice-manual-payment-${id}-${paid.toFixed(2)}`});
+      const n=await notify.send({to:fresh?.client_email||inv.client_email,subject:`PLEASE — Payment ${isFull?'Received':'Recorded'} (${fresh?.invoice_number||inv.invoice_number})`,title:isFull?'Payment received — thank you':'Payment recorded',intro:`Hi ${greetingName(fresh?.client_name||inv.client_name)}, PLEASE recorded your payment.`,details:[['Invoice',fresh?.invoice_number||inv.invoice_number],['Payment',`${amount.toFixed(2)} ${inv.currency||'CAD'}`],['Total paid',`${paid.toFixed(2)} ${inv.currency||'CAD'}`],['Remaining balance',`${remainingAfter.toFixed(2)} ${inv.currency||'CAD'}`],['Method',method],['Reference',ref||'—']],ctaLabel:'View Invoice',ctaUrl:`${notify.baseUrl()}/invoice.html?token=${encodeURIComponent(fresh?.public_token||inv.public_token||'')}`,idempotencyKey:`please-invoice-manual-payment-${id}-${paid.toFixed(2)}`});
       return lib.json(200,{ok:true,fully_paid:isFull,notification_sent:!!n?.sent,accounting_mode:'EVENT_DRIVEN'});
     }
 
@@ -140,7 +170,7 @@ exports.handler=async event=>{
       const patch={status:'VOID',voided_at:new Date().toISOString(),void_reason:reason,updated_at:new Date().toISOString()};
       await lib.sbJson(`/rest/v1/invoices?id=eq.${id}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
       await history(inv,patch,reason,auth.user);
-      const n=await notify.send({to:inv.client_email,subject:`PLEASE — Invoice Voided (${inv.invoice_number})`,title:'PLEASE invoice voided',intro:`Hi ${inv.client_name||'there'}, PLEASE voided this invoice.`,details:[['Invoice',inv.invoice_number],['Previous total',notify.money(inv.total_amount)],['Status','VOID']],message:reason,idempotencyKey:`please-invoice-void-${id}`});
+      const n=await notify.send({to:inv.client_email,subject:`PLEASE — Invoice Voided (${inv.invoice_number})`,title:'PLEASE invoice voided',intro:`Hi ${greetingName(inv.client_name)}, PLEASE voided this invoice.`,details:[['Invoice',inv.invoice_number],['Previous total',notify.money(inv.total_amount)],['Status','VOID']],message:reason,idempotencyKey:`please-invoice-void-${id}`});
       return lib.json(200,{ok:true,notification_sent:!!n?.sent,accounting_mode:'EVENT_DRIVEN'});
     }
 

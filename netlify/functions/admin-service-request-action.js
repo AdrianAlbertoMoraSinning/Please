@@ -134,10 +134,10 @@ exports.handler=async event=>{
       if(customerId&&customerId!==current.customer_id){await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(current.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({customer_id:customerId,updated_at:new Date().toISOString()})}).catch(()=>{});if(updated?.[0])updated[0].customer_id=customerId;}
       await lib.sbJson('/rest/v1/service_request_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({service_request_id:current.id,old_status:current.status,new_status:current.status,note:current.job_id?'Request details updated and related Job synchronized by PLEASE Administration':'Request details updated by PLEASE Administration',changed_by_admin_portal_user:auth.user.id})}).catch(e=>console.error('admin-service-request-action:details-history-warning',e));
       const out=updated?.[0]||current;
-      // The active Job synchronization already sends the schedule update when linked.
-      // For an unassigned request, keep the normal request-update email.
-      const n=current.job_id?null:await notify.send({to:out.email,subject:`PLEASE — Request Updated (${out.reference})`,title:'Your service request was updated',intro:`Hi ${out.first_name||'there'}, PLEASE Administration updated the details of your request.`,details:[['Request',out.reference],['Service',out.service_name],['Status',out.status]],ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-request-details-${out.id}-${Date.now()}`});
-      return lib.json(200,{request:out,related_job_synchronized:!!current.job_id,notification_sent:!!n?.sent});
+      // STEP 19.2: request-detail edits are operational facts, not customer milestones.
+      // If a linked active Job schedule changes, _job-schedule-lib may still send the
+      // specific schedule-change communication. The request edit itself sends no email.
+      return lib.json(200,{request:out,related_job_synchronized:!!current.job_id,notification_sent:false});
     }
 
     if(action==='SAVE_NOTES'){
@@ -157,17 +157,20 @@ exports.handler=async event=>{
       if(actionAlreadyApplied(action,out.status)) return lib.json(200,{request:out,already_applied:true});
       return lib.json(409,{error:'This request changed in another session. Refresh and try again.',request:out});
     }
-    let title='PLEASE request update',intro=`Hi ${out.first_name||'there'}, your PLEASE request has been updated.`,message='';
-    if(action==='START_REVIEW'){title='PLEASE is reviewing your request';intro=`Hi ${out.first_name||'there'}, our operations team has started reviewing your service request.`;}
-    if(action==='READY_TO_ASSIGN'){title='Your request is ready for provider coordination';intro=`Hi ${out.first_name||'there'}, PLEASE has reviewed your request and is coordinating the right provider and schedule.`;}
-    if(action==='CANCEL'){title='Your PLEASE request was cancelled';intro=`Hi ${out.first_name||'there'}, your service request has been marked cancelled.`;message=String(p.value||out.cancellation_reason||'').slice(0,1000);}
+    // STEP 19.2 Customer Journey: REVIEWING and READY_TO_ASSIGN remain fully
+    // auditable internal states but no longer generate customer email. Cancellation is
+    // exceptional/customer-impacting and therefore remains customer-facing.
+    let notificationPromise=Promise.resolve(null);
+    if(action==='CANCEL'){
+      const title='Your PLEASE request was cancelled';
+      const intro=`Hi ${out.first_name||'there'}, your service request has been marked cancelled.`;
+      const message=String(p.value||out.cancellation_reason||'').slice(0,1000);
+      notificationPromise=notify.send({to:out.email,subject:`PLEASE — ${title} (${out.reference})`,title,intro,details:[['Request',out.reference],['Service',out.service_name],['Status',out.status]],message,ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-request-${out.id}-${action}`});
+    }
 
-    // Email delivery is deliberately non-blocking for the business transition in the sense
-    // that it is bounded by the global Resend timeout and cannot roll back the database update.
-    // History + email run in parallel so Netlify is not forced through two sequential network waits.
     const [historyRecorded,n]=await Promise.all([
       recordHistory({requestId:current.id,oldStatus:current.status,newStatus:plan.newStatus,note:plan.note,actorId:auth.user.id}),
-      notify.send({to:out.email,subject:`PLEASE — ${title} (${out.reference})`,title,intro,details:[['Request',out.reference],['Service',out.service_name],['Status',out.status]],message,ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-request-${out.id}-${action}`})
+      notificationPromise
     ]);
     return lib.json(200,{request:out,notification_sent:!!n?.sent,history_recorded:historyRecorded});
   }catch(e){

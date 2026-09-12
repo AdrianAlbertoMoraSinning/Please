@@ -8,12 +8,15 @@ async function notifyAssignment(assignmentId,kind='NEW'){
     return notify.sendProvider(a.provider_id,{subject:`PLEASE — ${cancelled?'Assignment Cancelled':'New Assignment'} (${j.reference||'Job'})`,title:cancelled?'PLEASE assignment cancelled':'New PLEASE service assignment',intro:cancelled?`Hello ${p.display_name||'Provider'}, this assignment has been cancelled by PLEASE Administration.`:`Hello ${p.display_name||'Provider'}, PLEASE has assigned a service for your confirmation.`,details:[['Job',j.reference],['Service',j.service_name],['Schedule',`${notify.formatDateTime(a.scheduled_start)} → ${notify.formatDateTime(a.scheduled_end)}`],['Address',j.work_address],['Status',a.status]],message:cancelled?'Do not proceed to the service unless PLEASE sends a new assignment.':(a.assignment_message||j.work_description||''),ctaLabel:'OPEN PROVIDER PORTAL',ctaUrl:`${notify.baseUrl()}/provider-login.html?next=assignments`,idempotencyKey:cancelled?`please-assignment-cancel-${assignmentId}`:`please-assignment-${assignmentId}`});
   }catch(e){console.error('admin-job-action:provider-notify',e);return null;}
 }
-async function notifyCustomerJob(jobId,kind='SCHEDULED'){
+// STEP 19.2: normal Job creation/reassignment is internal coordination and does not
+// email the customer. This helper is intentionally cancellation-only.
+async function notifyCustomerJob(jobId,kind='CANCELLED'){
+  if(kind!=='CANCELLED')return null;
   try{
     const j=await notify.jobContext(jobId);if(!j?.customers?.email)return null;
-    const c=j.customers,title=kind==='CANCELLED'?'PLEASE service update':'PLEASE is coordinating your service';
-    let intro=kind==='CANCELLED'?`Hi ${c.first_name||'there'}, this PLEASE service has been cancelled or returned for service coordination.`:`Hi ${c.first_name||'there'}, PLEASE is coordinating your service team and schedule.`;
-    return notify.send({to:c.email,subject:`PLEASE — ${title} (${j.reference})`,title,intro,details:[['Service Job',j.reference],['Service',j.service_name],['Status',kind==='CANCELLED'?'Cancelled':'Service coordination'],['Address',j.work_address]],message:kind==='CANCELLED'?'PLEASE Administration will contact you if a replacement schedule or service team is needed.':'Your secure tracking page shows only PLEASE professionals who have individually confirmed your service.',ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-job-${jobId}-${kind}`});
+    const c=j.customers,title='PLEASE service update';
+    const intro=`Hi ${c.first_name||'there'}, this PLEASE service has been cancelled or returned for service coordination.`;
+    return notify.send({to:c.email,subject:`PLEASE — ${title} (${j.reference})`,title,intro,details:[['Service Job',j.reference],['Service',j.service_name],['Status','Cancelled'],['Address',j.work_address]],message:'PLEASE Administration will contact you if a replacement schedule or service team is needed.',ctaLabel:'Track Your Request',ctaUrl:`${notify.baseUrl()}/track-request.html`,idempotencyKey:`please-job-${jobId}-${kind}`});
   }catch(e){console.error('admin-job-action:customer-notify',e);return null;}
 }
 
@@ -217,7 +220,7 @@ exports.handler=async event=>{
       const historyTasks=newAssignments.map((a,i)=>lib.sbJson('/rest/v1/assignment_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({assignment_id:a.id,old_status:null,new_status:'PENDING',changed_by_admin_portal_user:auth.user.id,note:i===0?'Provider assignment corrected/replaced by PLEASE':'Additional Provider added during reassignment by PLEASE'})}).catch(e=>console.warn('admin-job-action:multi-reassign-assignment-history',e?.message||e)));
       historyTasks.push(lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:jobId,old_status:'NEEDS_ASSIGNMENT',new_status:'PENDING_PROVIDER',changed_by_admin_portal_user:auth.user.id,note:`Corrected ${replaceAssignment.status} assignment ${replaceAssignment.id} and sent ${newAssignments.length} Provider assignment${newAssignments.length===1?'':'s'} on the same Job.`})}).catch(e=>console.warn('admin-job-action:multi-reassign-job-history',e?.message||e)));
       if(appliedRates.length)historyTasks.push(recordProviderRateChanges(appliedRates,auth.user.id,job.reference));
-      const notices=[...newAssignments.map(a=>notifyAssignment(a.id,'NEW')),notifyCustomerJob(jobId,'SCHEDULED'),...(appliedRates.length?[notifyProviderRateChanges(appliedRates,job.reference)]:[])];
+      const notices=[...newAssignments.map(a=>notifyAssignment(a.id,'NEW')),...(appliedRates.length?[notifyProviderRateChanges(appliedRates,job.reference)]:[])];
       const results=await Promise.all([...historyTasks,...notices]);const flattened=results.flat?.(2)||results;
       return lib.json(200,{ok:true,job_id:jobId,job_reference:job.reference,assignment_ids:newAssignments.map(a=>a.id),provider_count:newAssignments.length,added_provider_count:Math.max(0,newAssignments.length-1),active_team_count:activeExisting.length+newAssignments.length,billing_items_replaced:oldBilling.length,billing_items_created:newBilling.length||validations.reduce((n,v)=>n+v.rows.length,0),provider_rates_updated:appliedRates.length,notifications_sent:flattened.filter(x=>x?.sent).length,replaced_assignment_id:replaceAssignment.id});
     }
@@ -279,7 +282,7 @@ exports.handler=async event=>{
       await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({quoted_subtotal:subtotal,...(durationMinutes?{estimated_duration_minutes:durationMinutes}:{}),updated_at:new Date().toISOString()})});
       lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:jobId,old_status:'NEEDS_ASSIGNMENT',new_status:'PENDING_PROVIDER',changed_by_admin_portal_user:auth.user.id,note:`Billing/schedule corrected before reassignment. Replaced ${replaceAssignment.status} assignment ${replaceAssignment.id}.`})}).catch(e=>console.warn('admin-job-action:reassign-history',e?.message||e));
       if(appliedRates.length)await recordProviderRateChanges(appliedRates,auth.user.id,job.reference);
-      const notices=await Promise.all([notifyAssignment(value.assignment_id,'NEW'),notifyCustomerJob(jobId,'SCHEDULED'),...(appliedRates.length?[notifyProviderRateChanges(appliedRates,job.reference)]:[])]);
+      const notices=await Promise.all([notifyAssignment(value.assignment_id,'NEW'),...(appliedRates.length?[notifyProviderRateChanges(appliedRates,job.reference)]:[])]);
       return lib.json(200,{...value,job_reference:job.reference,billing_items_replaced:oldBilling?.length||0,billing_items_created:newBilling?.length||validated.rows.length,provider_rates_updated:appliedRates.length,notifications_sent:(notices.flat?.(2)||notices).filter(x=>x?.sent).length,replaced_assignment_id:replaceAssignment.id});
     }
 
@@ -299,7 +302,7 @@ exports.handler=async event=>{
       const assignmentIds=value?.assignment_ids||[];
       const postTasks=[];
       if(value?.job_id&&appliedRates.length){value.provider_rates_updated=appliedRates.length;postTasks.push(recordProviderRateChanges(appliedRates,auth.user.id,value.job_reference));}
-      const noticeTasks=[...assignmentIds.map(aid=>notifyAssignment(aid,'NEW'))];if(value?.job_id)noticeTasks.push(notifyCustomerJob(value.job_id,'SCHEDULED'));if(appliedRates.length)noticeTasks.push(notifyProviderRateChanges(appliedRates,value?.job_reference));
+      const noticeTasks=[...assignmentIds.map(aid=>notifyAssignment(aid,'NEW'))];if(appliedRates.length)noticeTasks.push(notifyProviderRateChanges(appliedRates,value?.job_reference));
       const results=await Promise.all([...postTasks,...noticeTasks]);
       const flattened=results.flat?.(2)||results;value.notifications_sent=flattened.filter(x=>x?.sent).length;
       return lib.json(200,value||{ok:true});
@@ -322,7 +325,7 @@ exports.handler=async event=>{
     }
     const noticeTasks=[];
     if(value?.assignment_id)noticeTasks.push(notifyAssignment(value.assignment_id,action==='CANCEL_ASSIGNMENT'?'CANCELLED':'NEW'));
-    if(value?.job_id){if(action==='CANCEL_ASSIGNMENT'||action==='CANCEL_JOB')noticeTasks.push(notifyCustomerJob(value.job_id,'CANCELLED'));else if(['CREATE_AND_ASSIGN','ASSIGN_EXISTING'].includes(action))noticeTasks.push(notifyCustomerJob(value.job_id,'SCHEDULED'));}
+    if(value?.job_id&&(action==='CANCEL_ASSIGNMENT'||action==='CANCEL_JOB'))noticeTasks.push(notifyCustomerJob(value.job_id,'CANCELLED'));
     if(action==='CANCEL_JOB'&&value?.job_id){try{const as=await lib.sbJson(`/rest/v1/job_assignments?select=id&job_id=eq.${encodeURIComponent(value.job_id)}&status=eq.CANCELLED`);for(const a of as||[])noticeTasks.push(notifyAssignment(a.id,'CANCELLED'));}catch(_){} }
     if(legacyAppliedRates.length)noticeTasks.push(notifyProviderRateChanges(legacyAppliedRates,value?.job_reference));
     const notices=(await Promise.all(noticeTasks)).flat?.(2)||[];
