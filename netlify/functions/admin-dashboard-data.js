@@ -9,14 +9,15 @@ exports.handler=async event=>{
   await lib.requireAdmin(event);
   const today=todayYmd(), end=new Date(`${today}T12:00:00Z`);end.setUTCDate(end.getUTCDate()+7);const endYmd=end.toISOString().slice(0,10);
   const fromIso=encodeURIComponent(new Date(`${today}T00:00:00-06:00`).toISOString()),toIso=encodeURIComponent(new Date(`${endYmd}T23:59:59-06:00`).toISOString());
-  const [requests,jobs,assignments,providers,scheduleChanges,applications,pendingAll]=await Promise.all([
+  const [requests,jobs,assignments,providers,scheduleChanges,applications,pendingAll,draftInvoices]=await Promise.all([
    optional('requests',()=>lib.sbJson('/rest/v1/service_requests?select=id,reference,status,first_name,last_name,service_name,preferred_date,preferred_start_time,created_at&status=in.(NEW,REVIEWING,READY_TO_ASSIGN)&order=created_at.asc'),[]),
    optional('jobs',()=>lib.sbJson('/rest/v1/jobs?select=id,reference,status,service_name,created_at,customers(first_name,last_name)&status=in.(NEEDS_ASSIGNMENT,PENDING_PROVIDER,CONFIRMED,IN_PROGRESS)&order=created_at.asc'),[]),
    optional('assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,status,scheduled_start,scheduled_end,jobs(reference,service_name,status,customers(first_name,last_name)),providers(display_name)&scheduled_start=gte.${fromIso}&scheduled_start=lte.${toIso}&status=in.(PENDING,CONFIRMED,COMPLETED)&order=scheduled_start.asc`),[]),
    optional('providers',()=>lib.sbJson('/rest/v1/providers?select=id,display_name,status,worker_type&status=eq.ACTIVE&order=display_name.asc'),[]),
    optional('schedule-changes',()=>lib.sbJson('/rest/v1/assignment_schedule_change_requests?select=id,status&status=eq.PENDING'),[]),
    optional('applications',()=>lib.sbJson('/rest/v1/provider_applications?select=id,status&status=in.(NEW,UNDER_REVIEW)'),[]),
-   optional('pending-all',()=>lib.sbJson('/rest/v1/job_assignments?select=id,status&status=eq.PENDING'),[])
+   optional('pending-all',()=>lib.sbJson('/rest/v1/job_assignments?select=id,status&status=eq.PENDING'),[]),
+   optional('draft-invoices',()=>lib.sbJson('/rest/v1/invoices?select=id,invoice_number,job_id,client_name,client_email,invoice_date,total_amount,currency,status,created_at&status=eq.DRAFT&order=created_at.asc'),[])
   ]);
   const todays=(assignments||[]).filter(a=>localDate(a.scheduled_start)===today);
   const uniqueTodayJobs=new Set(todays.map(a=>a.job_id));
@@ -31,6 +32,7 @@ exports.handler=async event=>{
    {key:'needs_assignment',label:'Jobs Need Assignment',count:(jobs||[]).filter(j=>j.status==='NEEDS_ASSIGNMENT').length,href:'admin-calendar.html#needs-assignment',tone:'danger'},
    {key:'provider_pending',label:'Provider Responses Pending',count:pendingProvider.length,href:'admin-jobs.html',tone:'warning'},
    {key:'schedule_changes',label:'Schedule Changes Pending',count:(scheduleChanges||[]).length,href:'admin-calendar.html#pending-schedule-changes',tone:'warning'},
+   {key:'unissued_invoices',label:'Invoices Ready to Issue',count:(draftInvoices||[]).length,href:'admin-invoices.html?status=DRAFT&action_required=1',tone:'warning'},
    {key:'applications',label:'Professional Applications',count:(applications||[]).length,href:'admin.html',tone:'info'}
   ];
   return lib.json(200,{today,priorities,summary:{services_today:uniqueTodayJobs.size,confirmed_assignments_today:confirmedToday.length,in_progress_jobs:inProgressJobs.length,active_providers:(providers||[]).length,please_staff:(providers||[]).filter(p=>p.worker_type==='PLEASE_STAFF').length},today_assignments:todays,next_7_days:days});

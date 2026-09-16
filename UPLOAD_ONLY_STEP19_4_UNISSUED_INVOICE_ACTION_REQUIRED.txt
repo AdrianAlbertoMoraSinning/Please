@@ -1,0 +1,16 @@
+PLEASE STEP 19.4 — Unissued Invoice Action Required
+
+Upload these files to GitHub preserving relative paths:
+
+admin-dashboard.html
+admin-invoices.html
+js/admin-invoices.js
+netlify/functions/admin-dashboard-data.js
+STEP19_4_UNISSUED_INVOICE_ACTION_REQUIRED.md
+STEP19_4_REGRESSION_REPORT.md
+STEP19_4_TEST_RESULTS.txt
+STEP19_4_SHA256_MANIFEST.txt
+UPLOAD_ONLY_STEP19_4_UNISSUED_INVOICE_ACTION_REQUIRED.txt
+tests/step19_4_unissued_invoice_action_required.test.js
+
+No SQL / Supabase migration is required.
