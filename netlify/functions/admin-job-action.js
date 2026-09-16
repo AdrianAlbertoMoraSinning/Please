@@ -1,11 +1,15 @@
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
 const money=n=>Math.round((Number(n)||0)*100)/100;
-async function notifyAssignment(assignmentId,kind='NEW'){
+async function notifyAssignment(assignmentId,kind='NEW',messageOverride=''){
   try{
     const a=await notify.assignmentContext(assignmentId);if(!a)return null;const j=a.jobs||{},p=a.providers||{};
-    const cancelled=kind==='CANCELLED';
-    return notify.sendProvider(a.provider_id,{subject:`PLEASE — ${cancelled?'Assignment Cancelled':'New Assignment'} (${j.reference||'Job'})`,title:cancelled?'PLEASE assignment cancelled':'New PLEASE service assignment',intro:cancelled?`Hello ${p.display_name||'Provider'}, this assignment has been cancelled by PLEASE Administration.`:`Hello ${p.display_name||'Provider'}, PLEASE has assigned a service for your confirmation.`,details:[['Job',j.reference],['Service',j.service_name],['Schedule',`${notify.formatDateTime(a.scheduled_start)} → ${notify.formatDateTime(a.scheduled_end)}`],['Address',j.work_address],['Status',a.status]],message:cancelled?'Do not proceed to the service unless PLEASE sends a new assignment.':(a.assignment_message||j.work_description||''),ctaLabel:'OPEN PROVIDER PORTAL',ctaUrl:`${notify.baseUrl()}/provider-login.html?next=assignments`,idempotencyKey:cancelled?`please-assignment-cancel-${assignmentId}`:`please-assignment-${assignmentId}`});
+    const removed=kind==='REMOVED',cancelled=kind==='CANCELLED'||removed;
+    const subject=removed?'Removed from Service':(cancelled?'Assignment Cancelled':'New Assignment');
+    const title=removed?'You were removed from this PLEASE service':(cancelled?'PLEASE assignment cancelled':'New PLEASE service assignment');
+    const intro=removed?`Hello ${p.display_name||'Provider'}, PLEASE Administration updated the service team. You are no longer assigned to this Job.`:(cancelled?`Hello ${p.display_name||'Provider'}, this assignment has been cancelled by PLEASE Administration.`:`Hello ${p.display_name||'Provider'}, PLEASE has assigned a service for your confirmation.`);
+    const message=removed?(messageOverride||'No action is required. This service is no longer part of your active assignments.'):(cancelled?'Do not proceed to the service unless PLEASE sends a new assignment.':(a.assignment_message||j.work_description||''));
+    return notify.sendProvider(a.provider_id,{subject:`PLEASE — ${subject} (${j.reference||'Job'})`,title,intro,details:[['Job',j.reference],['Service',j.service_name],['Schedule',`${notify.formatDateTime(a.scheduled_start)} → ${notify.formatDateTime(a.scheduled_end)}`],['Address',j.work_address],['Status',a.status]],message,ctaLabel:removed?'VIEW SERVICE HISTORY':'OPEN PROVIDER PORTAL',ctaUrl:removed?`${notify.baseUrl()}/provider.html#history`:`${notify.baseUrl()}/provider-login.html?next=assignments`,idempotencyKey:removed?`please-assignment-removed-${assignmentId}`:(cancelled?`please-assignment-cancel-${assignmentId}`:`please-assignment-${assignmentId}`)});
   }catch(e){console.error('admin-job-action:provider-notify',e);return null;}
 }
 // STEP 19.2: normal Job creation/reassignment is internal coordination and does not
@@ -139,6 +143,58 @@ async function validateExistingAssignmentCandidate(providerId,serviceId,start,en
 }
 function insertableBillingRow(x){return {id:x.id,job_id:x.job_id,assignment_id:x.assignment_id,provider_id:x.provider_id,provider_service_rate_id:x.provider_service_rate_id,service_id:x.service_id,service_name:x.service_name,description:x.description,quantity:x.quantity,unit:x.unit,customer_unit_rate:x.customer_unit_rate,customer_line_total:x.customer_line_total,unit_rate:x.unit_rate,line_total:x.line_total,provider_compensation_method:x.provider_compensation_method,provider_compensation_value:x.provider_compensation_value,provider_unit_rate:x.provider_unit_rate,provider_line_total:x.provider_line_total,gross_profit:x.gross_profit,sort_order:x.sort_order};}
 
+// STEP 19.3 — Remove one Provider from a Job without cancelling the Job.
+// This is deliberately conservative: only PENDING/CONFIRMED assignments that have
+// not begun service and have no Provider Payment can be removed through the normal UI.
+async function removeProviderAssignment(auth,payload){
+  const assignmentId=String(payload?.assignment_id||'').trim();
+  const reason=String(payload?.reason||payload?.note||'').trim().slice(0,1000);
+  if(!validUuid(assignmentId))throw Object.assign(new Error('Valid assignment ID is required.'),{status:400});
+  if(reason.length<3)throw Object.assign(new Error('Enter a reason for removing this Provider from the service.'),{status:400});
+
+  const rows=await lib.sbJson(`/rest/v1/job_assignments?select=id,job_id,provider_id,status,scheduled_start,scheduled_end,providers(display_name),jobs(id,reference,status,service_name,required_provider_count)&id=eq.${encodeURIComponent(assignmentId)}&limit=1`);
+  const assignment=rows?.[0];
+  if(!assignment)throw Object.assign(new Error('Provider assignment not found.'),{status:404});
+  const job=assignment.jobs||{};
+  if(assignment.status==='CANCELLED')return{ok:true,already_removed:true,job_id:assignment.job_id,assignment_id:assignment.id,status:'CANCELLED',customer_notification_sent:false};
+  if(!['PENDING','CONFIRMED'].includes(String(assignment.status||'').toUpperCase()))throw Object.assign(new Error('Only a pending or confirmed Provider who has not begun the service can be removed here.'),{status:409});
+
+  const aid=encodeURIComponent(assignment.id);
+  const [events,evidence,payments,extensions]=await Promise.all([
+    lib.sbJson(`/rest/v1/job_service_events?select=id,event_type,created_at&assignment_id=eq.${aid}&event_type=in.(ARRIVED,STARTED,COMPLETED,CHECKED_OUT,EXTENSION_REQUESTED)&limit=1`).catch(()=>[]),
+    lib.sbJson(`/rest/v1/job_service_evidence?select=id,evidence_type,status&assignment_id=eq.${aid}&status=eq.COMMITTED&evidence_type=in.(ARRIVAL,COMPLETION,CHECK_OUT)&limit=1`).catch(()=>[]),
+    lib.sbJson(`/rest/v1/provider_payments?select=id,status,payment_reference&assignment_id=eq.${aid}&limit=1`).catch(()=>[]),
+    lib.sbJson(`/rest/v1/job_extension_requests?select=id,status&assignment_id=eq.${aid}&status=in.(PENDING,APPROVED)&limit=1`).catch(()=>[])
+  ]);
+  if(events?.length||evidence?.length||extensions?.length)throw Object.assign(new Error('This Provider already has service activity or evidence on the Job. Use a controlled operational correction instead of removing the assignment.'),{status:409});
+  if(payments?.length)throw Object.assign(new Error(`This Provider assignment is linked to Provider Payment ${payments[0].payment_reference||payments[0].id}. Resolve the payment record before changing the service team.`),{status:409});
+
+  const note=`Provider removed from service by PLEASE Administration. Reason: ${reason}`;
+  const now=new Date().toISOString();
+  const changed=await lib.sbJson(`/rest/v1/job_assignments?id=eq.${aid}&status=eq.${encodeURIComponent(assignment.status)}&select=id,job_id,provider_id,status`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'CANCELLED',updated_at:now})});
+  if(!changed?.[0])throw Object.assign(new Error('This assignment changed in another session. Refresh Jobs and try again.'),{status:409});
+  await lib.sbJson('/rest/v1/assignment_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({assignment_id:assignment.id,old_status:assignment.status,new_status:'CANCELLED',changed_by_admin_portal_user:auth.user.id,note})});
+
+  // Recalculate only active scheduling states. Completed / in-progress / cancelled Jobs
+  // are never reopened by this correction.
+  let resultingJobStatus=job.status||null;
+  if(['PENDING_PROVIDER','CONFIRMED','SCHEDULED','NEEDS_ASSIGNMENT'].includes(String(job.status||'').toUpperCase())){
+    const remaining=await lib.sbJson(`/rest/v1/job_assignments?select=id,status&job_id=eq.${encodeURIComponent(assignment.job_id)}&status=in.(PENDING,CONFIRMED,COMPLETED)`);
+    const required=Math.max(1,Number(job.required_provider_count)||1);
+    const active=remaining||[];
+    const next=active.length<required?'NEEDS_ASSIGNMENT':(active.some(x=>x.status==='PENDING')?'PENDING_PROVIDER':'CONFIRMED');
+    if(next!==job.status){
+      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(assignment.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:next,updated_at:now})});
+      await lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:assignment.job_id,old_status:job.status,new_status:next,changed_by_admin_portal_user:auth.user.id,note:`Service team recalculated after Provider removal. ${reason}`})}).catch(e=>console.warn('admin-job-action:remove-provider-job-history',e?.message||e));
+      resultingJobStatus=next;
+    }
+  }
+
+  lib.sbJson('/rest/v1/provider_technical_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({provider_id:assignment.provider_id,event_type:'ADMIN_REMOVED_FROM_ASSIGNMENT',event_label:'Removed from PLEASE service assignment',details:{assignment_id:assignment.id,job_id:assignment.job_id,job_reference:job.reference||null,reason},actor_type:'ADMIN',actor_admin_user_id:auth.user.id})}).catch(e=>console.warn('admin-job-action:remove-provider-history',e?.message||e));
+  const providerNotice=await notifyAssignment(assignment.id,'REMOVED',reason);
+  return{ok:true,job_id:assignment.job_id,job_reference:job.reference||null,job_status:resultingJobStatus,assignment_id:assignment.id,provider_id:assignment.provider_id,provider_name:assignment.providers?.display_name||'Provider',status:'CANCELLED',notification_sent:!!providerNotice?.sent,customer_notification_sent:false};
+}
+
 
 exports.handler=async event=>{
   if(event.httpMethod!=='POST')return lib.json(405,{error:'Method not allowed'});
@@ -146,6 +202,7 @@ exports.handler=async event=>{
     if(!lib.sameOrigin(event))return lib.json(403,{error:'Forbidden'});
     const auth=await lib.requireAdmin(event);let body={};try{body=JSON.parse(event.body||'{}');}catch{return lib.json(400,{error:'Invalid JSON'});}const action=String(body.action||'').trim().toUpperCase();if(!action)return lib.json(400,{error:'Action is required'});
     let sourceRequest=null;
+    if(action==='REMOVE_PROVIDER_ASSIGNMENT')return lib.json(200,await removeProviderAssignment(auth,body.payload||{}));
     if(action==='REASSIGN_MULTI_WITH_BILLING'){
       const payload=body.payload||{},jobId=String(payload.job_id||'').trim(),incoming=Array.isArray(payload.assignments)?payload.assignments:[];
       if(!validUuid(jobId))return lib.json(400,{error:'Valid Job ID is required.'});

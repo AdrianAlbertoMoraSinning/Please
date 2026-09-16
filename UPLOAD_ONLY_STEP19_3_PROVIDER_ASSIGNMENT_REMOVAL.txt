@@ -1,0 +1,24 @@
+PLEASE STEP 19.3 — Provider Assignment Removal & Replacement Control
+
+Protected baseline: STEP 19.2
+Changed existing files: 11
+New files before this list/manifest: 5
+Deleted baseline files: 0
+
+FILES
+admin-jobs.html
+js/admin-jobs.js
+js/provider.js
+netlify/functions/admin-job-action.js
+provider.html
+service-worker.js
+tests/step15_8_5_mobile_camera_normalization.test.js
+tests/step15_9_1_photo_upload_recovery.test.js
+tests/step15_9_client_operations_control.test.js
+tests/step19_2_customer_journey_simplification.test.js
+tests/step19_photo_recovery_static.test.js
+STEP19_3_PROVIDER_ASSIGNMENT_REMOVAL.md
+STEP19_3_REGRESSION_REPORT.md
+STEP19_3_TEST_RESULTS.txt
+tests/step19_3_provider_assignment_removal.test.js
+tests/step19_3_provider_assignment_removal_runtime.test.js

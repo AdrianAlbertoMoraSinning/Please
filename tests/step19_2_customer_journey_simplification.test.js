@@ -84,5 +84,5 @@ test('final Draft invoice values synchronize Job totals and surface in Jobs Requ
 });
 
 test('STEP 19.2 cache-busts every browser surface changed by this release',()=>{
-  for(const f of ['admin-service-requests.html','admin-calendar.html','admin-jobs.html','invoice.html'])assert.match(read(f),/v=15\.19\.2/);
+  for(const f of ['admin-service-requests.html','admin-calendar.html','admin-jobs.html','invoice.html'])assert.match(read(f),/v=15\.19\.(?:[2-9]|\d{2,})/);
 });
