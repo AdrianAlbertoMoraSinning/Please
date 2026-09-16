@@ -1,5 +1,9 @@
 # PLEASE Services — Web Portal Development
 
+## STEP 19.5 — Service Lifecycle Editing, Follow-up Services & Portal Manuals
+
+Administration now exposes a lifecycle-safe editing model: unassigned Requests remain editable, active Jobs keep schedule/service/rate control, PENDING/CONFIRMED Providers can be replaced from Jobs without creating a new Job, returning customers can start a new follow-up service with their customer/address data prefilled, completed Jobs route final commercial review to the Invoice instead of rewriting execution history, and both Administrator and Provider manuals are available inside the portals. Service Type changes on active Jobs validate Provider authorization before save. No new SQL migration is required. See `STEP19_5_SERVICE_LIFECYCLE_EDITING_MANUALS.md`.
+
 ## STEP 15.9.2 — Unified Job Editing & Billing Confirmation
 
 Administration now treats the Job as the definitive operational record once a Service Request has been converted. Service Maintenance exposes Date, Start Time, End Time, Total Hours, Customer Rate and Provider Cost/Rate together, previews the resulting Customer subtotal / Provider cost / PLEASE margin before save, and confirms the persisted totals after save. Converted Requests link directly to their Job and preserve the original requested schedule instead of being able to overwrite an active Job with stale preference data. No new SQL migration is required. See `STEP15_9_2_UNIFIED_JOB_EDITING_BILLING_CONFIRMATION.md`.

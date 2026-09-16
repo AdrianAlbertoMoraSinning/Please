@@ -64,6 +64,16 @@ exports.handler=async event=>{
   }
   const before=(await lib.sbJson(`/rest/v1/jobs?select=*&id=eq.${encodeURIComponent(id)}&limit=1`))?.[0];if(!before)return lib.json(404,{error:'Job not found.'});
   const svc=await serviceChoice(patch.service_id,before.service_id);
+  if(before.service_id!==svc.id&&!['COMPLETED','CANCELLED'].includes(String(before.status||'').toUpperCase())){
+   const activeAssignments=await lib.sbJson(`/rest/v1/job_assignments?select=id,provider_id,status,providers(display_name)&job_id=eq.${encodeURIComponent(id)}&status=in.(PENDING,CONFIRMED)`).catch(()=>[]);
+   if(activeAssignments?.length){
+    const providerIds=[...new Set(activeAssignments.map(a=>a.provider_id).filter(Boolean))];
+    const links=providerIds.length?await lib.sbJson(`/rest/v1/provider_services?select=provider_id,service_id,active,developer_authorized,provider_enabled&provider_id=in.(${providerIds.map(encodeURIComponent).join(',')})&service_id=eq.${encodeURIComponent(svc.id)}&active=eq.true`).catch(()=>[]):[];
+    const allowed=new Set((links||[]).filter(x=>x.developer_authorized!==false&&x.provider_enabled!==false).map(x=>x.provider_id));
+    const blocked=activeAssignments.filter(a=>!allowed.has(a.provider_id));
+    if(blocked.length)throw Object.assign(new Error(`Service Type cannot change to ${svc.name} while ${blocked.map(a=>a.providers?.display_name||'an assigned Provider').join(', ')} is active. Replace that Provider first from Jobs → Assignment History.`),{status:409});
+   }
+  }
   const rawMins=Number(patch.estimated_duration_minutes);if(!Number.isFinite(rawMins)||rawMins<15||rawMins>4320||Math.round(rawMins)%15!==0)return lib.json(400,{error:'Estimated Minutes must use 15-minute increments.'});const mins=Math.round(rawMins);
   const date=clean(patch.service_date,20),time=clean(patch.service_start,10).slice(0,5),endTime=clean(patch.service_end,10).slice(0,5);let start=null,end=null;
   if(date||time||endTime){if(!date||!time||!endTime)return lib.json(400,{error:'Service Date, Start Time and End Time are required.'});if(!/^\d{2}:(00|15|30|45)$/.test(time)||!/^\d{2}:(00|15|30|45)$/.test(endTime))return lib.json(400,{error:'Start and End Time must use 15-minute increments.'});start=schedule.edmontonLocalToIso(date,time);end=schedule.edmontonLocalToIso(date,endTime);if(new Date(end)<=new Date(start))return lib.json(400,{error:'End Time must be later than Start Time on the same service date.'});if(schedule.durationMinutes(start,end)!==mins)return lib.json(400,{error:'End Time and Total Hours do not match.'});}
