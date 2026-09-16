@@ -39,7 +39,9 @@ exports.handler=async event=>{
       safeJson(`/rest/v1/provider_service_photos?select=id,service_id,caption,storage_path,mime_type,created_at&provider_id=eq.${q}&active=eq.true&order=created_at.desc`),
       safeJson(`/rest/v1/job_service_events?select=id,job_id,assignment_id,provider_id,event_type,event_note,customer_message,created_at&provider_id=eq.${q}&order=created_at.asc&limit=500`)
     ]);
-    const jobIds=[...new Set((assignRaw||[]).map(x=>x.job_id).filter(Boolean))];
+    const portalAssignmentsRaw=(assignRaw||[]).filter(x=>!['DECLINED','CANCELLED'].includes(String(x.status||'').toUpperCase()));
+    const portalAssignmentIds=new Set(portalAssignmentsRaw.map(x=>x.id));
+    const jobIds=[...new Set(portalAssignmentsRaw.map(x=>x.job_id).filter(Boolean))];
     let jobs=[],billing=[];
     if(jobIds.length){
       const inList=jobIds.map(id=>encodeURIComponent(id)).join(',');
@@ -52,9 +54,12 @@ exports.handler=async event=>{
     const jobsById=new Map((jobs||[]).map(j=>[j.id,{...j}]))
     const reqByAssignment=new Map(); for(const r of changeRequests||[]){if(!reqByAssignment.has(r.assignment_id))reqByAssignment.set(r.assignment_id,[]);reqByAssignment.get(r.assignment_id).push(r);}
     const extByAssignment=new Map(); for(const r of extensions||[]){if(!extByAssignment.has(r.assignment_id))extByAssignment.set(r.assignment_id,[]);extByAssignment.get(r.assignment_id).push(r);}
-    const assignments=(assignRaw||[]).map(x=>({...x,jobs:{...(jobsById.get(x.job_id)||{}),billing_items:billByAssignment.get(x.id)||billByAssignment.get(x.job_id)||[]},schedule_changes:reqByAssignment.get(x.id)||[],extensions:extByAssignment.get(x.id)||[]}));
+    const visibleChangeRequests=(changeRequests||[]).filter(r=>portalAssignmentIds.has(r.assignment_id));
+    const visibleExtensions=(extensions||[]).filter(r=>portalAssignmentIds.has(r.assignment_id));
+    const visibleServiceEvents=(serviceEvents||[]).filter(r=>portalAssignmentIds.has(r.assignment_id));
+    const assignments=portalAssignmentsRaw.map(x=>({...x,jobs:{...(jobsById.get(x.job_id)||{}),billing_items:billByAssignment.get(x.id)||billByAssignment.get(x.job_id)||[]},schedule_changes:reqByAssignment.get(x.id)||[],extensions:extByAssignment.get(x.id)||[]}));
     const p=providers?.[0]||null,serviceMap=new Map((services||[]).map(s=>[s.id,s]));
     const assignedServices=(ps||[]).filter(x=>x.developer_authorized!==false).map(x=>({...serviceMap.get(x.service_id),service_id:x.service_id,developer_authorized:x.developer_authorized!==false,provider_enabled:x.provider_enabled!==false,active:!!x.active,provider_notes:x.provider_notes||null})).filter(x=>x.name);
-    if(p?.profile_image_path)p.profile_image_signed_url=await signed(p.profile_image_path);await Promise.all((servicePhotos||[]).map(async x=>{x.signed_url=await signed(x.storage_path);}));return lib.json(200,{provider:p,services:assignedServices,availability:av||[],exceptions:ex||[],assignments,rates:rates||[],schedule_changes:changeRequests||[],extensions:extensions||[],documents:documents||[],technical_history:technicalHistory||[],service_photos:servicePhotos||[],evidence:[],service_events:serviceEvents||[],account,user:{email:a.user.email,display_name:a.user.display_name}});
+    if(p?.profile_image_path)p.profile_image_signed_url=await signed(p.profile_image_path);await Promise.all((servicePhotos||[]).map(async x=>{x.signed_url=await signed(x.storage_path);}));return lib.json(200,{provider:p,services:assignedServices,availability:av||[],exceptions:ex||[],assignments,rates:rates||[],schedule_changes:visibleChangeRequests,extensions:visibleExtensions,documents:documents||[],technical_history:technicalHistory||[],service_photos:servicePhotos||[],evidence:[],service_events:visibleServiceEvents,account,user:{email:a.user.email,display_name:a.user.display_name}});
   }catch(e){console.error('provider-dashboard',e);return lib.json(e.status||500,{error:e.status===401?'Unauthorized':'Unable to load provider portal.'});}
 };

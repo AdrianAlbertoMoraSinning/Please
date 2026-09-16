@@ -12,5 +12,5 @@ ok((js.match(/accept="image\/\*"/g)||[]).length>=2, 'Live camera overlay accepts
 ok(html.includes('id="provider-service-photo-file" type="file" accept="image/*" capture="environment"'), 'Service portfolio supports direct rear-camera capture with normalization');
 ok(html.includes('id="provider-profile-photo-file" type="file" accept="image/*" capture="user"'), 'Profile photo supports direct front-camera capture with normalization');
 ok(/js\/provider\.js\?v=(?:15\.8\.(?:[5-9]|\d{2,})(?:\.\d+)*|15\.(?:9|\d{2,})|19\.(?:0|[1-9]\d*))/.test(html), 'Provider page cache-busts the updated camera JavaScript');
-ok(/please-provider-(?:v15-(?:8-5|8-[6-9](?:-\d+)*|9|\d{2,})|v(?:19|20|[3-9]\d))/.test(sw), 'Provider PWA service-worker cache version advanced');
+ok(/please-provider-(?:v15-(?:8-5|8-[6-9](?:-\d+)*|9|\d{2,})|v(?:19|2\d|[3-9]\d))/.test(sw), 'Provider PWA service-worker cache version advanced');
 ok(sw.includes("k.startsWith('please-provider-')"), 'Provider PWA removes older Provider caches on activation');

@@ -9,6 +9,6 @@ ok(provider.includes("['image/jpeg','image/png','image/webp'].includes(type)&&fi
 ok(upload.includes('MAX=3*1024*1024')&&upload.includes('IMAGE_TOO_LARGE')&&upload.includes('INVALID_IMAGE_BYTES')&&upload.includes('JOB_NOT_FOUND'),'Evidence endpoint enforces the stricter STEP 19 payload limit, image magic bytes and Job linkage with actionable codes');
 ok(lib.includes('EVIDENCE_SCHEMA_NOT_READY')&&lib.includes('STORAGE_NOT_READY')&&live.includes('friendlyUploadError'),'Database/storage deployment problems are mapped through the shared evidence recovery layer instead of becoming a generic photo failure');
 ok(provider.includes('No manual save-to-camera-roll step is required.')&&html.includes('Before opening the camera, the portal checks whether that evidence step is allowed.'),'Provider UI/manual explains direct camera workflow and readiness messages');
-ok(/please-provider-v(?:19|20|[3-9]\d)/.test(sw)&&/js\/provider\.js\?v=19\.(?:0|[1-9]\d*)/.test(html),'Provider PWA/cache advances to the STEP 19 Provider runtime');
+ok(/please-provider-v(?:19|2\d|[3-9]\d)/.test(sw)&&/js\/provider\.js\?v=19\.(?:0|[1-9]\d*)/.test(html),'Provider PWA/cache advances to the STEP 19 Provider runtime');
 ok((provider.match(/async function completeLive\(/g)||[]).length===1,'Completion handler has one authoritative implementation with readiness preflight');
 if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.9.1 photo upload recovery static audit completed successfully.');

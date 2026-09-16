@@ -33,12 +33,16 @@ test('removal preserves audit and never sends a customer cancellation email',()=
   assert.match(fn,/customer_notification_sent:false/);
 });
 
-test('removed or declined assignments disappear from Provider calendar but remain in Service History',()=>{
+test('removed or declined assignments disappear from the Provider Portal while Administration keeps audit history',()=>{
   const js=read('js/provider.js');
-  assert.match(js,/filter\(x=>!\['CANCELLED','DECLINED'\]\.includes\(String\(x\.status\|\|''\)\.toUpperCase\(\)\)\)/);
-  assert.match(js,/\['COMPLETED','DECLINED','CANCELLED'\]\.includes\(x\.status\)/);
-  assert.match(read('provider.html'),/Assignments removed by PLEASE or declined by you stay in Service History/);
-  assert.match(read('provider.html'),/js\/provider\.js\?v=19\.3/);
+  const dashboard=read('netlify/functions/provider-dashboard.js');
+  assert.match(js,/function portalVisibleAssignments\(\).*DECLINED.*CANCELLED/);
+  assert.match(js,/function renderHistory\(\)\{const as=portalVisibleAssignments\(\)/);
+  assert.match(js,/for\(const a of portalVisibleAssignments\(\)\)/);
+  assert.match(dashboard,/const portalAssignmentsRaw=.*DECLINED.*CANCELLED/);
+  assert.match(read('provider.html'),/no longer appear anywhere in your Provider Portal/);
+  assert.doesNotMatch(read('provider.html'),/stay in Service History/);
+  assert.match(read('provider.html'),/js\/provider\.js\?v=19\.3\.1/);
   assert.match(read('admin-jobs.html'),/js\/admin-jobs\.js\?v=15\.19\.3/);
-  assert.match(read('service-worker.js'),/please-provider-v20/);
+  assert.match(read('service-worker.js'),/please-provider-v21/);
 });

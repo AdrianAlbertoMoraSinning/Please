@@ -25,6 +25,6 @@ ok(evidenceLib.includes("new Set(['CHECK_IN','ARRIVAL','COMPLETION','CHECK_OUT']
 ok(providerJs.includes("worker_type==='PLEASE_STAFF'")&&providerHtml.includes('Daily Check In')&&providerHtml.includes('Daily Check Out')&&/I[’']VE ARRIVED/i.test(providerHtml),'Provider UI/manual exposes one Daily Check In/Out for PLEASE Staff while retaining per-service arrival/completion');
 ok(trackingFn.includes('evidence_type=in.(ARRIVAL,COMPLETION)')&&!trackingFn.includes('evidence_type=in.(CHECK_IN,ARRIVAL,COMPLETION,CHECK_OUT)'),'Public Customer Tracking excludes internal Check In/Check Out photos');
 ok(maintHtml.includes('Service Maintenance')&&maintJs.includes('confirm(`Are you sure')&&maintFn.includes("action==='DELETE'")&&sql.includes('admin_service_maintenance_audit'),'Service Maintenance supports confirmed audited deletion');
-ok(/please-provider-v(?:19|20|[3-9]\d)/.test(sw),'Provider PWA cache advances for the STEP 19 daily workflow');
+ok(/please-provider-v(?:19|2\d|[3-9]\d)/.test(sw),'Provider PWA cache advances for the STEP 19 daily workflow');
 ok(fs.existsSync(path.join(root,'STEP15_9_CLIENT_OPERATIONS_CONTROL.md')),'STEP 15.9 deployment/manual documentation is included');
 if(process.exitCode)process.exit(process.exitCode);else console.log('STEP 15.9 client operations control audit completed successfully.');

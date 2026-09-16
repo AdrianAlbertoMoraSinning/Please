@@ -1,0 +1,14 @@
+STEP19_3_1_PROVIDER_PORTAL_CLEANUP.md
+STEP19_3_1_REGRESSION_REPORT.md
+STEP19_3_1_SHA256_MANIFEST.txt
+UPLOAD_ONLY_STEP19_3_1_PROVIDER_PORTAL_CLEANUP.txt
+js/provider.js
+netlify/functions/provider-dashboard.js
+provider.html
+service-worker.js
+tests/step15_8_5_mobile_camera_normalization.test.js
+tests/step15_9_1_photo_upload_recovery.test.js
+tests/step15_9_client_operations_control.test.js
+tests/step19_3_1_provider_portal_cleanup.test.js
+tests/step19_3_provider_assignment_removal.test.js
+tests/step19_photo_recovery_static.test.js
