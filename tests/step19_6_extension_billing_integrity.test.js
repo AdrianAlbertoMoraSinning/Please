@@ -26,3 +26,31 @@ test('STEP 19.6 extension API routes final decision notifications',()=>{
   assert.match(fn,/j\?\.customers\?\.email/);
   assert.match(fn,/notifications_sent/);
 });
+
+
+test('STEP 19.6 approved-extension correction is audited and financially locked',()=>{
+  const sql=read('supabase/STEP19_6_EXTENSION_BILLING_INTEGRITY.sql');
+  assert.match(sql,/admin_correct_approved_extension/);
+  assert.match(sql,/Corrected time must be entered in exact 15-minute increments/);
+  assert.match(sql,/Correction reason is required/);
+  assert.match(sql,/Issued customer invoices are locked/);
+  assert.match(sql,/Provider payment records lock this correction/);
+  assert.match(sql,/ADMIN CORRECTION — extension changed from/);
+  assert.match(sql,/approved_extension_minutes=greatest\(0,coalesce\(approved_extension_minutes,0\)\+delta_minutes\)/);
+  assert.match(sql,/quoted_subtotal=greatest\(0,coalesce\(quoted_subtotal,0\)\+\(customer_total-old_customer\)\)/);
+});
+
+test('STEP 19.6 correction API and Live Operations require explicit hours and minutes',()=>{
+  const fn=read('netlify/functions/admin-extension-correction-action.js');
+  const ui=read('js/admin-live-operations.js');
+  assert.match(fn,/hours\*60\+minutes/);
+  assert.match(fn,/total%15!==0/);
+  assert.match(fn,/Correction reason is required/);
+  assert.match(fn,/admin_correct_approved_extension/);
+  assert.match(fn,/notify\.sendAdmins/);
+  assert.match(fn,/notify\.sendProvider/);
+  assert.match(ui,/CORRECT TIME/);
+  assert.match(ui,/additional minutes \(0, 15, 30 or 45\)/);
+  assert.match(ui,/admin-extension-correction-action/);
+  assert.doesNotMatch(ui,/parseFloat\([^)]*extra_minutes/);
+});
