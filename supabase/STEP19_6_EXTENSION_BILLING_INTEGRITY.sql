@@ -128,6 +128,7 @@ declare
   provider_total numeric(12,2);
   old_customer numeric(12,2);
   later_extension_count integer;
+  legacy_match_count integer;
   conflict_count integer;
   inv_status text;
   inv_payment text;
@@ -182,11 +183,18 @@ begin
   else
     select * into bi from public.job_billing_items where id=r.billing_item_id and job_id=r.job_id for update;
     if not found or lower(coalesce(bi.unit,''))<>'hour' then raise exception 'Original hourly billing item is unavailable'; end if;
+    select count(*) into legacy_match_count from public.job_billing_items
+    where job_id=r.job_id and description='Approved time extension'
+      and abs(quantity-(old_minutes/60.0))<0.001
+      and abs(coalesce(customer_line_total,line_total,0)-coalesce(r.customer_addition,0))<0.01;
+    if legacy_match_count<>1 then
+      raise exception 'Legacy extension billing line is ambiguous. Use a controlled financial correction instead of automatic editing';
+    end if;
     select * into ext_item from public.job_billing_items
     where job_id=r.job_id and description='Approved time extension'
       and abs(quantity-(old_minutes/60.0))<0.001
       and abs(coalesce(customer_line_total,line_total,0)-coalesce(r.customer_addition,0))<0.01
-    order by created_at desc limit 1 for update;
+    limit 1 for update;
     if not found then raise exception 'Approved extension billing line could not be identified safely'; end if;
   end if;
 
