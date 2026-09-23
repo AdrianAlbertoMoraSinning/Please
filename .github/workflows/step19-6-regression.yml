@@ -26,6 +26,7 @@ jobs:
           node --check netlify/functions/admin-extension-action.js
           node --check netlify/functions/admin-extension-correction-action.js
           node --check netlify/functions/admin-live-operations-data.js
+          node --check netlify/functions/public-extension-response.js
           node --check js/admin-jobs.js
           node --check js/admin-live-operations.js
       - name: STEP 19 regression suite
