@@ -115,7 +115,7 @@ grant execute on function public.admin_review_extension(uuid,uuid,text,text,text
 create or replace function public.admin_correct_approved_extension(
   p_actor uuid,p_request_id uuid,p_corrected_minutes integer,p_note text
 )
-returns jsonb language plpgsql security definer set search_path=public as $
+returns jsonb language plpgsql security definer set search_path=public as $correction$
 declare
   r public.job_extension_requests%rowtype;
   a public.job_assignments%rowtype;
@@ -207,7 +207,7 @@ begin
 
   return jsonb_build_object('ok',true,'status','CORRECTED','old_minutes',old_minutes,'corrected_minutes',p_corrected_minutes,
     'new_end',corrected_end,'customer_addition',customer_total,'provider_addition',provider_total,'billing_item_id',ext_item.id);
-end $$;
+end $correction$;
 
 revoke all on function public.admin_correct_approved_extension(uuid,uuid,integer,text) from public,anon,authenticated;
 grant execute on function public.admin_correct_approved_extension(uuid,uuid,integer,text) to service_role;
