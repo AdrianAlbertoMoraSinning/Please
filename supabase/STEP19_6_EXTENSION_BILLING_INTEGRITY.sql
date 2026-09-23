@@ -51,11 +51,11 @@ begin
   if conflict_count>0 then raise exception 'Extension conflicts with another assignment'; end if;
 
   insert into public.job_billing_items(
-    job_id,assignment_id,provider_id,provider_service_rate_id,service_id,service_name,description,
+    job_id,provider_service_rate_id,service_id,service_name,description,
     quantity,unit,customer_unit_rate,customer_line_total,provider_unit_rate,provider_line_total,
     gross_profit,unit_rate,line_total,sort_order
   ) values(
-    r.job_id,r.assignment_id,r.provider_id,bi.provider_service_rate_id,bi.service_id,bi.service_name,
+    r.job_id,bi.provider_service_rate_id,bi.service_id,bi.service_name,
     'Approved time extension',r.extra_minutes/60.0,'hour',bi.customer_unit_rate,r.customer_addition,
     bi.provider_unit_rate,r.provider_addition,r.customer_addition-r.provider_addition,
     bi.customer_unit_rate,r.customer_addition,coalesce(bi.sort_order,0)+1000
