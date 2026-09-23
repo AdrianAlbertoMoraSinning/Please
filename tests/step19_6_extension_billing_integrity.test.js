@@ -62,3 +62,17 @@ test('STEP 19.6 correction API and Live Operations require explicit hours and mi
   assert.match(ui,/admin-extension-correction-action/);
   assert.doesNotMatch(ui,/parseFloat\([^)]*extra_minutes/);
 });
+
+
+test('STEP 19.6 Live Operations exposes financial correction locks before admin clicks',()=>{
+  const data=read('netlify/functions/admin-live-operations-data.js');
+  const ui=read('js/admin-live-operations.js');
+  assert.match(data,/invoices\?select=id,job_id,status,payment_status,created_at/);
+  assert.match(data,/provider_payments\?select=id,job_id,status,created_at/);
+  assert.match(data,/correction_locked/);
+  assert.match(data,/Customer invoice has been issued/);
+  assert.match(data,/Customer payment processing has started/);
+  assert.match(data,/Provider payment record exists/);
+  assert.match(ui,/Correction locked:/);
+  assert.match(ui,/x\.correction_locked\?'':/);
+});
