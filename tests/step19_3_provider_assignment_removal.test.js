@@ -10,7 +10,7 @@ test('Administration exposes a single-Provider removal action without cancelling
   const ui=read('js/admin-jobs.js');
   assert.match(ui,/REMOVE FROM SERVICE/);
   assert.match(ui,/REMOVE_PROVIDER_ASSIGNMENT/);
-  assert.match(ui,/This removes only this Provider assignment\. It does not cancel the Job and does not notify the customer/);
+  assert.match(ui,/This removes only this Provider assignment and reduces the required team size to the Providers who remain active\. It does not cancel the Job and does not notify the customer/);
   assert.match(ui,/providerRemovalControl/);
 });
 
@@ -45,4 +45,15 @@ test('removed or declined assignments disappear from the Provider Portal while A
   assert.match(read('provider.html'),/js\/provider\.js\?v=19\.3\.1/);
   assert.match(read('admin-jobs.html'),/js\/admin-jobs\.js\?v=15\.19\.3/);
   assert.match(read('service-worker.js'),/please-provider-v21/);
+});
+
+
+test('STEP 19.6 distinguishes intentional team reduction from Provider replacement',()=>{
+  const ui=read('js/admin-jobs.js'),fn=read('netlify/functions/admin-job-action.js');
+  assert.match(ui,/reduce_team_requirement:true/);
+  assert.match(ui,/reduce_team_requirement:false/);
+  assert.match(fn,/const reduceTeamRequirement=payload\?\.reduce_team_requirement===true/);
+  assert.match(fn,/required_provider_count:required/);
+  assert.match(fn,/notify\.sendAdmins/);
+  assert.match(fn,/admin_notification_sent/);
 });
