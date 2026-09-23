@@ -30,13 +30,13 @@ test('STEP 19.6 extension API routes final decision notifications',()=>{
 });
 
 
-test('STEP 19.6 approved-extension correction is audited and financially locked',()=>{
+test('STEP 19.6 approved-extension correction is audited and synchronizes open finance',()=>{
   const sql=read('supabase/STEP19_6_EXTENSION_BILLING_INTEGRITY.sql');
   assert.match(sql,/admin_correct_approved_extension/);
   assert.match(sql,/Corrected time must be entered in exact 15-minute increments/);
   assert.match(sql,/Correction reason is required/);
-  assert.match(sql,/A customer invoice already exists for this Job/);
-  assert.match(sql,/Provider payment records lock this correction/);
+  assert.match(sql,/invoice has already been issued/);
+  assert.match(sql,/Provider payment has already been paid/);
   assert.match(sql,/A later extension exists for this assignment/);
   assert.match(sql,/Corrected extension conflicts with another assignment/);
   assert.match(sql,/ADMIN CORRECTION — extension changed from/);
@@ -50,6 +50,10 @@ test('STEP 19.6 approved-extension correction is audited and financially locked'
   assert.match(sql,/Legacy extension billing line is ambiguous/);
   assert.match(sql,/approved_extension_minutes=greatest\(0,coalesce\(approved_extension_minutes,0\)\+delta_minutes\)/);
   assert.match(sql,/quoted_subtotal=greatest\(0,coalesce\(quoted_subtotal,0\)\+\(customer_total-old_customer\)\)/);
+  assert.match(sql,/delete from public\.invoice_items/);
+  assert.match(sql,/i\.status='DRAFT'/);
+  assert.match(sql,/update public\.provider_payment_items/);
+  assert.match(sql,/pp\.status='PENDING'/);
 });
 
 test('STEP 19.6 correction API and Live Operations require explicit hours and minutes',()=>{
@@ -71,15 +75,16 @@ test('STEP 19.6 correction API and Live Operations require explicit hours and mi
 });
 
 
-test('STEP 19.6 Live Operations exposes financial correction locks before admin clicks',()=>{
+test('STEP 19.6 Live Operations locks only financially closed corrections',()=>{
   const data=read('netlify/functions/admin-live-operations-data.js');
   const ui=read('js/admin-live-operations.js');
   assert.match(data,/invoices\?select=id,job_id,status,payment_status,created_at/);
   assert.match(data,/provider_payments\?select=id,job_id,status,created_at/);
   assert.match(data,/correction_locked/);
   assert.match(data,/Customer invoice has been issued/);
-  assert.match(data,/Customer invoice draft already exists/);
-  assert.match(data,/Provider payment record exists/);
+  assert.match(data,/inv\.status!=='DRAFT'/);
+  assert.match(data,/x=>x\.status==='PAID'/);
+  assert.match(data,/Provider payment has already been paid/);
   assert.match(ui,/Correction locked:/);
   assert.match(ui,/x\.correction_locked\?'':/);
 });
