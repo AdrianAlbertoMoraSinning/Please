@@ -127,7 +127,8 @@ declare
   customer_total numeric(12,2);
   provider_total numeric(12,2);
   old_customer numeric(12,2);
-  old_provider numeric(12,2);
+  later_extension_count integer;
+  conflict_count integer;
   inv_status text;
   inv_payment text;
   pp_status text;
@@ -155,6 +156,23 @@ begin
   corrected_end:=r.original_end+make_interval(mins=>p_corrected_minutes);
   delta_minutes:=p_corrected_minutes-old_minutes;
 
+  -- A correction changes the assignment end. Do not silently invalidate another
+  -- approved/pending extension that was chained after this one.
+  select count(*) into later_extension_count from public.job_extension_requests x
+  where x.assignment_id=r.assignment_id and x.id<>r.id
+    and x.status in ('PENDING','APPROVED')
+    and x.original_end>=r.proposed_end;
+  if later_extension_count>0 then
+    raise exception 'A later extension exists for this assignment. Correct the latest extension first or use a controlled schedule adjustment';
+  end if;
+
+  -- Re-check the Provider calendar against the corrected end, just as approval does.
+  select count(*) into conflict_count from public.job_assignments x
+  where x.provider_id=r.provider_id and x.id<>r.assignment_id
+    and x.status in ('PENDING','CONFIRMED')
+    and tstzrange(x.scheduled_start,x.scheduled_end,'[)') && tstzrange(a.scheduled_start,corrected_end,'[)');
+  if conflict_count>0 then raise exception 'Corrected extension conflicts with another assignment'; end if;
+
   -- STEP 19.6 approvals repoint billing_item_id to the exact generated extension line.
   -- Legacy approved requests may still point at the original hourly line, so retain
   -- a conservative fallback only when a single exact extension line can be found.
@@ -175,7 +193,6 @@ begin
   customer_total:=round(coalesce(ext_item.customer_unit_rate,ext_item.unit_rate,0)*(p_corrected_minutes/60.0),2);
   provider_total:=round(coalesce(ext_item.provider_unit_rate,0)*(p_corrected_minutes/60.0),2);
   old_customer:=coalesce(r.customer_addition,0);
-  old_provider:=coalesce(r.provider_addition,0);
 
   update public.job_billing_items set
     quantity=p_corrected_minutes/60.0,
