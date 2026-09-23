@@ -50,12 +50,14 @@ exports.handler=async event=>{
     const x=rows?.[0];
     if(!x||x.job_id!==req.job_id||x.status!=='PENDING')return lib.json(409,{error:'Extension request is no longer pending.'});
     if(action==='APPROVE'){
-      await lib.sbJson(`/rest/v1/job_extension_requests?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({customer_approval_method:'TRACKING'})});
+      const changed=await lib.sbJson(`/rest/v1/job_extension_requests?id=eq.${encodeURIComponent(id)}&status=eq.PENDING&select=id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({customer_approval_method:'TRACKING'})});
+      if(!changed?.[0])return lib.json(409,{error:'Extension request changed in another session. Refresh tracking and try again.'});
       await notifyDecision(x,'APPROVE');
       return lib.json(200,{ok:true});
     }
     if(action==='REJECT'){
-      await lib.sbJson(`/rest/v1/job_extension_requests?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'REJECTED',customer_approval_method:'TRACKING_REJECTED',reviewed_at:new Date().toISOString()})});
+      const changed=await lib.sbJson(`/rest/v1/job_extension_requests?id=eq.${encodeURIComponent(id)}&status=eq.PENDING&select=id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'REJECTED',customer_approval_method:'TRACKING_REJECTED',reviewed_at:new Date().toISOString()})});
+      if(!changed?.[0])return lib.json(409,{error:'Extension request changed in another session. Refresh tracking and try again.'});
       await lib.sbJson('/rest/v1/job_service_events',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:req.job_id,assignment_id:x.assignment_id,provider_id:x.provider_id,event_type:'EXTENSION_REJECTED',event_note:'Customer declined additional time from tracking.'})});
       await notifyDecision(x,'REJECT');
       return lib.json(200,{ok:true});
