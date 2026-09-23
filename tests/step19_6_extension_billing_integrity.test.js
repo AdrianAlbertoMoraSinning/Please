@@ -36,6 +36,8 @@ test('STEP 19.6 approved-extension correction is audited and financially locked'
   assert.match(sql,/Correction reason is required/);
   assert.match(sql,/Issued customer invoices are locked/);
   assert.match(sql,/Provider payment records lock this correction/);
+  assert.match(sql,/A later extension exists for this assignment/);
+  assert.match(sql,/Corrected extension conflicts with another assignment/);
   assert.match(sql,/ADMIN CORRECTION — extension changed from/);
   assert.match(sql,/where id=r\.billing_item_id and job_id=r\.job_id for update/);
   assert.match(sql,/ext_item\.description='Approved time extension'/);
