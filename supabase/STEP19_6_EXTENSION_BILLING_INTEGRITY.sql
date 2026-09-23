@@ -105,4 +105,100 @@ end $$;
 revoke all on function public.admin_review_extension(uuid,uuid,text,text,text) from public,anon,authenticated;
 grant execute on function public.admin_review_extension(uuid,uuid,text,text,text) to service_role;
 
+
+-- STEP 19.6 audited correction for an already-approved extension.
+-- Corrections are allowed only while customer/provider finance remains open.
+create or replace function public.admin_correct_approved_extension(
+  p_actor uuid,p_request_id uuid,p_corrected_minutes integer,p_note text
+)
+returns jsonb language plpgsql security definer set search_path=public as $
+declare
+  r public.job_extension_requests%rowtype;
+  a public.job_assignments%rowtype;
+  bi public.job_billing_items%rowtype;
+  ext_item public.job_billing_items%rowtype;
+  corrected_end timestamptz;
+  old_minutes integer;
+  delta_minutes integer;
+  customer_total numeric(12,2);
+  provider_total numeric(12,2);
+  old_customer numeric(12,2);
+  old_provider numeric(12,2);
+  inv_status text;
+  inv_payment text;
+  pp_status text;
+begin
+  if not exists(select 1 from public.admin_portal_users where id=p_actor and active=true) then raise exception 'Unauthorized'; end if;
+  if p_corrected_minutes is null or p_corrected_minutes<15 or p_corrected_minutes>480 or p_corrected_minutes%15<>0 then
+    raise exception 'Corrected time must be entered in exact 15-minute increments';
+  end if;
+  if nullif(trim(coalesce(p_note,'')),'') is null then raise exception 'Correction reason is required'; end if;
+
+  select * into r from public.job_extension_requests where id=p_request_id for update;
+  if not found or r.status<>'APPROVED' then raise exception 'Only an approved extension can be corrected'; end if;
+  select * into a from public.job_assignments where id=r.assignment_id for update;
+  if not found then raise exception 'Assignment not found'; end if;
+
+  select i.status,i.payment_status into inv_status,inv_payment from public.invoices i
+  where i.job_id=r.job_id and i.status<>'VOID' order by i.created_at desc limit 1;
+  if found and inv_status<>'DRAFT' then raise exception 'Issued customer invoices are locked. Void/reissue or use the accounting adjustment workflow'; end if;
+  if found and inv_payment in ('PENDING','PAID') then raise exception 'Customer payment processing locks this correction'; end if;
+  select pp.status into pp_status from public.provider_payments pp where pp.job_id=r.job_id order by pp.created_at desc limit 1;
+  if found then raise exception 'Provider payment records lock this correction'; end if;
+
+  old_minutes:=r.extra_minutes;
+  if p_corrected_minutes=old_minutes then raise exception 'Corrected time is unchanged'; end if;
+  corrected_end:=r.original_end+make_interval(mins=>p_corrected_minutes);
+  delta_minutes:=p_corrected_minutes-old_minutes;
+
+  select * into bi from public.job_billing_items where id=r.billing_item_id and job_id=r.job_id for update;
+  if not found or lower(coalesce(bi.unit,''))<>'hour' then raise exception 'Original hourly billing item is unavailable'; end if;
+
+  select * into ext_item from public.job_billing_items
+  where job_id=r.job_id and description='Approved time extension'
+    and abs(quantity-(old_minutes/60.0))<0.001
+    and abs(coalesce(customer_line_total,line_total,0)-coalesce(r.customer_addition,0))<0.01
+  order by created_at desc limit 1 for update;
+  if not found then raise exception 'Approved extension billing line could not be identified safely'; end if;
+
+  customer_total:=round(coalesce(bi.customer_unit_rate,bi.unit_rate,0)*(p_corrected_minutes/60.0),2);
+  provider_total:=round(coalesce(bi.provider_unit_rate,0)*(p_corrected_minutes/60.0),2);
+  old_customer:=coalesce(r.customer_addition,0);
+  old_provider:=coalesce(r.provider_addition,0);
+
+  update public.job_billing_items set
+    quantity=p_corrected_minutes/60.0,
+    customer_unit_rate=bi.customer_unit_rate,
+    provider_compensation_method=bi.provider_compensation_method,
+    provider_compensation_value=bi.provider_compensation_value,
+    provider_unit_rate=bi.provider_unit_rate,
+    updated_at=now()
+  where id=ext_item.id;
+
+  update public.job_assignments set scheduled_end=corrected_end,updated_at=now() where id=a.id;
+  update public.jobs set
+    estimated_duration_minutes=greatest(0,coalesce(estimated_duration_minutes,0)+delta_minutes),
+    approved_extension_minutes=greatest(0,coalesce(approved_extension_minutes,0)+delta_minutes),
+    quoted_subtotal=greatest(0,coalesce(quoted_subtotal,0)+(customer_total-old_customer)),
+    updated_at=now()
+  where id=r.job_id;
+
+  update public.job_extension_requests set
+    extra_minutes=p_corrected_minutes,proposed_end=corrected_end,
+    customer_addition=customer_total,provider_addition=provider_total,
+    admin_note=concat_ws(E'\\n',nullif(admin_note,''),'CORRECTION: '||trim(p_note)),
+    reviewed_at=now()
+  where id=r.id;
+
+  insert into public.job_service_events(job_id,assignment_id,provider_id,event_type,event_note)
+  values(r.job_id,r.assignment_id,r.provider_id,'EXTENSION_APPROVED',
+    'ADMIN CORRECTION — extension changed from '||old_minutes||' to '||p_corrected_minutes||' minutes. Reason: '||trim(p_note));
+
+  return jsonb_build_object('ok',true,'status','CORRECTED','old_minutes',old_minutes,'corrected_minutes',p_corrected_minutes,
+    'new_end',corrected_end,'customer_addition',customer_total,'provider_addition',provider_total,'billing_item_id',ext_item.id);
+end $;
+
+revoke all on function public.admin_correct_approved_extension(uuid,uuid,integer,text) from public,anon,authenticated;
+grant execute on function public.admin_correct_approved_extension(uuid,uuid,integer,text) to service_role;
+
 commit;
