@@ -83,3 +83,16 @@ test('STEP 19.6 Live Operations exposes financial correction locks before admin 
   assert.match(ui,/Correction locked:/);
   assert.match(ui,/x\.correction_locked\?'':/);
 });
+
+
+test('STEP 19.6 customer tracking extension decisions notify operations',()=>{
+  const fn=read('netlify/functions/public-extension-response.js');
+  assert.match(fn,/notify\.sendAdmins/);
+  assert.match(fn,/notify\.sendProvider/);
+  assert.match(fn,/Customer approval received/);
+  assert.match(fn,/Customer declined additional time/);
+  assert.match(fn,/assignment_id:x\.assignment_id/);
+  assert.match(fn,/provider_id:x\.provider_id/);
+  assert.match(fn,/please-admin-customer-extension-approved-/);
+  assert.match(fn,/please-provider-customer-extension-rejected-/);
+});
