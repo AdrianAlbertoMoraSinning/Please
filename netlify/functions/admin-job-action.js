@@ -149,6 +149,7 @@ function insertableBillingRow(x){return {id:x.id,job_id:x.job_id,assignment_id:x
 async function removeProviderAssignment(auth,payload){
   const assignmentId=String(payload?.assignment_id||'').trim();
   const reason=String(payload?.reason||payload?.note||'').trim().slice(0,1000);
+  const reduceTeamRequirement=payload?.reduce_team_requirement===true;
   if(!validUuid(assignmentId))throw Object.assign(new Error('Valid assignment ID is required.'),{status:400});
   if(reason.length<3)throw Object.assign(new Error('Enter a reason for removing this Provider from the service.'),{status:400});
 
@@ -180,9 +181,16 @@ async function removeProviderAssignment(auth,payload){
   let resultingJobStatus=job.status||null;
   if(['PENDING_PROVIDER','CONFIRMED','SCHEDULED','NEEDS_ASSIGNMENT'].includes(String(job.status||'').toUpperCase())){
     const remaining=await lib.sbJson(`/rest/v1/job_assignments?select=id,status&job_id=eq.${encodeURIComponent(assignment.job_id)}&status=in.(PENDING,CONFIRMED,COMPLETED)`);
-    const required=Math.max(1,Number(job.required_provider_count)||1);
     const active=remaining||[];
+    const currentRequired=Math.max(1,Number(job.required_provider_count)||1);
+    // STEP 19.6: an intentional team reduction is different from replacing a Provider.
+    // When Administration removes an unnecessary team member, persist the new team size
+    // so the remaining confirmed Provider keeps the live-service workflow unlocked.
+    const required=reduceTeamRequirement?Math.max(1,active.length):currentRequired;
     const next=active.length<required?'NEEDS_ASSIGNMENT':(active.some(x=>x.status==='PENDING')?'PENDING_PROVIDER':'CONFIRMED');
+    if(reduceTeamRequirement&&required!==currentRequired){
+      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(assignment.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({required_provider_count:required,updated_at:now})});
+    }
     if(next!==job.status){
       await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(assignment.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:next,updated_at:now})});
       await lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:assignment.job_id,old_status:job.status,new_status:next,changed_by_admin_portal_user:auth.user.id,note:`Service team recalculated after Provider removal. ${reason}`})}).catch(e=>console.warn('admin-job-action:remove-provider-job-history',e?.message||e));
@@ -192,7 +200,8 @@ async function removeProviderAssignment(auth,payload){
 
   lib.sbJson('/rest/v1/provider_technical_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({provider_id:assignment.provider_id,event_type:'ADMIN_REMOVED_FROM_ASSIGNMENT',event_label:'Removed from PLEASE service assignment',details:{assignment_id:assignment.id,job_id:assignment.job_id,job_reference:job.reference||null,reason},actor_type:'ADMIN',actor_admin_user_id:auth.user.id})}).catch(e=>console.warn('admin-job-action:remove-provider-history',e?.message||e));
   const providerNotice=await notifyAssignment(assignment.id,'REMOVED',reason);
-  return{ok:true,job_id:assignment.job_id,job_reference:job.reference||null,job_status:resultingJobStatus,assignment_id:assignment.id,provider_id:assignment.provider_id,provider_name:assignment.providers?.display_name||'Provider',status:'CANCELLED',notification_sent:!!providerNotice?.sent,customer_notification_sent:false};
+  const adminNotice=await notify.sendAdmins({subject:`PLEASE — Service team updated (${job.reference||'Job'})`,title:'Service team updated',intro:`${assignment.providers?.display_name||'A Provider'} was removed from the service by PLEASE Administration.`,details:[['Job',job.reference],['Service',job.service_name],['Job status',resultingJobStatus],['Required Providers',reduceTeamRequirement?'Reduced to remaining active team':'Unchanged']],message:reason,ctaLabel:'Open Jobs',ctaUrl:`${notify.baseUrl()}/admin-jobs.html?q=${encodeURIComponent(job.reference||'')}`,idempotencyKey:`please-admin-provider-removed-${assignment.id}`});
+  return{ok:true,job_id:assignment.job_id,job_reference:job.reference||null,job_status:resultingJobStatus,assignment_id:assignment.id,provider_id:assignment.provider_id,provider_name:assignment.providers?.display_name||'Provider',status:'CANCELLED',team_requirement_reduced:reduceTeamRequirement,notification_sent:!!providerNotice?.sent,admin_notification_sent:!!adminNotice?.sent,customer_notification_sent:false};
 }
 
 
