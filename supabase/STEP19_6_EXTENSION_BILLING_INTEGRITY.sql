@@ -164,12 +164,13 @@ begin
   if not found then raise exception 'Assignment not found'; end if;
 
   select i.status into inv_status from public.invoices i
-  where i.job_id=r.job_id and i.status<>'VOID' order by i.created_at desc limit 1;
+  where i.job_id=r.job_id and i.status not in ('VOID','DRAFT') order by i.created_at desc limit 1;
   if found then
-    raise exception 'A customer invoice already exists for this Job. Correct the invoice first or void/recreate it before changing approved extension time';
+    raise exception 'The customer invoice has already been issued. Void/recreate it before changing approved extension time';
   end if;
-  select pp.status into pp_status from public.provider_payments pp where pp.job_id=r.job_id order by pp.created_at desc limit 1;
-  if found then raise exception 'Provider payment records lock this correction'; end if;
+  select pp.status into pp_status from public.provider_payments pp
+  where pp.job_id=r.job_id and pp.status='PAID' order by pp.created_at desc limit 1;
+  if found then raise exception 'A Provider payment has already been paid and locks this correction'; end if;
 
   old_minutes:=r.extra_minutes;
   if p_corrected_minutes=old_minutes then raise exception 'Corrected time is unchanged'; end if;
@@ -239,6 +240,36 @@ begin
     provider_unit_rate=ext_item.provider_unit_rate,
     updated_at=now()
   where id=ext_item.id;
+
+  -- Draft customer invoices and pending Provider Payments are review snapshots,
+  -- not financial-close records. Keep both synchronized with the corrected frozen
+  -- Job billing so Administration never has to repair the same time entry twice.
+  delete from public.invoice_items ii
+  using public.invoices i
+  where ii.invoice_id=i.id and i.job_id=r.job_id and i.status='DRAFT';
+  insert into public.invoice_items(invoice_id,description,qty,unit,unit_rate,line_total,sort_order)
+  select i.id,
+         coalesce(nullif(concat_ws(' — ',nullif(b.service_name,''),nullif(b.description,'')),''),'PLEASE service'),
+         round(b.quantity::numeric,2),coalesce(nullif(b.unit,''),'service'),
+         round(coalesce(b.customer_unit_rate,b.unit_rate,0)::numeric,2),
+         round(coalesce(b.customer_line_total,b.line_total,b.quantity*coalesce(b.customer_unit_rate,b.unit_rate,0))::numeric,2),
+         row_number() over(partition by i.id order by b.sort_order,b.id)*10
+  from public.invoices i
+  join public.job_billing_items b on b.job_id=i.job_id
+  where i.job_id=r.job_id and i.status='DRAFT';
+
+  update public.provider_payment_items ppi set
+    quantity=p_corrected_minutes/60.0,
+    provider_unit_rate=ext_item.provider_unit_rate,
+    line_total=provider_total
+  from public.provider_payments pp
+  where ppi.provider_payment_id=pp.id
+    and ppi.job_billing_item_id=ext_item.id
+    and pp.job_id=r.job_id and pp.status='PENDING';
+  update public.provider_payments pp set
+    amount=coalesce((select round(sum(coalesce(ppi.line_total,0)),2) from public.provider_payment_items ppi where ppi.provider_payment_id=pp.id),0),
+    updated_at=now()
+  where pp.job_id=r.job_id and pp.status='PENDING';
 
   update public.job_assignments set scheduled_end=corrected_end,updated_at=now() where id=a.id;
   update public.jobs set
