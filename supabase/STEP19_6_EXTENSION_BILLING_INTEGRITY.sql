@@ -15,6 +15,7 @@ declare
   bi public.job_billing_items%rowtype;
   conflict_count int;
   new_item_id uuid;
+  original_item_id uuid;
   existing_invoice_status text;
   existing_payment_status text;
   provider_payment_status text;
@@ -81,6 +82,11 @@ begin
     bi.provider_compensation_method,bi.provider_compensation_value,bi.provider_unit_rate,r.provider_addition,
     r.customer_addition-r.provider_addition,bi.customer_unit_rate,r.customer_addition,coalesce(bi.sort_order,0)+1000
   ) returning id into new_item_id;
+
+  -- Keep an exact pointer to the generated extension billing line. This makes any
+  -- later audited correction deterministic even when a Job has several extensions.
+  original_item_id:=r.billing_item_id;
+  update public.job_extension_requests set billing_item_id=new_item_id where id=r.id;
 
   update public.job_assignments set scheduled_end=r.proposed_end,updated_at=now() where id=a.id;
   update public.jobs set
@@ -151,27 +157,34 @@ begin
   corrected_end:=r.original_end+make_interval(mins=>p_corrected_minutes);
   delta_minutes:=p_corrected_minutes-old_minutes;
 
-  select * into bi from public.job_billing_items where id=r.billing_item_id and job_id=r.job_id for update;
-  if not found or lower(coalesce(bi.unit,''))<>'hour' then raise exception 'Original hourly billing item is unavailable'; end if;
+  -- STEP 19.6 approvals repoint billing_item_id to the exact generated extension line.
+  -- Legacy approved requests may still point at the original hourly line, so retain
+  -- a conservative fallback only when a single exact extension line can be found.
+  select * into ext_item from public.job_billing_items where id=r.billing_item_id and job_id=r.job_id for update;
+  if found and ext_item.description='Approved time extension' then
+    bi:=ext_item;
+  else
+    select * into bi from public.job_billing_items where id=r.billing_item_id and job_id=r.job_id for update;
+    if not found or lower(coalesce(bi.unit,''))<>'hour' then raise exception 'Original hourly billing item is unavailable'; end if;
+    select * into ext_item from public.job_billing_items
+    where job_id=r.job_id and description='Approved time extension'
+      and abs(quantity-(old_minutes/60.0))<0.001
+      and abs(coalesce(customer_line_total,line_total,0)-coalesce(r.customer_addition,0))<0.01
+    order by created_at desc limit 1 for update;
+    if not found then raise exception 'Approved extension billing line could not be identified safely'; end if;
+  end if;
 
-  select * into ext_item from public.job_billing_items
-  where job_id=r.job_id and description='Approved time extension'
-    and abs(quantity-(old_minutes/60.0))<0.001
-    and abs(coalesce(customer_line_total,line_total,0)-coalesce(r.customer_addition,0))<0.01
-  order by created_at desc limit 1 for update;
-  if not found then raise exception 'Approved extension billing line could not be identified safely'; end if;
-
-  customer_total:=round(coalesce(bi.customer_unit_rate,bi.unit_rate,0)*(p_corrected_minutes/60.0),2);
-  provider_total:=round(coalesce(bi.provider_unit_rate,0)*(p_corrected_minutes/60.0),2);
+  customer_total:=round(coalesce(ext_item.customer_unit_rate,ext_item.unit_rate,0)*(p_corrected_minutes/60.0),2);
+  provider_total:=round(coalesce(ext_item.provider_unit_rate,0)*(p_corrected_minutes/60.0),2);
   old_customer:=coalesce(r.customer_addition,0);
   old_provider:=coalesce(r.provider_addition,0);
 
   update public.job_billing_items set
     quantity=p_corrected_minutes/60.0,
-    customer_unit_rate=bi.customer_unit_rate,
-    provider_compensation_method=bi.provider_compensation_method,
-    provider_compensation_value=bi.provider_compensation_value,
-    provider_unit_rate=bi.provider_unit_rate,
+    customer_unit_rate=ext_item.customer_unit_rate,
+    provider_compensation_method=ext_item.provider_compensation_method,
+    provider_compensation_value=ext_item.provider_compensation_value,
+    provider_unit_rate=ext_item.provider_unit_rate,
     updated_at=now()
   where id=ext_item.id;
 
