@@ -34,7 +34,7 @@ test('STEP 19.6 approved-extension correction is audited and financially locked'
   assert.match(sql,/admin_correct_approved_extension/);
   assert.match(sql,/Corrected time must be entered in exact 15-minute increments/);
   assert.match(sql,/Correction reason is required/);
-  assert.match(sql,/Issued customer invoices are locked/);
+  assert.match(sql,/A customer invoice already exists for this Job/);
   assert.match(sql,/Provider payment records lock this correction/);
   assert.match(sql,/A later extension exists for this assignment/);
   assert.match(sql,/Corrected extension conflicts with another assignment/);
@@ -71,7 +71,7 @@ test('STEP 19.6 Live Operations exposes financial correction locks before admin 
   assert.match(data,/provider_payments\?select=id,job_id,status,created_at/);
   assert.match(data,/correction_locked/);
   assert.match(data,/Customer invoice has been issued/);
-  assert.match(data,/Customer payment processing has started/);
+  assert.match(data,/Customer invoice draft already exists/);
   assert.match(data,/Provider payment record exists/);
   assert.match(ui,/Correction locked:/);
   assert.match(ui,/x\.correction_locked\?'':/);
