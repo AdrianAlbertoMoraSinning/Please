@@ -62,6 +62,8 @@ test('STEP 19.6 correction API and Live Operations require explicit hours and mi
   assert.match(fn,/admin_correct_approved_extension/);
   assert.match(fn,/notify\.sendAdmins/);
   assert.match(fn,/notify\.sendProvider/);
+  assert.match(fn,/job\?\.customers\?\.email/);
+  assert.match(fn,/please-customer-extension-correction-/);
   assert.match(ui,/CORRECT TIME/);
   assert.match(ui,/additional minutes \(0, 15, 30 or 45\)/);
   assert.match(ui,/admin-extension-correction-action/);
