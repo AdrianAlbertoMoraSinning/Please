@@ -43,7 +43,7 @@ test('removed or declined assignments disappear from the Provider Portal while A
   assert.match(read('provider.html'),/no longer appear anywhere in your Provider Portal/);
   assert.doesNotMatch(read('provider.html'),/stay in Service History/);
   assert.match(read('provider.html'),/js\/provider\.js\?v=19\.3\.1/);
-  assert.match(read('admin-jobs.html'),/js\/admin-jobs\.js\?v=15\.19\.3/);
+  assert.match(read('admin-jobs.html'),/js\\/admin-jobs\\.js\\?v=15\\.19\\.6/);
   assert.match(read('service-worker.js'),/please-provider-v21/);
 });
 
