@@ -11,7 +11,7 @@ const ASSIGN='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const JOB='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const PROVIDER='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
-function build({jobStatus='COMPLETED',events=[],evidence=[],payments=[],extensions=[],remaining=[]}={}){
+function build({jobStatus='COMPLETED',events=[],evidence=[],payments=[],extensions=[],remaining=[],failSafetyCheck=false}={}){
   const calls=[],sent=[];
   const assignment={id:ASSIGN,job_id:JOB,provider_id:PROVIDER,status:'CONFIRMED',scheduled_start:'2026-09-10T16:00:00Z',scheduled_end:'2026-09-10T18:00:00Z',providers:{display_name:'Maria'},jobs:{id:JOB,reference:'PLS-JOB-20260910-ABC123',status:jobStatus,service_name:'Cleaning',required_provider_count:2}};
   const fakeLib={
@@ -21,7 +21,7 @@ function build({jobStatus='COMPLETED',events=[],evidence=[],payments=[],extensio
     sbJson:async(url,opt={})=>{
       const body=opt.body?JSON.parse(opt.body):null;calls.push({url,opt,body});
       if(url.startsWith('/rest/v1/job_assignments?select=id,job_id,provider_id,status,scheduled_start'))return[assignment];
-      if(url.startsWith('/rest/v1/job_service_events?'))return events;
+      if(url.startsWith('/rest/v1/job_service_events?')){if(failSafetyCheck)throw new Error('Safety query unavailable');return events;}
       if(url.startsWith('/rest/v1/job_service_evidence?'))return evidence;
       if(url.startsWith('/rest/v1/provider_payments?'))return payments;
       if(url.startsWith('/rest/v1/job_extension_requests?'))return extensions;
@@ -99,4 +99,13 @@ test('intentional team reduction persists new required count and keeps remaining
   assert.equal(patches[0].body.status,'CONFIRMED');
   assert.equal(h.sent.filter(x=>x.kind==='provider').length,1);
   assert.equal(h.sent.filter(x=>x.kind==='admin').length,1);
+});
+
+
+test('Provider removal fails closed when a safety query cannot be verified',async()=>{
+  const h=build({failSafetyCheck:true});
+  const res=await h.handler(event(true));
+  assert.equal(res.statusCode,500);
+  assert.equal(h.calls.some(c=>c.url.startsWith(`/rest/v1/job_assignments?id=eq.${ASSIGN}`)&&c.opt.method==='PATCH'),false);
+  assert.equal(h.sent.length,0);
 });
