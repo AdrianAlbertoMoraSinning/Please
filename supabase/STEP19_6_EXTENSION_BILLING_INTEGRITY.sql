@@ -147,8 +147,9 @@ begin
 
   select i.status,i.payment_status into inv_status,inv_payment from public.invoices i
   where i.job_id=r.job_id and i.status<>'VOID' order by i.created_at desc limit 1;
-  if found and inv_status<>'DRAFT' then raise exception 'Issued customer invoices are locked. Void/reissue or use the accounting adjustment workflow'; end if;
-  if found and inv_payment in ('PENDING','PAID') then raise exception 'Customer payment processing locks this correction'; end if;
+  if found then
+    raise exception 'A customer invoice already exists for this Job. Correct the invoice first or void/recreate it before changing approved extension time';
+  end if;
   select pp.status into pp_status from public.provider_payments pp where pp.job_id=r.job_id order by pp.created_at desc limit 1;
   if found then raise exception 'Provider payment records lock this correction'; end if;
 
