@@ -207,7 +207,7 @@ begin
 
   return jsonb_build_object('ok',true,'status','CORRECTED','old_minutes',old_minutes,'corrected_minutes',p_corrected_minutes,
     'new_end',corrected_end,'customer_addition',customer_total,'provider_addition',provider_total,'billing_item_id',ext_item.id);
-end $;
+end $$;
 
 revoke all on function public.admin_correct_approved_extension(uuid,uuid,integer,text) from public,anon,authenticated;
 grant execute on function public.admin_correct_approved_extension(uuid,uuid,integer,text) to service_role;
