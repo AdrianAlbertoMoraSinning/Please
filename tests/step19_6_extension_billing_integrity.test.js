@@ -95,4 +95,6 @@ test('STEP 19.6 customer tracking extension decisions notify operations',()=>{
   assert.match(fn,/provider_id:x\.provider_id/);
   assert.match(fn,/please-admin-customer-extension-approved-/);
   assert.match(fn,/please-provider-customer-extension-rejected-/);
+  assert.match(fn,/status=eq\.PENDING&select=id/);
+  assert.match(fn,/Extension request changed in another session/);
 });
