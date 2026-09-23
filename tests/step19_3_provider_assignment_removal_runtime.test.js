@@ -94,7 +94,9 @@ test('intentional team reduction persists new required count and keeps remaining
   assert.equal(body.job_status,'CONFIRMED');
   assert.equal(body.team_requirement_reduced,true);
   const patches=h.calls.filter(c=>c.url.startsWith(`/rest/v1/jobs?id=eq.${JOB}`)&&c.opt.method==='PATCH');
-  assert.equal(patches.some(x=>x.body.required_provider_count===1),true);
+  assert.equal(patches.length,1);
+  assert.equal(patches[0].body.required_provider_count,1);
+  assert.equal(patches[0].body.status,'CONFIRMED');
   assert.equal(h.sent.filter(x=>x.kind==='provider').length,1);
   assert.equal(h.sent.filter(x=>x.kind==='admin').length,1);
 });
