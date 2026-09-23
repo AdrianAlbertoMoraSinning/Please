@@ -17,6 +17,7 @@ test('STEP 19.6 extension approval keeps time and money atomic',()=>{
   assert.match(sql,/provider_line_total/);
   assert.match(sql,/customer_line_total/);
   assert.match(sql,/status='APPROVED'/);
+  assert.match(sql,/update public\.job_extension_requests set billing_item_id=new_item_id/);
 });
 
 test('STEP 19.6 extension API routes final decision notifications',()=>{
@@ -36,6 +37,8 @@ test('STEP 19.6 approved-extension correction is audited and financially locked'
   assert.match(sql,/Issued customer invoices are locked/);
   assert.match(sql,/Provider payment records lock this correction/);
   assert.match(sql,/ADMIN CORRECTION — extension changed from/);
+  assert.match(sql,/where id=r\.billing_item_id and job_id=r\.job_id for update/);
+  assert.match(sql,/ext_item\.description='Approved time extension'/);
   assert.match(sql,/approved_extension_minutes=greatest\(0,coalesce\(approved_extension_minutes,0\)\+delta_minutes\)/);
   assert.match(sql,/quoted_subtotal=greatest\(0,coalesce\(quoted_subtotal,0\)\+\(customer_total-old_customer\)\)/);
 });
