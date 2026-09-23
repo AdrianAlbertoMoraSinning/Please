@@ -11,9 +11,9 @@ const ASSIGN='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const JOB='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const PROVIDER='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
-function build({jobStatus='COMPLETED',events=[],evidence=[],payments=[],extensions=[],remaining=[],failSafetyCheck=false}={}){
+function build({jobStatus='COMPLETED',assignmentStatus='CONFIRMED',events=[],evidence=[],payments=[],extensions=[],remaining=[],failSafetyCheck=false}={}){
   const calls=[],sent=[];
-  const assignment={id:ASSIGN,job_id:JOB,provider_id:PROVIDER,status:'CONFIRMED',scheduled_start:'2026-09-10T16:00:00Z',scheduled_end:'2026-09-10T18:00:00Z',providers:{display_name:'Maria'},jobs:{id:JOB,reference:'PLS-JOB-20260910-ABC123',status:jobStatus,service_name:'Cleaning',required_provider_count:2}};
+  const assignment={id:ASSIGN,job_id:JOB,provider_id:PROVIDER,status:assignmentStatus,scheduled_start:'2026-09-10T16:00:00Z',scheduled_end:'2026-09-10T18:00:00Z',providers:{display_name:'Maria'},jobs:{id:JOB,reference:'PLS-JOB-20260910-ABC123',status:jobStatus,service_name:'Cleaning',required_provider_count:2}};
   const fakeLib={
     sameOrigin:()=>true,
     requireAdmin:async()=>({user:{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'}}),
@@ -101,6 +101,23 @@ test('intentional team reduction persists new required count and keeps remaining
   assert.equal(h.sent.filter(x=>x.kind==='admin').length,1);
 });
 
+
+test('retry repairs a historical cancelled assignment that left the remaining Provider blocked',async()=>{
+  const h=build({jobStatus:'NEEDS_ASSIGNMENT',assignmentStatus:'CANCELLED',remaining:[{id:'x1',status:'CONFIRMED'}]});
+  const res=await h.handler(event(true));
+  assert.equal(res.statusCode,200);
+  const body=JSON.parse(res.body);
+  assert.equal(body.already_removed,true);
+  assert.equal(body.repair_applied,true);
+  assert.equal(body.job_status,'CONFIRMED');
+  const assignmentPatches=h.calls.filter(c=>c.url.startsWith(`/rest/v1/job_assignments?id=eq.${ASSIGN}`)&&c.opt.method==='PATCH');
+  assert.equal(assignmentPatches.length,0);
+  const jobPatch=h.calls.find(c=>c.url.startsWith(`/rest/v1/jobs?id=eq.${JOB}`)&&c.opt.method==='PATCH');
+  assert.equal(jobPatch.body.required_provider_count,1);
+  assert.equal(jobPatch.body.status,'CONFIRMED');
+  assert.equal(h.sent.filter(x=>x.kind==='provider').length,1);
+  assert.equal(h.sent.filter(x=>x.kind==='admin').length,1);
+});
 
 test('Provider removal fails closed when a safety query cannot be verified',async()=>{
   const h=build({failSafetyCheck:true});
