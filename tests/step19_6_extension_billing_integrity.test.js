@@ -41,6 +41,8 @@ test('STEP 19.6 approved-extension correction is audited and financially locked'
   assert.match(sql,/ADMIN CORRECTION — extension changed from/);
   assert.match(sql,/where id=r\.billing_item_id and job_id=r\.job_id for update/);
   assert.match(sql,/ext_item\.description='Approved time extension'/);
+  assert.match(sql,/legacy_match_count<>1/);
+  assert.match(sql,/Legacy extension billing line is ambiguous/);
   assert.match(sql,/approved_extension_minutes=greatest\(0,coalesce\(approved_extension_minutes,0\)\+delta_minutes\)/);
   assert.match(sql,/quoted_subtotal=greatest\(0,coalesce\(quoted_subtotal,0\)\+\(customer_total-old_customer\)\)/);
 });
