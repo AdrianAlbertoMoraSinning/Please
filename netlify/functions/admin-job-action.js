@@ -188,11 +188,15 @@ async function removeProviderAssignment(auth,payload){
     // so the remaining confirmed Provider keeps the live-service workflow unlocked.
     const required=reduceTeamRequirement?Math.max(1,active.length):currentRequired;
     const next=active.length<required?'NEEDS_ASSIGNMENT':(active.some(x=>x.status==='PENDING')?'PENDING_PROVIDER':'CONFIRMED');
-    if(reduceTeamRequirement&&required!==currentRequired){
-      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(assignment.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({required_provider_count:required,updated_at:now})});
+    const jobPatch={updated_at:now};
+    if(reduceTeamRequirement&&required!==currentRequired)jobPatch.required_provider_count=required;
+    if(next!==job.status)jobPatch.status=next;
+    // Persist team-size and lifecycle changes together so Administration cannot leave
+    // a Job half-updated if one of the two values changes.
+    if(Object.keys(jobPatch).length>1){
+      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(assignment.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(jobPatch)});
     }
     if(next!==job.status){
-      await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(assignment.job_id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:next,updated_at:now})});
       await lib.sbJson('/rest/v1/job_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({job_id:assignment.job_id,old_status:job.status,new_status:next,changed_by_admin_portal_user:auth.user.id,note:`Service team recalculated after Provider removal. ${reason}`})}).catch(e=>console.warn('admin-job-action:remove-provider-job-history',e?.message||e));
       resultingJobStatus=next;
     }
