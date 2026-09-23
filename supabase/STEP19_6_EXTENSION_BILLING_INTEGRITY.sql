@@ -15,7 +15,6 @@ declare
   bi public.job_billing_items%rowtype;
   conflict_count int;
   new_item_id uuid;
-  original_item_id uuid;
   existing_invoice_status text;
   existing_payment_status text;
   provider_payment_status text;
@@ -85,7 +84,6 @@ begin
 
   -- Keep an exact pointer to the generated extension billing line. This makes any
   -- later audited correction deterministic even when a Job has several extensions.
-  original_item_id:=r.billing_item_id;
   update public.job_extension_requests set billing_item_id=new_item_id where id=r.id;
 
   update public.job_assignments set scheduled_end=r.proposed_end,updated_at=now() where id=a.id;
