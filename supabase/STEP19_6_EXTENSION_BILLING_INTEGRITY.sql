@@ -15,6 +15,9 @@ declare
   bi public.job_billing_items%rowtype;
   conflict_count int;
   new_item_id uuid;
+  existing_invoice_status text;
+  existing_payment_status text;
+  provider_payment_status text;
   approval_method text:=nullif(trim(coalesce(p_customer_approval_method,'')),'');
 begin
   if not exists(select 1 from public.admin_portal_users where id=p_actor and active=true) then raise exception 'Unauthorized'; end if;
@@ -31,6 +34,24 @@ begin
   end if;
   if upper(trim(p_action))<>'APPROVE' then raise exception 'Invalid action'; end if;
   if approval_method is null then raise exception 'Customer approval method is required before finalizing additional time'; end if;
+
+  -- Financial lock: an extension changes the frozen Job billing snapshot. Once the
+  -- customer invoice has been issued/sent/paid (or a Provider payment exists), the
+  -- correction must use the accounting adjustment path instead of mutating history.
+  select i.status,i.payment_status into existing_invoice_status,existing_payment_status
+  from public.invoices i where i.job_id=r.job_id and i.status<>'VOID'
+  order by i.created_at desc limit 1;
+  if found and existing_invoice_status<>'DRAFT' then
+    raise exception 'Job billing is locked because the customer invoice has already been issued. Void/reissue or use the accounting adjustment workflow before approving additional time';
+  end if;
+  if found and existing_payment_status in ('PENDING','PAID') then
+    raise exception 'Job billing is locked by customer payment processing. Resolve the invoice payment state before approving additional time';
+  end if;
+  select pp.status into provider_payment_status from public.provider_payments pp
+  where pp.job_id=r.job_id order by pp.created_at desc limit 1;
+  if found then
+    raise exception 'Job billing is locked because a Provider payment record already exists. Resolve Provider Payments before approving additional time';
+  end if;
   if r.extra_minutes<15 or r.extra_minutes>480 or r.extra_minutes%15<>0 then raise exception 'Extension minutes are invalid'; end if;
   if r.proposed_end is null or r.proposed_end<>a.scheduled_end+make_interval(mins=>r.extra_minutes) then
     raise exception 'Extension schedule changed. Ask the Provider to submit a fresh request';
