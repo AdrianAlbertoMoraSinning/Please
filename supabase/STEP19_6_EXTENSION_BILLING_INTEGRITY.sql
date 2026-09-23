@@ -40,7 +40,6 @@ declare
   conflict_count int;
   new_item_id uuid;
   existing_invoice_status text;
-  existing_payment_status text;
   provider_payment_status text;
   approval_method text:=nullif(trim(coalesce(p_customer_approval_method,'')),'');
 begin
@@ -59,10 +58,9 @@ begin
   if upper(trim(p_action))<>'APPROVE' then raise exception 'Invalid action'; end if;
   if approval_method is null then raise exception 'Customer approval method is required before finalizing additional time'; end if;
 
-  -- Financial lock: an extension changes the frozen Job billing snapshot. Once the
-  -- customer invoice has been issued/sent/paid (or a Provider payment exists), the
-  -- correction must use the accounting adjustment path instead of mutating history.
-  select i.status,i.payment_status into existing_invoice_status,existing_payment_status
+  -- Financial lock: invoice rows are snapshots of Job billing. Once any non-VOID
+  -- invoice snapshot exists, do not mutate the underlying extension billing history.
+  select i.status into existing_invoice_status
   from public.invoices i where i.job_id=r.job_id and i.status<>'VOID'
   order by i.created_at desc limit 1;
   if found then
