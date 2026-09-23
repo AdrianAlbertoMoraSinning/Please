@@ -7,7 +7,10 @@ exports.handler=async event=>{
   try{
     const auth=await lib.requireAdmin(event),body=JSON.parse(event.body||'{}');
     const requestId=String(body.request_id||'').trim();
-    const hours=Number(body.hours||0),minutes=Number(body.minutes||0);
+    const hoursRaw=body.hours,minutesRaw=body.minutes;
+    if(hoursRaw==null||minutesRaw==null||String(hoursRaw).trim()===''||String(minutesRaw).trim()==='')
+      return lib.json(400,{error:'Enter both corrected hours and minutes.'});
+    const hours=Number(hoursRaw),minutes=Number(minutesRaw);
     if(!requestId)return lib.json(400,{error:'Extension request is required.'});
     if(!Number.isInteger(hours)||!Number.isInteger(minutes)||hours<0||minutes<0||minutes>=60)
       return lib.json(400,{error:'Enter corrected time as whole hours and minutes.'});
