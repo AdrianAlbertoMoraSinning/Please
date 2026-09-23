@@ -43,6 +43,7 @@ test('STEP 19.6 approved-extension correction is audited and financially locked'
 test('STEP 19.6 correction API and Live Operations require explicit hours and minutes',()=>{
   const fn=read('netlify/functions/admin-extension-correction-action.js');
   const ui=read('js/admin-live-operations.js');
+  assert.match(fn,/Enter both corrected hours and minutes/);
   assert.match(fn,/hours\*60\+minutes/);
   assert.match(fn,/total%15!==0/);
   assert.match(fn,/Correction reason is required/);
