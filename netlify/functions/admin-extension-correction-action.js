@@ -39,6 +39,13 @@ exports.handler=async event=>{
     notices.push(await notify.sendProvider(before.provider_id,{subject:`PLEASE — Service extension corrected (${job.reference||'Job'})`,
       title:'Service extension corrected',intro:'PLEASE Administration corrected the approved additional service time.',details,message:reason,
       ctaLabel:'Open Provider Portal',ctaUrl:`${notify.baseUrl()}/provider.html#history`,idempotencyKey:`please-provider-extension-correction-${requestId}-${total}`}));
+    if(job?.customers?.email)notices.push(await notify.send({to:job.customers.email,
+      subject:`PLEASE — Service time correction (${job.reference||'Service'})`,title:'Service time correction',
+      intro:'PLEASE corrected the recorded additional service time before invoicing.',details:[
+        ['Service',job.service_name],['Previous additional time',`${Number(before.extra_minutes||0)} minutes`],
+        ['Corrected additional time',`${total} minutes`],['Corrected customer addition',notify.money(d?.customer_addition)]
+      ],message:'This correction updates the service record and the amount that will be used for invoicing.',
+      ctaLabel:'PLEASE Service',ctaUrl:notify.baseUrl(),idempotencyKey:`please-customer-extension-correction-${requestId}-${total}`}));
     return lib.json(200,{ok:true,result:d,notifications_sent:notices.filter(x=>x?.sent).length});
   }catch(e){console.error('admin-extension-correction-action',e);return lib.json(e.status||400,{error:e.message||'Unable to correct extension.'});}
 };
