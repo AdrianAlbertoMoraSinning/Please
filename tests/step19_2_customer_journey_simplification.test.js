@@ -86,3 +86,16 @@ test('final Draft invoice values synchronize Job totals and surface in Jobs Requ
 test('STEP 19.2 cache-busts every browser surface changed by this release',()=>{
   for(const f of ['admin-service-requests.html','admin-calendar.html','admin-jobs.html','invoice.html'])assert.match(read(f),/v=15\.19\.(?:[2-9]|\d{2,})/);
 });
+
+
+test('STEP 19.6 extension decisions notify Administration Provider and Customer through official routing',()=>{
+  const fn=read('netlify/functions/admin-extension-action.js');
+  assert.match(fn,/notify\.extensionContext/);
+  assert.match(fn,/notify\.sendAdmins/);
+  assert.match(fn,/notify\.sendProvider/);
+  assert.match(fn,/j\?\.customers\?\.email/);
+  assert.match(fn,/please-admin-extension-/);
+  assert.match(fn,/please-provider-extension-/);
+  assert.match(fn,/please-customer-extension-/);
+  assert.match(fn,/notifications_sent/);
+});
