@@ -1,0 +1,28 @@
+name: STEP 19.6 Regression
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check changed runtime files
+        run: |
+          node --check netlify/functions/admin-job-action.js
+          node --check netlify/functions/admin-extension-action.js
+          node --check js/admin-jobs.js
+      - name: STEP 19 regression suite
+        run: node --test tests/step19*.test.js
