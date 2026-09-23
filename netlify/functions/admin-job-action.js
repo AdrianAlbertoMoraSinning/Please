@@ -157,11 +157,11 @@ async function removeProviderAssignment(auth,payload){
   const assignment=rows?.[0];
   if(!assignment)throw Object.assign(new Error('Provider assignment not found.'),{status:404});
   const job=assignment.jobs||{};
-  if(assignment.status==='CANCELLED')return{ok:true,already_removed:true,job_id:assignment.job_id,assignment_id:assignment.id,status:'CANCELLED',customer_notification_sent:false};
-  if(!['PENDING','CONFIRMED'].includes(String(assignment.status||'').toUpperCase()))throw Object.assign(new Error('Only a pending or confirmed Provider who has not begun the service can be removed here.'),{status:409});
+  const alreadyRemoved=assignment.status==='CANCELLED';
+  if(!alreadyRemoved&&!['PENDING','CONFIRMED'].includes(String(assignment.status||'').toUpperCase()))throw Object.assign(new Error('Only a pending or confirmed Provider who has not begun the service can be removed here.'),{status:409});
 
   const aid=encodeURIComponent(assignment.id);
-  const [events,evidence,payments,extensions]=await Promise.all([
+  const [events,evidence,payments,extensions]=alreadyRemoved?[[],[],[],[]]:await Promise.all([
     lib.sbJson(`/rest/v1/job_service_events?select=id,event_type,created_at&assignment_id=eq.${aid}&event_type=in.(ARRIVED,STARTED,COMPLETED,CHECKED_OUT,EXTENSION_REQUESTED)&limit=1`),
     lib.sbJson(`/rest/v1/job_service_evidence?select=id,evidence_type,status&assignment_id=eq.${aid}&status=eq.COMMITTED&evidence_type=in.(ARRIVAL,COMPLETION,CHECK_OUT)&limit=1`),
     lib.sbJson(`/rest/v1/provider_payments?select=id,status,payment_reference&assignment_id=eq.${aid}&limit=1`),
@@ -172,9 +172,11 @@ async function removeProviderAssignment(auth,payload){
 
   const note=`Provider removed from service by PLEASE Administration. Reason: ${reason}`;
   const now=new Date().toISOString();
-  const changed=await lib.sbJson(`/rest/v1/job_assignments?id=eq.${aid}&status=eq.${encodeURIComponent(assignment.status)}&select=id,job_id,provider_id,status`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'CANCELLED',updated_at:now})});
-  if(!changed?.[0])throw Object.assign(new Error('This assignment changed in another session. Refresh Jobs and try again.'),{status:409});
-  await lib.sbJson('/rest/v1/assignment_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({assignment_id:assignment.id,old_status:assignment.status,new_status:'CANCELLED',changed_by_admin_portal_user:auth.user.id,note})});
+  if(!alreadyRemoved){
+    const changed=await lib.sbJson(`/rest/v1/job_assignments?id=eq.${aid}&status=eq.${encodeURIComponent(assignment.status)}&select=id,job_id,provider_id,status`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'CANCELLED',updated_at:now})});
+    if(!changed?.[0])throw Object.assign(new Error('This assignment changed in another session. Refresh Jobs and try again.'),{status:409});
+    await lib.sbJson('/rest/v1/assignment_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({assignment_id:assignment.id,old_status:assignment.status,new_status:'CANCELLED',changed_by_admin_portal_user:auth.user.id,note})});
+  }
 
   // Recalculate only active scheduling states. Completed / in-progress / cancelled Jobs
   // are never reopened by this correction.
@@ -190,7 +192,7 @@ async function removeProviderAssignment(auth,payload){
     const next=active.length<required?'NEEDS_ASSIGNMENT':(active.some(x=>x.status==='PENDING')?'PENDING_PROVIDER':'CONFIRMED');
     const jobPatch={updated_at:now};
     if(reduceTeamRequirement&&required!==currentRequired)jobPatch.required_provider_count=required;
-    if(next!==job.status)jobPatch.status=next;
+    if(next!==job.status||reduceTeamRequirement)jobPatch.status=next;
     // Persist team-size and lifecycle changes together so Administration cannot leave
     // a Job half-updated if one of the two values changes.
     if(Object.keys(jobPatch).length>1){
@@ -205,7 +207,7 @@ async function removeProviderAssignment(auth,payload){
   lib.sbJson('/rest/v1/provider_technical_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({provider_id:assignment.provider_id,event_type:'ADMIN_REMOVED_FROM_ASSIGNMENT',event_label:'Removed from PLEASE service assignment',details:{assignment_id:assignment.id,job_id:assignment.job_id,job_reference:job.reference||null,reason},actor_type:'ADMIN',actor_admin_user_id:auth.user.id})}).catch(e=>console.warn('admin-job-action:remove-provider-history',e?.message||e));
   const providerNotice=await notifyAssignment(assignment.id,'REMOVED',reason);
   const adminNotice=await notify.sendAdmins({subject:`PLEASE — Service team updated (${job.reference||'Job'})`,title:'Service team updated',intro:`${assignment.providers?.display_name||'A Provider'} was removed from the service by PLEASE Administration.`,details:[['Job',job.reference],['Service',job.service_name],['Job status',resultingJobStatus],['Required Providers',reduceTeamRequirement?'Reduced to remaining active team':'Unchanged']],message:reason,ctaLabel:'Open Jobs',ctaUrl:`${notify.baseUrl()}/admin-jobs.html?q=${encodeURIComponent(job.reference||'')}`,idempotencyKey:`please-admin-provider-removed-${assignment.id}`});
-  return{ok:true,job_id:assignment.job_id,job_reference:job.reference||null,job_status:resultingJobStatus,assignment_id:assignment.id,provider_id:assignment.provider_id,provider_name:assignment.providers?.display_name||'Provider',status:'CANCELLED',team_requirement_reduced:reduceTeamRequirement,notification_sent:!!providerNotice?.sent,admin_notification_sent:!!adminNotice?.sent,customer_notification_sent:false};
+  return{ok:true,already_removed:alreadyRemoved,repair_applied:alreadyRemoved&&reduceTeamRequirement,job_id:assignment.job_id,job_reference:job.reference||null,job_status:resultingJobStatus,assignment_id:assignment.id,provider_id:assignment.provider_id,provider_name:assignment.providers?.display_name||'Provider',status:'CANCELLED',team_requirement_reduced:reduceTeamRequirement,notification_sent:!!providerNotice?.sent,admin_notification_sent:!!adminNotice?.sent,customer_notification_sent:false};
 }
 
 
@@ -401,5 +403,5 @@ exports.handler=async event=>{
     const notices=(await Promise.all(noticeTasks)).flat?.(2)||[];
     if(value&&typeof value==='object')value.notifications_sent=notices.filter(x=>x?.sent).length;
     return lib.json(200,value||{ok:true});
-  }catch(e){console.error('admin-job-action',e);let message=e.message||'Job action failed.';if(/exclusion|job_assignments_no_provider_overlap|conflict/i.test(message))message='One of the selected providers already has an assignment overlapping the selected time.';return lib.json(e.status||400,{error:message});}
+  }catch(e){console.error('admin-job-action',e);let message=e.message||'Job action failed.';if(/exclusion|job_assignments_no_provider_overlap|conflict/i.test(message))message='One of the selected providers already has an assignment overlapping the selected time.';return lib.json(e.status||500,{error:message});}
 };
