@@ -9,6 +9,7 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 test('STEP 19.6 extension approval keeps time and money atomic',()=>{
   const sql=read('supabase/STEP19_6_EXTENSION_BILLING_INTEGRITY.sql');
   assert.match(sql,/Customer approval method is required/);
+  assert.match(sql,/customer invoice snapshot already exists/);
   assert.match(sql,/Extension schedule changed/);
   assert.match(sql,/Extension pricing changed/);
   assert.match(sql,/job_id,provider_service_rate_id,service_id,service_name,description/);
@@ -39,6 +40,10 @@ test('STEP 19.6 approved-extension correction is audited and financially locked'
   assert.match(sql,/A later extension exists for this assignment/);
   assert.match(sql,/Corrected extension conflicts with another assignment/);
   assert.match(sql,/ADMIN CORRECTION — extension changed from/);
+  assert.match(sql,/create table if not exists public\.job_extension_corrections/);
+  assert.match(sql,/insert into public\.job_extension_corrections/);
+  assert.match(sql,/old_minutes,new_minutes,old_end,new_end/);
+  assert.match(sql,/old_customer_addition,new_customer_addition,old_provider_addition,new_provider_addition,reason/);
   assert.match(sql,/where id=r\.billing_item_id and job_id=r\.job_id for update/);
   assert.match(sql,/ext_item\.description='Approved time extension'/);
   assert.match(sql,/legacy_match_count<>1/);
