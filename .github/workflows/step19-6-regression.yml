@@ -24,6 +24,8 @@ jobs:
         run: |
           node --check netlify/functions/admin-job-action.js
           node --check netlify/functions/admin-extension-action.js
+          node --check netlify/functions/admin-extension-correction-action.js
           node --check js/admin-jobs.js
+          node --check js/admin-live-operations.js
       - name: STEP 19 regression suite
         run: node --test tests/step19*.test.js
