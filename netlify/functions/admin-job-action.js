@@ -162,10 +162,10 @@ async function removeProviderAssignment(auth,payload){
 
   const aid=encodeURIComponent(assignment.id);
   const [events,evidence,payments,extensions]=await Promise.all([
-    lib.sbJson(`/rest/v1/job_service_events?select=id,event_type,created_at&assignment_id=eq.${aid}&event_type=in.(ARRIVED,STARTED,COMPLETED,CHECKED_OUT,EXTENSION_REQUESTED)&limit=1`).catch(()=>[]),
-    lib.sbJson(`/rest/v1/job_service_evidence?select=id,evidence_type,status&assignment_id=eq.${aid}&status=eq.COMMITTED&evidence_type=in.(ARRIVAL,COMPLETION,CHECK_OUT)&limit=1`).catch(()=>[]),
-    lib.sbJson(`/rest/v1/provider_payments?select=id,status,payment_reference&assignment_id=eq.${aid}&limit=1`).catch(()=>[]),
-    lib.sbJson(`/rest/v1/job_extension_requests?select=id,status&assignment_id=eq.${aid}&status=in.(PENDING,APPROVED)&limit=1`).catch(()=>[])
+    lib.sbJson(`/rest/v1/job_service_events?select=id,event_type,created_at&assignment_id=eq.${aid}&event_type=in.(ARRIVED,STARTED,COMPLETED,CHECKED_OUT,EXTENSION_REQUESTED)&limit=1`),
+    lib.sbJson(`/rest/v1/job_service_evidence?select=id,evidence_type,status&assignment_id=eq.${aid}&status=eq.COMMITTED&evidence_type=in.(ARRIVAL,COMPLETION,CHECK_OUT)&limit=1`),
+    lib.sbJson(`/rest/v1/provider_payments?select=id,status,payment_reference&assignment_id=eq.${aid}&limit=1`),
+    lib.sbJson(`/rest/v1/job_extension_requests?select=id,status&assignment_id=eq.${aid}&status=in.(PENDING,APPROVED)&limit=1`)
   ]);
   if(events?.length||evidence?.length||extensions?.length)throw Object.assign(new Error('This Provider already has service activity or evidence on the Job. Use a controlled operational correction instead of removing the assignment.'),{status:409});
   if(payments?.length)throw Object.assign(new Error(`This Provider assignment is linked to Provider Payment ${payments[0].payment_reference||payments[0].id}. Resolve the payment record before changing the service team.`),{status:409});
