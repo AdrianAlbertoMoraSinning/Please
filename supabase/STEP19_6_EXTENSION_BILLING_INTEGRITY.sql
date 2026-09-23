@@ -5,6 +5,30 @@
 
 begin;
 
+create table if not exists public.job_extension_corrections(
+ id uuid primary key default gen_random_uuid(),
+ extension_request_id uuid not null references public.job_extension_requests(id) on delete restrict,
+ job_id uuid not null references public.jobs(id) on delete restrict,
+ assignment_id uuid not null references public.job_assignments(id) on delete restrict,
+ provider_id uuid not null references public.providers(id) on delete restrict,
+ billing_item_id uuid references public.job_billing_items(id) on delete set null,
+ actor_id uuid not null references public.admin_portal_users(id) on delete restrict,
+ old_minutes integer not null,
+ new_minutes integer not null,
+ old_end timestamptz not null,
+ new_end timestamptz not null,
+ old_customer_addition numeric(12,2) not null default 0,
+ new_customer_addition numeric(12,2) not null default 0,
+ old_provider_addition numeric(12,2) not null default 0,
+ new_provider_addition numeric(12,2) not null default 0,
+ reason text not null,
+ created_at timestamptz not null default now()
+);
+create index if not exists job_extension_corrections_request_idx on public.job_extension_corrections(extension_request_id,created_at desc);
+alter table public.job_extension_corrections enable row level security;
+revoke all on public.job_extension_corrections from public,anon,authenticated;
+grant select,insert on public.job_extension_corrections to service_role;
+
 create or replace function public.admin_review_extension(
   p_actor uuid,p_request_id uuid,p_action text,p_note text default null,p_customer_approval_method text default null
 )
@@ -41,11 +65,8 @@ begin
   select i.status,i.payment_status into existing_invoice_status,existing_payment_status
   from public.invoices i where i.job_id=r.job_id and i.status<>'VOID'
   order by i.created_at desc limit 1;
-  if found and existing_invoice_status<>'DRAFT' then
-    raise exception 'Job billing is locked because the customer invoice has already been issued. Void/reissue or use the accounting adjustment workflow before approving additional time';
-  end if;
-  if found and existing_payment_status in ('PENDING','PAID') then
-    raise exception 'Job billing is locked by customer payment processing. Resolve the invoice payment state before approving additional time';
+  if found then
+    raise exception 'Job billing is locked because a customer invoice snapshot already exists. Void/recreate the invoice before approving additional time';
   end if;
   select pp.status into provider_payment_status from public.provider_payments pp
   where pp.job_id=r.job_id order by pp.created_at desc limit 1;
@@ -131,7 +152,6 @@ declare
   legacy_match_count integer;
   conflict_count integer;
   inv_status text;
-  inv_payment text;
   pp_status text;
 begin
   if not exists(select 1 from public.admin_portal_users where id=p_actor and active=true) then raise exception 'Unauthorized'; end if;
@@ -145,7 +165,7 @@ begin
   select * into a from public.job_assignments where id=r.assignment_id for update;
   if not found then raise exception 'Assignment not found'; end if;
 
-  select i.status,i.payment_status into inv_status,inv_payment from public.invoices i
+  select i.status into inv_status from public.invoices i
   where i.job_id=r.job_id and i.status<>'VOID' order by i.created_at desc limit 1;
   if found then
     raise exception 'A customer invoice already exists for this Job. Correct the invoice first or void/recreate it before changing approved extension time';
@@ -202,6 +222,16 @@ begin
   customer_total:=round(coalesce(ext_item.customer_unit_rate,ext_item.unit_rate,0)*(p_corrected_minutes/60.0),2);
   provider_total:=round(coalesce(ext_item.provider_unit_rate,0)*(p_corrected_minutes/60.0),2);
   old_customer:=coalesce(r.customer_addition,0);
+
+  insert into public.job_extension_corrections(
+    extension_request_id,job_id,assignment_id,provider_id,billing_item_id,actor_id,
+    old_minutes,new_minutes,old_end,new_end,
+    old_customer_addition,new_customer_addition,old_provider_addition,new_provider_addition,reason
+  ) values(
+    r.id,r.job_id,r.assignment_id,r.provider_id,ext_item.id,p_actor,
+    old_minutes,p_corrected_minutes,r.proposed_end,corrected_end,
+    coalesce(r.customer_addition,0),customer_total,coalesce(r.provider_addition,0),provider_total,trim(p_note)
+  );
 
   update public.job_billing_items set
     quantity=p_corrected_minutes/60.0,
