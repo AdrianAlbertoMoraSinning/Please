@@ -559,12 +559,28 @@
       const params=new URLSearchParams(location.search),requestId=params.get('request'),reassignJobId=params.get('reassign_job'),addProviderJobId=params.get('add_provider_job'),newCustomerService=params.get('new_customer_service')==='1',requestedDate=params.get('date'),requestedView=String(params.get('view')||'').toUpperCase();
       if(/^\d{4}-\d{2}-\d{2}$/.test(requestedDate||'')){const d=new Date(`${requestedDate}T12:00:00`);weekStart=startOfWeek(d);monthAnchor=new Date(d.getFullYear(),d.getMonth(),1);}
       if(requestedView==='MONTH')calendarView='MONTH';
+      // Resolve an existing Job independently of the visible calendar week.
+      let addProviderContext=null;
+      if(addProviderJobId){
+        const jobData=await api('/.netlify/functions/admin-jobs-data');
+        const job=(jobData.jobs||[]).find(x=>x.id===addProviderJobId);
+        const active=(jobData.assignments||[]).filter(x=>x.job_id===addProviderJobId&&['PENDING','CONFIRMED'].includes(x.status));
+        if(job&&active.length){
+          addProviderContext={job,assignments:active};
+          const scheduled=active.find(x=>x.scheduled_start)?.scheduled_start;
+          if(scheduled){
+            const d=new Date(`${localParts(scheduled).date}T12:00:00`);
+            weekStart=startOfWeek(d);
+            monthAnchor=new Date(d.getFullYear(),d.getMonth(),1);
+          }
+        }
+      }
       let calendarWarning=null;
       try{await loadCalendar();}catch(e){calendarWarning=e;}
       bindEvents();
       loading.hidden=true;loading.remove();app.hidden=false;
       if(calendarWarning)showAlert(`Master Calendar background data could not refresh (${calendarWarning.message}). You can still continue assigning the selected Service Request.`);
-      if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}else if(reassignJobId){const j=(data.needs_assignment||[]).find(x=>x.id===reassignJobId);if(j)openExistingJob(j);else showAlert('This Job is not currently in Needs Assignment. Refresh Jobs and verify the Provider was removed before replacement.');}else if(addProviderJobId){const a=(data.reassignment_assignments||[]).find(x=>x.job_id===addProviderJobId),j=a?.jobs||null;if(j)openAddProviderJob(j);else showAlert('This Job is not available for adding a Provider. Open Jobs and refresh the service.');}else if(newCustomerService){let prefill=null;try{prefill=JSON.parse(sessionStorage.getItem('pleaseAdminCustomerServicePrefill')||'null');sessionStorage.removeItem('pleaseAdminCustomerServicePrefill');}catch{}if(prefill){openNewJob(prefill);showAlert('Customer details were prefilled. Select the new service, Provider team, schedule and rates.','success');}else openNewJob();}
+      if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}else if(reassignJobId){const j=(data.needs_assignment||[]).find(x=>x.id===reassignJobId);if(j)openExistingJob(j);else showAlert('This Job is not currently in Needs Assignment. Refresh Jobs and verify the Provider was removed before replacement.');}else if(addProviderJobId){if(addProviderContext){data.reassignment_assignments=[...(data.reassignment_assignments||[]),...addProviderContext.assignments];openAddProviderJob(addProviderContext.job);}else showAlert('This Job is not available for adding a Provider. Open Jobs and refresh the service.');}else if(newCustomerService){let prefill=null;try{prefill=JSON.parse(sessionStorage.getItem('pleaseAdminCustomerServicePrefill')||'null');sessionStorage.removeItem('pleaseAdminCustomerServicePrefill');}catch{}if(prefill){openNewJob(prefill);showAlert('Customer details were prefilled. Select the new service, Provider team, schedule and rates.','success');}else openNewJob();}
     }catch(e){
       console.error('admin-calendar init',e);
       if(loading){loading.textContent=e.message||'Unable to load secure calendar.';loading.classList.add('admin-loading-error');}
