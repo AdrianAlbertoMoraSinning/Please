@@ -21,13 +21,23 @@ async function addJobReferences(requests){
     const map=new Map((jobs||[]).map(j=>[j.id,j])),byJob=new Map(),invoiceByJob=new Map();
     for(const a of assignments||[]){if(!byJob.has(a.job_id))byJob.set(a.job_id,[]);byJob.get(a.job_id).push(a);}
     for(const inv of invoices||[]){if(inv.job_id&&!invoiceByJob.has(inv.job_id))invoiceByJob.set(inv.job_id,inv);}
-    rows.forEach(r=>{const j=r.job_id?map.get(r.job_id):null,aa=r.job_id?(byJob.get(r.job_id)||[]):[],primary=aa.find(x=>x.is_primary)||aa[0]||null,inv=r.job_id?invoiceByJob.get(r.job_id):null;r.job_reference=j?.reference||null;r.job_service_id=j?.service_id||null;r.job_estimated_duration_minutes=j?.estimated_duration_minutes??null;r.job_quoted_subtotal=j?.quoted_subtotal??null;r.job_scheduled_start=primary?.scheduled_start||null;r.job_scheduled_end=primary?.scheduled_end||null;r.job_active_assignment_count=aa.length;r.final_invoice_id=inv?.id||null;r.final_invoice_number=inv?.invoice_number||null;r.final_invoice_status=inv?.status||null;r.final_invoice_payment_status=inv?.payment_status||null;r.final_invoice_subtotal=inv?.subtotal??null;r.final_invoice_total=inv?.total_amount??null;});
+    rows.forEach(r=>{const j=r.job_id?map.get(r.job_id):null,aa=r.job_id?(byJob.get(r.job_id)||[]):[],primary=aa.find(x=>x.is_primary)||aa[0]||null,inv=r.job_id?invoiceByJob.get(r.job_id):null;r.job_status=j?.status||null;r.job_reference=j?.reference||null;r.job_service_id=j?.service_id||null;r.job_estimated_duration_minutes=j?.estimated_duration_minutes??null;r.job_quoted_subtotal=j?.quoted_subtotal??null;r.job_scheduled_start=primary?.scheduled_start||null;r.job_scheduled_end=primary?.scheduled_end||null;r.job_active_assignment_count=aa.length;r.final_invoice_id=inv?.id||null;r.final_invoice_number=inv?.invoice_number||null;r.final_invoice_status=inv?.status||null;r.final_invoice_payment_status=inv?.payment_status||null;r.final_invoice_subtotal=inv?.subtotal??null;r.final_invoice_total=inv?.total_amount??null;});
   }catch(e){console.warn('admin-service-requests:job-reference-link',e?.message||e);}
   return rows;
 }
 async function optional(label,task,fallback){
   try{return await task();}
   catch(e){console.warn(`admin-service-requests:${label}`,e?.message||e);return fallback;}
+}
+async function relatedDays(request){
+  const marker=`[PLEASE-REQUEST-DAY:${request.id}:`;
+  const extra=await lib.sbJson(`/rest/v1/jobs?select=id,reference,status,estimated_duration_minutes,quoted_subtotal,internal_notes&internal_notes=like.${encodeURIComponent(`*${marker}*`)}&order=created_at.asc`);
+  const stages=(extra||[]).filter(j=>String(j.internal_notes||'').includes(marker));
+  if(request.job_id&&!stages.some(j=>j.id===request.job_id))stages.unshift({id:request.job_id,reference:request.job_reference,status:request.job_status||'SCHEDULING',estimated_duration_minutes:request.job_estimated_duration_minutes,quoted_subtotal:request.job_quoted_subtotal,internal_notes:''});
+  if(!stages.length)return[];
+  const ids=stages.map(j=>encodeURIComponent(j.id)).join(',');
+  const assignments=await lib.sbJson(`/rest/v1/job_assignments?select=job_id,scheduled_start,scheduled_end,status,provider_id,providers(display_name)&job_id=in.(${ids})&status=in.(PENDING,CONFIRMED,COMPLETED)&order=scheduled_start.asc`);
+  return stages.map(j=>({id:j.id,reference:j.reference,status:j.status,hours:Number(j.estimated_duration_minutes||0)/60,subtotal:j.quoted_subtotal,assignments:(assignments||[]).filter(a=>a.job_id===j.id).map(a=>({start:a.scheduled_start,end:a.scheduled_end,status:a.status,provider:a.providers?.display_name||'Provider'}))})).sort((a,b)=>String(a.assignments[0]?.start||'').localeCompare(String(b.assignments[0]?.start||'')));
 }
 exports.handler=async event=>{
   if(event.httpMethod!=='GET') return lib.json(405,{error:'Method not allowed'});
@@ -44,7 +54,8 @@ exports.handler=async event=>{
         optional('history',()=>lib.sbJson(`/rest/v1/service_request_status_history?select=id,old_status,new_status,note,created_at,admin_portal_users(display_name,email)&service_request_id=eq.${encodeURIComponent(id)}&order=created_at.asc`),[]),
         optional('services',()=>activeServices(),[])
       ]);
-      return lib.json(200,{request:rows[0],history:history||[],services:services||[]});
+      const days=await optional('related-days',()=>relatedDays(rows[0]),[]);
+      return lib.json(200,{request:rows[0],history:history||[],services:services||[],days});
     }
     const requests=await lib.sbJson('/rest/v1/service_requests?select=id,reference,first_name,last_name,email,phone,service_id,service_name,city,preferred_date,preferred_start_time,scheduling_flexibility,status,job_id,created_at,updated_at&order=created_at.desc');
     await addJobReferences(requests);
