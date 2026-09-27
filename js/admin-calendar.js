@@ -410,7 +410,9 @@
     populateJobProviders(j.service_id||'');
     const active=(data.reassignment_assignments||[]).filter(a=>a.job_id===j.id&&['PENDING','CONFIRMED'].includes(a.status)).sort((a,b)=>(a.sequence_no||99)-(b.sequence_no||99));
     const base=active[0];let date=ymd(new Date()),start='09:00',end='11:00';
-    if(base?.scheduled_start&&base?.scheduled_end){const st=localParts(base.scheduled_start),en=localParts(base.scheduled_end);date=st.date;start=st.time;end=en.time;}
+    if(base?.scheduled_start&&base?.scheduled_end){const st=localParts(base.scheduled_start),en=localParts(base.scheduled_end);date=st.date;start=st.time;end=en.time;
+      if(j.status==='IN_PROGRESS'){const now=new Date(),next=new Date(Math.ceil(now.getTime()/900000)*900000);if(next.getTime()<new Date(base.scheduled_end).getTime()){const current=localParts(next.toISOString());date=current.date;start=current.time;}}
+    }
     const next=Math.max(0,...active.map((a,i)=>Number(a.sequence_no)||i+1))+1;
     teamAssignments=[{...teamDefault(date,start,end),is_primary:false,sequence_no:next,replacement:false}];
     setExistingMode(true);renderTeam();openDrawer();
