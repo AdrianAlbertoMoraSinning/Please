@@ -396,6 +396,27 @@
     showAlert(`Editing ${j.reference} before reassignment. Correct the rejected Provider slot and use + ADD ANOTHER PROVIDER if this Job now needs a larger service team.`,'success');
   }
 
+  function openAddProviderJob(j){
+    resetForm();
+    reassignmentMode=true;
+    setMultiMode(true);
+    reassignmentTargetAssignment=null;
+    $('job-add-provider').hidden=true;
+    $('job-existing-id').value=j.id;
+    $('job-drawer-title').textContent=`Add Provider · ${j.reference}`;
+    $('job-drawer-eyebrow').textContent='EXISTING JOB · ADD TEAM MEMBER';
+    const c=j.customers||{};
+    $('customer-first-name').value=c.first_name||'';$('customer-last-name').value=c.last_name||'';$('customer-email').value=c.email||'';$('customer-phone').value=c.phone||'';$('job-service').value=j.service_id||'';$('job-address').value=j.work_address||'';$('job-description').value=j.work_description||'';$('job-internal-notes').value='';
+    populateJobProviders(j.service_id||'');
+    const active=(data.reassignment_assignments||[]).filter(a=>a.job_id===j.id&&['PENDING','CONFIRMED'].includes(a.status)).sort((a,b)=>(a.sequence_no||99)-(b.sequence_no||99));
+    const base=active[0];let date=ymd(new Date()),start='09:00',end='11:00';
+    if(base?.scheduled_start&&base?.scheduled_end){const st=localParts(base.scheduled_start),en=localParts(base.scheduled_end);date=st.date;start=st.time;end=en.time;}
+    const next=Math.max(0,...active.map((a,i)=>Number(a.sequence_no)||i+1))+1;
+    teamAssignments=[{...teamDefault(date,start,end),is_primary:false,sequence_no:next,replacement:false}];
+    setExistingMode(true);renderTeam();openDrawer();
+    showAlert(`Adding a Provider to ${j.reference}. The existing team stays unchanged; select only the new Provider, schedule and billing.`,'success');
+  }
+
   function updateAvailabilityNote(){
     const pid=$('job-provider').value,date=$('job-date').value,start=$('job-start').value,end=$('job-end').value,note=$('provider-availability-note');
     if(!pid||!date){note.textContent='Select a provider and date to see availability.';note.classList.remove('calendar-availability-warning');return;}
@@ -535,7 +556,7 @@
       loading.textContent='Checking secure session…';
       await ensureSession();
       loading.textContent='Loading Master Calendar…';
-      const params=new URLSearchParams(location.search),requestId=params.get('request'),reassignJobId=params.get('reassign_job'),newCustomerService=params.get('new_customer_service')==='1',requestedDate=params.get('date'),requestedView=String(params.get('view')||'').toUpperCase();
+      const params=new URLSearchParams(location.search),requestId=params.get('request'),reassignJobId=params.get('reassign_job'),addProviderJobId=params.get('add_provider_job'),newCustomerService=params.get('new_customer_service')==='1',requestedDate=params.get('date'),requestedView=String(params.get('view')||'').toUpperCase();
       if(/^\d{4}-\d{2}-\d{2}$/.test(requestedDate||'')){const d=new Date(`${requestedDate}T12:00:00`);weekStart=startOfWeek(d);monthAnchor=new Date(d.getFullYear(),d.getMonth(),1);}
       if(requestedView==='MONTH')calendarView='MONTH';
       let calendarWarning=null;
@@ -543,7 +564,7 @@
       bindEvents();
       loading.hidden=true;loading.remove();app.hidden=false;
       if(calendarWarning)showAlert(`Master Calendar background data could not refresh (${calendarWarning.message}). You can still continue assigning the selected Service Request.`);
-      if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}else if(reassignJobId){const j=(data.needs_assignment||[]).find(x=>x.id===reassignJobId);if(j)openExistingJob(j);else showAlert('This Job is not currently in Needs Assignment. Refresh Jobs and verify the Provider was removed before replacement.');}else if(newCustomerService){let prefill=null;try{prefill=JSON.parse(sessionStorage.getItem('pleaseAdminCustomerServicePrefill')||'null');sessionStorage.removeItem('pleaseAdminCustomerServicePrefill');}catch{}if(prefill){openNewJob(prefill);showAlert('Customer details were prefilled. Select the new service, Provider team, schedule and rates.','success');}else openNewJob();}
+      if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}else if(reassignJobId){const j=(data.needs_assignment||[]).find(x=>x.id===reassignJobId);if(j)openExistingJob(j);else showAlert('This Job is not currently in Needs Assignment. Refresh Jobs and verify the Provider was removed before replacement.');}else if(addProviderJobId){const a=(data.reassignment_assignments||[]).find(x=>x.job_id===addProviderJobId),j=a?.jobs||null;if(j)openAddProviderJob(j);else showAlert('This Job is not available for adding a Provider. Open Jobs and refresh the service.');}else if(newCustomerService){let prefill=null;try{prefill=JSON.parse(sessionStorage.getItem('pleaseAdminCustomerServicePrefill')||'null');sessionStorage.removeItem('pleaseAdminCustomerServicePrefill');}catch{}if(prefill){openNewJob(prefill);showAlert('Customer details were prefilled. Select the new service, Provider team, schedule and rates.','success');}else openNewJob();}
     }catch(e){
       console.error('admin-calendar init',e);
       if(loading){loading.textContent=e.message||'Unable to load secure calendar.';loading.classList.add('admin-loading-error');}
