@@ -39,3 +39,28 @@ test('cannot add an additional day before the first Job exists',async()=>{
   assert.equal(result.statusCode,409);
   assert.equal(h.calls.some(c=>c.url==='/rest/v1/rpc/please_create_multi_provider_job'),false);
 });
+
+test('customer tracking lists later days but hides unconfirmed Provider identities',async()=>{
+  const publicFn=path.join(root,'netlify/functions/public-request-tracking.js');
+  const first={id:JOB,reference:'PLS-JOB-1',status:'COMPLETED',estimated_duration_minutes:480};
+  const later='99999999-9999-4999-8999-999999999999';
+  require.cache[require.resolve(libPath)]={exports:{json:(statusCode,body)=>({statusCode,body:JSON.stringify(body)}),sbJson:async url=>{
+    if(url.startsWith('/rest/v1/service_request_tracking_tokens?'))return[{service_request_id:REQUEST}];
+    if(url.startsWith('/rest/v1/service_requests?'))return[{id:REQUEST,reference:'PLS-REQ-1',first_name:'Adrian',service_name:'Moving',status:'ASSIGNED',job_id:JOB,created_at:'2026-09-27T21:00:00Z'}];
+    if(url.startsWith('/rest/v1/jobs?select=id,reference,service_name,status'))return[first];
+    if(url.startsWith('/rest/v1/jobs?select=id,reference,status,estimated_duration_minutes,internal_notes'))return[{id:later,reference:'PLS-JOB-2',status:'PENDING_PROVIDER',estimated_duration_minutes:240,internal_notes:`[PLEASE-REQUEST-DAY:${REQUEST}:2026-09-29]`}];
+    if(url.startsWith('/rest/v1/job_assignments?')&&url.includes(`job_id=eq.${JOB}`))return[];
+    if(url.startsWith('/rest/v1/job_assignments?')&&url.includes(`job_id=in.(${later})`))return[{job_id:later,provider_id:PROVIDER,scheduled_start:'2026-09-29T13:00:00Z',scheduled_end:'2026-09-29T17:00:00Z',status:'PENDING'}];
+    if(url.startsWith('/rest/v1/invoices?'))return[];
+    if(url.startsWith('/rest/v1/job_service_events?'))return[];
+    if(url.startsWith('/rest/v1/job_extension_requests?'))return[];
+    throw Error(`Unexpected ${url}`);
+  }}};
+  delete require.cache[require.resolve(publicFn)];
+  const result=await require(publicFn).handler({httpMethod:'GET',queryStringParameters:{token:'a'.repeat(48)}});
+  assert.equal(result.statusCode,200);
+  const data=JSON.parse(result.body);
+  assert.equal(data.service_days.length,2);
+  assert.equal(data.service_days[1].assignments[0].provider_name,null);
+  assert.equal(data.public_status.code,'COORDINATING');
+});
