@@ -10,6 +10,7 @@
   let billingItems=[];
   let teamAssignments=[];
   let sourceRequest=null;
+  let additionalDayRequest=null;
   let reassignmentTargetAssignment=null;
   let reassignmentMode=false;
   let assignmentCatalogLoaded=false;
@@ -298,7 +299,17 @@
     $('job-billing-rate-picker').disabled=false;$('job-add-billing-item').disabled=false;
     $('customer-section').classList.toggle('calendar-section-readonly',existing);
   }
-  function resetForm(){form.reset();billingItems=[];teamAssignments=[teamDefault()];sourceRequest=null;reassignmentTargetAssignment=null;reassignmentMode=false;$('job-existing-id').value='';$('job-source-request-id').value='';$('job-source-request-panel').hidden=true;$('job-drawer-title').textContent='Create & Assign Job';$('job-drawer-eyebrow').textContent='NEW SERVICE REQUEST';setExistingMode(false);setMultiMode(true);$('job-add-provider').hidden=false;$('job-date').value=ymd(new Date());$('job-start').value='09:00';$('job-end').value='11:00';$('job-service').innerHTML='<option value="">Select service</option>'+data.services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');populateJobProviders('');renderBillingPicker();renderTeam();}
+  async function openAdditionalDay(id){
+    const d=await api(`/.netlify/functions/admin-service-requests?id=${encodeURIComponent(id)}`),r=d.request;
+    if(!r||r.status!=='ASSIGNED'||!r.job_id)throw new Error('Assign the first day before adding another day.');
+    await ensureAssignmentCatalog(true);
+    openNewJob({first_name:r.first_name,last_name:r.last_name,email:r.email,phone:r.phone,service_id:r.service_id,work_address:[r.street_address,r.city,r.province,r.postal_code].filter(Boolean).join(', '),work_description:r.work_description||''});
+    additionalDayRequest=r;
+    $('job-drawer-eyebrow').textContent=`ADDITIONAL DAY · ${r.reference}`;
+    $('job-drawer-title').textContent='Schedule another day of this service';
+    showAlert('Choose the date, hours, Providers and rates for this day. A separate Job will be linked to the original request.','success');
+  }
+  function resetForm(){form.reset();billingItems=[];teamAssignments=[teamDefault()];sourceRequest=null;additionalDayRequest=null;reassignmentTargetAssignment=null;reassignmentMode=false;$('job-existing-id').value='';$('job-source-request-id').value='';$('job-source-request-panel').hidden=true;$('job-drawer-title').textContent='Create & Assign Job';$('job-drawer-eyebrow').textContent='NEW SERVICE REQUEST';setExistingMode(false);setMultiMode(true);$('job-add-provider').hidden=false;$('job-date').value=ymd(new Date());$('job-start').value='09:00';$('job-end').value='11:00';$('job-service').innerHTML='<option value="">Select service</option>'+data.services.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');populateJobProviders('');renderBillingPicker();renderTeam();}
   function openDrawer(){drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');backdrop.hidden=false;document.body.classList.add('admin-drawer-open');}
   function closeDrawer(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');backdrop.hidden=true;document.body.classList.remove('admin-drawer-open');}
   function openNewJob(prefill={}){resetForm();if(prefill.first_name!==undefined)$('customer-first-name').value=prefill.first_name||'';if(prefill.last_name!==undefined)$('customer-last-name').value=prefill.last_name||'';if(prefill.email!==undefined)$('customer-email').value=prefill.email||'';if(prefill.phone!==undefined)$('customer-phone').value=prefill.phone||'';if(prefill.work_address!==undefined)$('job-address').value=prefill.work_address||'';if(prefill.service_id&&data.services.some(s=>s.id===prefill.service_id)){$('job-service').value=prefill.service_id;populateJobProviders(prefill.service_id);}if(prefill.date){$('job-date').value=prefill.date;teamAssignments[0].date=prefill.date;}if(prefill.provider_id){teamAssignments[0].provider_id=prefill.provider_id;const ids=[...providerServiceIds(prefill.provider_id)];if(serviceFilter.value!=='ALL'&&ids.includes(serviceFilter.value))$('job-service').value=serviceFilter.value;else if(ids.length===1)$('job-service').value=ids[0];populateJobProviders($('job-service').value,prefill.provider_id);renderTeam();}if(prefill.work_description!==undefined)$('job-description').value=prefill.work_description||'';openDrawer();updateAvailabilityNote();}
@@ -346,7 +357,7 @@
       $('job-start').value=start;
       // Use the customer's estimated hours when available; otherwise keep the 2-hour default.
       const [hh,mm]=start.split(':').map(Number),meta=requestBookingMeta(r.customer_notes);
-      const requestedMinutes=meta.hours?Math.max(15,Math.round(meta.hours*4)*15):120;
+      const requestedMinutes=meta.hours&&meta.hours<=12?Math.max(15,Math.round(meta.hours*4)*15):120;
       const total=((hh*60+mm+requestedMinutes)%(24*60));
       $('job-end').value=`${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
     }
@@ -468,11 +479,11 @@
       if(!confirmFinancialIntegrity(teamAssignments))return;
       const financialIssues=financialIntegrityIssues(teamAssignments);
       const assignments=teamAssignments.map(a=>({provider_id:a.provider_id,scheduled_start:localToIso(a.date,a.start),scheduled_end:localToIso(a.date,a.end),assignment_message:a.assignment_message||$('job-message').value.trim()||'',billing_items:a.billing_items.map(x=>({provider_service_rate_id:x.provider_service_rate_id,quantity:Number(x.quantity),customer_unit_rate:Number(x.customer_unit_rate),provider_compensation_method:x.provider_compensation_method,provider_compensation_value:x.provider_compensation_value}))}));
-      const payload={service_id:serviceId,assignments,allow_nonpositive_margin:financialIssues.length>0,customer_first_name:$('customer-first-name').value.trim(),customer_last_name:$('customer-last-name').value.trim(),customer_email:$('customer-email').value.trim(),customer_phone:$('customer-phone').value.trim(),work_address:$('job-address').value.trim(),work_description:$('job-description').value.trim(),internal_notes:$('job-internal-notes').value.trim()};if(sourceRequest){payload.service_request_id=sourceRequest.id;payload.customer_city=sourceRequest.city||'';payload.customer_province=sourceRequest.province||'AB';payload.customer_postal_code=sourceRequest.postal_code||'';}
+      const payload={service_id:serviceId,assignments,allow_nonpositive_margin:financialIssues.length>0,customer_first_name:$('customer-first-name').value.trim(),customer_last_name:$('customer-last-name').value.trim(),customer_email:$('customer-email').value.trim(),customer_phone:$('customer-phone').value.trim(),work_address:$('job-address').value.trim(),work_description:$('job-description').value.trim(),internal_notes:$('job-internal-notes').value.trim()};if(sourceRequest){payload.service_request_id=sourceRequest.id;payload.customer_city=sourceRequest.city||'';payload.customer_province=sourceRequest.province||'AB';payload.customer_postal_code=sourceRequest.postal_code||'';}if(additionalDayRequest)payload.additional_day_request_id=additionalDayRequest.id;
       submitBtn.disabled=true;submitBtn.textContent='SENDING ASSIGNMENTS…';
       try{
         const result=await api('/.netlify/functions/admin-job-action',{method:'POST',body:JSON.stringify({action:'CREATE_MULTI_ASSIGN',payload})});
-        closeDrawer();const first=teamAssignments[0];weekStart=startOfWeek(new Date(`${first.date}T12:00:00`));if(result.service_request_assigned)history.replaceState(null,'','admin-calendar.html');
+        closeDrawer();const first=teamAssignments[0];weekStart=startOfWeek(new Date(`${first.date}T12:00:00`));if(result.service_request_assigned||result.additional_day)history.replaceState(null,'','admin-calendar.html');
         const success=`${result.job_reference||'Job'} created with ${result.provider_count||teamAssignments.length} Provider assignments.${result.provider_rates_updated?` ${result.provider_rates_updated} Provider Rate${result.provider_rates_updated===1?' was':'s were'} saved to the corresponding Provider profile${result.provider_rates_updated===1?'':'s'}.`:''} Each Provider must confirm independently.${result.warning?` WARNING: ${result.warning}`:''}`;
         try{await loadCalendar();showAlert(success,result.warning?'error':'success');}
         catch(refreshError){showAlert(`${success} Calendar refresh failed after the Job was already created: ${refreshError.message}`,'success');}
@@ -558,7 +569,7 @@
       loading.textContent='Checking secure session…';
       await ensureSession();
       loading.textContent='Loading Master Calendar…';
-      const params=new URLSearchParams(location.search),requestId=params.get('request'),reassignJobId=params.get('reassign_job'),addProviderJobId=params.get('add_provider_job'),newCustomerService=params.get('new_customer_service')==='1',requestedDate=params.get('date'),requestedView=String(params.get('view')||'').toUpperCase();
+      const params=new URLSearchParams(location.search),requestId=params.get('request'),additionalDayId=params.get('additional_day'),reassignJobId=params.get('reassign_job'),addProviderJobId=params.get('add_provider_job'),newCustomerService=params.get('new_customer_service')==='1',requestedDate=params.get('date'),requestedView=String(params.get('view')||'').toUpperCase();
       if(/^\d{4}-\d{2}-\d{2}$/.test(requestedDate||'')){const d=new Date(`${requestedDate}T12:00:00`);weekStart=startOfWeek(d);monthAnchor=new Date(d.getFullYear(),d.getMonth(),1);}
       if(requestedView==='MONTH')calendarView='MONTH';
       // Resolve an existing Job independently of the visible calendar week.
@@ -582,7 +593,7 @@
       bindEvents();
       loading.hidden=true;loading.remove();app.hidden=false;
       if(calendarWarning)showAlert(`Master Calendar background data could not refresh (${calendarWarning.message}). You can still continue assigning the selected Service Request.`);
-      if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}else if(reassignJobId){const j=(data.needs_assignment||[]).find(x=>x.id===reassignJobId);if(j)openExistingJob(j);else showAlert('This Job is not currently in Needs Assignment. Refresh Jobs and verify the Provider was removed before replacement.');}else if(addProviderJobId){if(addProviderContext){data.reassignment_assignments=[...(data.reassignment_assignments||[]),...addProviderContext.assignments];openAddProviderJob(addProviderContext.job);}else showAlert('This Job is not available for adding a Provider. Open Jobs and refresh the service.');}else if(newCustomerService){let prefill=null;try{prefill=JSON.parse(sessionStorage.getItem('pleaseAdminCustomerServicePrefill')||'null');sessionStorage.removeItem('pleaseAdminCustomerServicePrefill');}catch{}if(prefill){openNewJob(prefill);showAlert('Customer details were prefilled. Select the new service, Provider team, schedule and rates.','success');}else openNewJob();}
+      if(requestId){let cached=null;try{cached=JSON.parse(sessionStorage.getItem('pleasePendingServiceRequest')||'null');}catch{}await openServiceRequestForAssignment(requestId,cached);}else if(additionalDayId){await openAdditionalDay(additionalDayId);}else if(reassignJobId){const j=(data.needs_assignment||[]).find(x=>x.id===reassignJobId);if(j)openExistingJob(j);else showAlert('This Job is not currently in Needs Assignment. Refresh Jobs and verify the Provider was removed before replacement.');}else if(addProviderJobId){if(addProviderContext){data.reassignment_assignments=[...(data.reassignment_assignments||[]),...addProviderContext.assignments];openAddProviderJob(addProviderContext.job);}else showAlert('This Job is not available for adding a Provider. Open Jobs and refresh the service.');}else if(newCustomerService){let prefill=null;try{prefill=JSON.parse(sessionStorage.getItem('pleaseAdminCustomerServicePrefill')||'null');sessionStorage.removeItem('pleaseAdminCustomerServicePrefill');}catch{}if(prefill){openNewJob(prefill);showAlert('Customer details were prefilled. Select the new service, Provider team, schedule and rates.','success');}else openNewJob();}
     }catch(e){
       console.error('admin-calendar init',e);
       if(loading){loading.textContent=e.message||'Unable to load secure calendar.';loading.classList.add('admin-loading-error');}

@@ -25,6 +25,18 @@ function publicJobStatus(status){
     CANCELLED:['CANCELLED','Service cancelled']
   })[status]||null;
 }
+async function additionalDays(requestId){
+  const marker=`[PLEASE-REQUEST-DAY:${requestId}:`;
+  const rows=await lib.sbJson(`/rest/v1/jobs?select=id,reference,status,estimated_duration_minutes,internal_notes&internal_notes=like.${encodeURIComponent(`*${marker}*`)}&order=created_at.asc`);
+  const jobs=(rows||[]).filter(j=>String(j.internal_notes||'').includes(marker));
+  if(!jobs.length)return[];
+  const assignments=await lib.sbJson(`/rest/v1/job_assignments?select=job_id,provider_id,scheduled_start,scheduled_end,status&job_id=in.(${jobs.map(j=>encodeURIComponent(j.id)).join(',')})&status=in.(PENDING,CONFIRMED,COMPLETED)&order=scheduled_start.asc`);
+  const confirmed=(assignments||[]).filter(a=>['CONFIRMED','COMPLETED'].includes(a.status));
+  const ids=[...new Set(confirmed.map(a=>a.provider_id))];
+  const providers=ids.length?await lib.sbJson(`/rest/v1/providers?select=id,display_name&id=in.(${ids.map(encodeURIComponent).join(',')})`):[];
+  const names=new Map(providers.map(p=>[p.id,p.display_name]));
+  return jobs.map(j=>({reference:j.reference,status:j.status,hours:Number(j.estimated_duration_minutes||0)/60,assignments:(assignments||[]).filter(a=>a.job_id===j.id).map(a=>({start:a.scheduled_start,end:a.scheduled_end,status:a.status,provider_name:names.get(a.provider_id)||null}))})).sort((a,b)=>String(a.assignments[0]?.start||'').localeCompare(String(b.assignments[0]?.start||'')));
+}
 
 async function requestFromToken(token){
   const tokenHash=hash(token);
@@ -76,6 +88,7 @@ exports.handler=async event=>{
       }
     }
 
+    const extraDays=await additionalDays(req.id).catch(e=>{console.warn('public-request-tracking:additional-days',e?.message||e);return[];});
     let [code,label]=publicRequestStatus(req.status);
     if(job){const js=publicJobStatus(job.status);if(js){code=js[0];label=js[1];}}
     if(scheduleChange?.status==='PENDING'){code='SCHEDULE_CHANGE_REVIEW';label='Schedule change under review';}
@@ -84,6 +97,7 @@ exports.handler=async event=>{
       else{code='INVOICE_AVAILABLE';label='Invoice available';}
     }
     if(req.status==='CANCELLED'){code='CANCELLED';label='Request cancelled';}
+    else if(extraDays.some(d=>!['COMPLETED','CANCELLED'].includes(d.status))&&['SERVICE_COMPLETED','INVOICE_AVAILABLE','PAYMENT_RECEIVED'].includes(code)){code='COORDINATING';label='Additional service days in progress';}
 
     const timeline=[];
     const push=(when,title,detail)=>{if(when)timeline.push({when,title,detail:detail||null});};
@@ -108,6 +122,7 @@ exports.handler=async event=>{
       job:job?{reference:job.reference,status:job.status,service_name:job.service_name,work_address:job.work_address,estimated_duration_minutes:job.estimated_duration_minutes,actual_arrived_at:iso(job.actual_arrived_at),actual_started_at:iso(job.actual_started_at),actual_completed_at:iso(job.actual_completed_at),approved_extension_minutes:job.approved_extension_minutes||0,completed_at:iso(job.completed_at)}:null,
       assignment:assignment?{id:assignment.id,status:assignment.live_status||assignment.status,scheduled_start:assignment.scheduled_start,scheduled_end:assignment.scheduled_end,provider_name:assignment.provider_name||null,provider_title:assignment.provider_title||null,provider_photo_url:assignment.provider_photo_url||null}:null,
       team:team.map(a=>({id:a.id,status:a.live_status||a.status,sequence_no:a.sequence_no,is_primary:a.is_primary,scheduled_start:a.scheduled_start,scheduled_end:a.scheduled_end,provider_name:a.provider_name,provider_title:a.provider_title,provider_photo_url:a.provider_photo_url})),
+      service_days:[...(job?[{reference:job.reference,status:job.status,hours:Number(job.estimated_duration_minutes||0)/60,assignments:team.length?team.map(a=>({start:a.scheduled_start,end:a.scheduled_end,status:a.status,provider_name:a.provider_name})):assignment?[{start:assignment.scheduled_start,end:assignment.scheduled_end,status:assignment.status,provider_name:assignment.provider_name}]:[]}]:[]),...extraDays].sort((a,b)=>String(a.assignments[0]?.start||'').localeCompare(String(b.assignments[0]?.start||''))),
       schedule_change:scheduleChange?{status:scheduleChange.status,proposed_start:scheduleChange.proposed_start,proposed_end:scheduleChange.proposed_end}:null,
       extension_request:extensionRequest,
       evidence:evidence.map(x=>({assignment_id:x.assignment_id,provider_id:x.provider_id,provider_name:x.provider_name,type:x.evidence_type,url:x.url,created_at:x.created_at})),

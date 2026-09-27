@@ -101,6 +101,30 @@ async function sourceRequestFromPayload(payload){
   payload.moving_bedrooms=payload.moving_bedrooms??r.moving_bedrooms??null;payload.moving_square_feet=payload.moving_square_feet??r.moving_square_feet??null;payload.moving_inventory=payload.moving_inventory??r.moving_inventory??null;
   return r;
 }
+async function additionalDayFromPayload(payload){
+  const id=String(payload?.additional_day_request_id||'').trim();
+  if(!id)return null;
+  if(!/^[0-9a-f-]{36}$/i.test(id))throw Object.assign(new Error('Invalid service request.'),{status:400});
+  const req=(await lib.sbJson(`/rest/v1/service_requests?select=id,reference,status,job_id,first_name,last_name,email,phone,service_id,street_address,city,province,postal_code&id=eq.${encodeURIComponent(id)}&limit=1`))?.[0];
+  if(!req||req.status!=='ASSIGNED'||!req.job_id)throw Object.assign(new Error('Assign the first day of this request before adding another day.'),{status:409});
+  if(String(payload.service_id)!==String(req.service_id))throw Object.assign(new Error('Additional days must use the same service as the original request.'),{status:400});
+  if(!Array.isArray(payload.assignments)||!payload.assignments.length)throw Object.assign(new Error('Add at least one Provider for this day.'),{status:400});
+  if(payload.assignments.some(a=>!Number.isFinite(new Date(a.scheduled_start).getTime())||!Number.isFinite(new Date(a.scheduled_end).getTime())||new Date(a.scheduled_end)<=new Date(a.scheduled_start)))throw Object.assign(new Error('Enter valid start and end times for every Provider.'),{status:400});
+  const dates=new Set(payload.assignments.map(a=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(a.scheduled_start))));
+  if(dates.size!==1||dates.has('Invalid Date'))throw Object.assign(new Error('All Providers on an additional day must share one calendar date.'),{status:400});
+  const day=[...dates][0],marker=`[PLEASE-REQUEST-DAY:${req.id}:${day}]`;
+  const existing=await lib.sbJson(`/rest/v1/jobs?select=id,reference&internal_notes=like.${encodeURIComponent(`*${marker}*`)}&limit=1`);
+  if(existing?.length)throw Object.assign(new Error(`${day} is already a Job for this request (${existing[0].reference}). Open that Job to edit its schedule or team.`),{status:409});
+  payload.customer_first_name=req.first_name;
+  payload.customer_last_name=req.last_name||'';
+  payload.customer_email=req.email;
+  payload.customer_phone=req.phone;
+  payload.customer_city=req.city||'';
+  payload.customer_province=req.province||'AB';
+  payload.customer_postal_code=req.postal_code||'';
+  payload.internal_notes=`${marker}\n${String(payload.internal_notes||'').trim()}`.trim();
+  return{req,day,marker};
+}
 async function linkSourceRequestSafely(authUserId,sourceRequest,jobId){
   if(!sourceRequest||!jobId)return {linked:false};
   try{
@@ -387,7 +411,10 @@ exports.handler=async event=>{
     }
 
     if(action==='CREATE_MULTI_ASSIGN'){
-      const payload=body.payload||{};sourceRequest=await sourceRequestFromPayload(payload);
+      const payload=body.payload||{};
+      if(payload.service_request_id&&payload.additional_day_request_id)return lib.json(400,{error:'Choose either the first day or an additional day.'});
+      sourceRequest=await sourceRequestFromPayload(payload);
+      const additionalDay=await additionalDayFromPayload(payload);
       if(!Array.isArray(payload.assignments)||!payload.assignments.length)return lib.json(400,{error:'Add at least one provider assignment.'});
       const seen=new Set();
       for(let i=0;i<payload.assignments.length;i++){const pid=String(payload.assignments[i]?.provider_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(pid))return lib.json(400,{error:`Select Provider ${i+1}.`});if(seen.has(pid))return lib.json(400,{error:'The same Provider cannot be added twice to one Job.'});seen.add(pid);}
@@ -398,6 +425,7 @@ exports.handler=async event=>{
       try{result=await lib.sbJson('/rest/v1/rpc/please_create_multi_provider_job',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_payload:payload})});}
       catch(createError){await rollbackProviderRateChanges(appliedRates);throw createError;}
       const value=Array.isArray(result)?result[0]:result;
+      if(additionalDay&&value?.job_id){value.service_request_reference=additionalDay.req.reference;value.additional_day=additionalDay.day;}
       if(sourceRequest&&value?.job_id){const link=await linkSourceRequestSafely(auth.user.id,sourceRequest,value.job_id);value.service_request_assigned=link.linked;value.service_request_reference=sourceRequest.reference;value.service_request=link.request||null;if(link.warning)value.warning=link.warning;}
       const assignmentIds=value?.assignment_ids||[];
       const postTasks=[];

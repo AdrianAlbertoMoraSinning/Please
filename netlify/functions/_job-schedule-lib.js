@@ -125,7 +125,12 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
     const jobPatch={estimated_duration_minutes:maxDuration,quoted_subtotal:subtotal,updated_at:now};
     if(workAddress!==undefined){const v=String(workAddress||'').trim();if(!v)throw Object.assign(new Error('Work Address is required.'),{status:400});jobPatch.work_address=v.slice(0,500);}
     if(workDescription!==undefined){const v=String(workDescription||'').trim();if(!v)throw Object.assign(new Error('Work Description is required.'),{status:400});jobPatch.work_description=v.slice(0,5000);}
-    if(internalNotes!==undefined)jobPatch.internal_notes=String(internalNotes||'').trim().slice(0,5000)||null;
+    if(internalNotes!==undefined){
+      const marker=String(job.internal_notes||'').match(/\[PLEASE-REQUEST-DAY:[0-9a-f-]{36}:\d{4}-\d{2}-\d{2}\]/i)?.[0];
+      let notes=String(internalNotes||'').trim();
+      if(marker&&!notes.includes(marker))notes=`${marker}\n${notes}`.trim();
+      jobPatch.internal_notes=notes.slice(0,5000)||null;
+    }
     await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(jobPatch)});
 
     if(sourceRequest&&targets.length){
