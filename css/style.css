@@ -1471,3 +1471,11 @@ body.provider-portal-page .admin-sidebar a span{
 .existing-job-context p{overflow-wrap:anywhere}
 @media(max-width:1200px){.maintenance-billing-row,.calendar-billing-row.financial.provider-rate-edit-row{grid-template-columns:1fr 1fr}.maintenance-billing-name,.calendar-billing-name{grid-column:1/-1}}
 @media(max-width:760px){.maintenance-billing-row,.calendar-billing-row.financial.provider-rate-edit-row{grid-template-columns:1fr}.maintenance-billing-name,.calendar-billing-name{grid-column:auto}}
+
+/* Fit billing controls to the assignment drawer, independently of viewport width. */
+#job-drawer .admin-detail-section{grid-template-columns:minmax(0,1fr)}
+#job-drawer .multi-provider-totals{grid-template-columns:repeat(2,minmax(0,1fr))}
+#job-drawer .multi-provider-totals .grand{grid-column:1/-1}
+#job-drawer .calendar-billing-row.financial.provider-rate-edit-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+#job-drawer .calendar-billing-name{grid-column:1/-1}
+@media(max-width:760px){#job-drawer .calendar-billing-row.financial.provider-rate-edit-row{grid-template-columns:minmax(0,1fr)}}
