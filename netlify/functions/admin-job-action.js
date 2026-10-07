@@ -1,5 +1,6 @@
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
+const {billingTerms}=require('./_billing-mode-lib');
 const money=n=>Math.round((Number(n)||0)*100)/100;
 async function notifyAssignment(assignmentId,kind='NEW',messageOverride=''){
   try{
@@ -71,7 +72,7 @@ async function validateBillingItems(providerId,items,allowNonpositiveMargin=fals
     const hasOverride=overrideRaw!==undefined&&overrideRaw!==null&&String(overrideRaw).trim()!=='';
     const override=hasOverride?Number(overrideRaw):null;
     if(!/^[0-9a-f-]{36}$/i.test(rateId)||!Number.isFinite(qty)||qty<=0||!Number.isFinite(customerRate)||customerRate<0|| (hasOverride&&!Number.isFinite(override)))throw Object.assign(new Error(`Invalid Customer Billing item ${i+1}.`),{status:400});
-    return{rateId,qty:money(qty),customerRate:money(customerRate),hasOverride,override:hasOverride?money(override):null,requestedMethod:String(x?.provider_compensation_method||'').trim().toUpperCase()};
+    return{rateId,qty:money(qty),customerRate:money(customerRate),hasOverride,override:hasOverride?money(override):null,requestedUnit:x?.unit,requestedMethod:String(x?.provider_compensation_method||'').trim().toUpperCase()};
   });
   const ids=[...new Set(clean.map(x=>x.rateId))],list=ids.map(x=>encodeURIComponent(x)).join(',');
   const rates=await lib.sbJson(`/rest/v1/provider_service_rates?select=id,provider_id,service_id,rate_name,description,billing_unit,customer_rate,provider_compensation_method,provider_compensation,active&id=in.(${list})&provider_id=eq.${encodeURIComponent(providerId)}&active=eq.true`);
@@ -83,12 +84,13 @@ async function validateBillingItems(providerId,items,allowNonpositiveMargin=fals
     const r=map.get(x.rateId),method=String(r.provider_compensation_method||'NONE').toUpperCase(),catalogValue=r.provider_compensation==null?null:Number(r.provider_compensation);
     if(method==='NONE'||!Number.isFinite(catalogValue))throw Object.assign(new Error(`${r.rate_name} does not have a Provider Charge configured. Set the Provider Rate in the Provider profile before assigning this Rate Item.`),{status:409});
     if(x.requestedMethod&&x.requestedMethod!==method)throw Object.assign(new Error(`${r.rate_name}: Provider compensation method changed while the Job was open. Refresh and try again.`),{status:409});
+    const terms=billingTerms({unit:x.requestedUnit??r.billing_unit,quantity:x.qty});
     const value=x.hasOverride?x.override:money(catalogValue);
     if(value<0||(method==='PERCENT'&&value>100))throw Object.assign(new Error(`${r.rate_name}: invalid Provider Rate.`),{status:400});
-    if(x.hasOverride&&!sameMoney(value,catalogValue))rateChanges.push({rate_id:r.id,provider_id:r.provider_id,service_id:r.service_id,rate_name:r.rate_name,billing_unit:r.billing_unit,method,old_method:method,old_value:money(catalogValue),new_value:money(value)});
+    if(terms.unit===r.billing_unit&&x.hasOverride&&!sameMoney(value,catalogValue))rateChanges.push({rate_id:r.id,provider_id:r.provider_id,service_id:r.service_id,rate_name:r.rate_name,billing_unit:r.billing_unit,method,old_method:method,old_value:money(catalogValue),new_value:money(value)});
     const providerRate=method==='FIXED_CAD'?money(value):money(x.customerRate*value/100);
     if(x.customerRate<=providerRate&&!allowNonpositiveMargin)throw Object.assign(new Error(`${r.rate_name}: PLEASE Customer Rate (${money(x.customerRate)}) must be reviewed because it is not above the Provider Rate (${money(providerRate)}). Confirm the financial warning in Administration if this margin is intentional.`),{status:409});
-    return{provider_service_rate_id:r.id,service_id:r.service_id,service_name:serviceNames.get(r.service_id)||null,description:r.rate_name,quantity:x.qty,unit:r.billing_unit,customer_unit_rate:x.customerRate,customer_line_total:money(x.qty*x.customerRate),provider_compensation_method:method,provider_compensation_value:money(value),provider_unit_rate:providerRate,provider_line_total:money(x.qty*providerRate),gross_profit:money(x.qty*(x.customerRate-providerRate)),sort_order:(i+1)*10};
+    return{provider_service_rate_id:r.id,service_id:r.service_id,service_name:serviceNames.get(r.service_id)||null,description:r.rate_name,quantity:terms.quantity,unit:terms.unit,customer_unit_rate:x.customerRate,customer_line_total:money(terms.quantity*x.customerRate),provider_compensation_method:method,provider_compensation_value:money(value),provider_unit_rate:providerRate,provider_line_total:money(terms.quantity*providerRate),gross_profit:money(terms.quantity*(x.customerRate-providerRate)),sort_order:(i+1)*10};
   });
   return{rows,rateChanges:cleanRateChanges(rateChanges)};
 }
