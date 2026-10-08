@@ -1,5 +1,6 @@
 const crypto=require('crypto');
 const lib=require('./_admin-lib');
+const {customerSchedule}=require('./_customer-schedule-lib');
 
 function hash(v){return crypto.createHash('sha256').update(String(v||'')).digest('hex');}
 function iso(v){return v||null;}
@@ -35,7 +36,7 @@ async function additionalDays(requestId){
   const ids=[...new Set(confirmed.map(a=>a.provider_id))];
   const providers=ids.length?await lib.sbJson(`/rest/v1/providers?select=id,display_name&id=in.(${ids.map(encodeURIComponent).join(',')})`):[];
   const names=new Map(providers.map(p=>[p.id,p.display_name]));
-  return jobs.map(j=>({reference:j.reference,status:j.status,hours:Number(j.estimated_duration_minutes||0)/60,assignments:(assignments||[]).filter(a=>a.job_id===j.id).map(a=>({start:a.scheduled_start,end:a.scheduled_end,status:a.status,provider_name:names.get(a.provider_id)||null}))})).sort((a,b)=>String(a.assignments[0]?.start||'').localeCompare(String(b.assignments[0]?.start||'')));
+  return jobs.map(j=>({reference:j.reference,status:j.status,hours:Number(j.estimated_duration_minutes||0)/60,assignments:(j.status==='CANCELLED'?[]:(assignments||[]).filter(a=>a.job_id===j.id)).map(a=>({start:a.scheduled_start,end:a.scheduled_end,status:a.status,provider_name:['CONFIRMED','COMPLETED'].includes(a.status)?names.get(a.provider_id)||null:null}))})).sort((a,b)=>String(a.assignments[0]?.start||'').localeCompare(String(b.assignments[0]?.start||'')));
 }
 
 async function requestFromToken(token){
@@ -61,15 +62,16 @@ exports.handler=async event=>{
     const req=await requestFromToken(token);
     if(!req) return lib.json(404,{error:'Tracking link not found.'});
 
-    let job=null, assignment=null, provider=null, team=[], scheduleChange=null, invoice=null, serviceEvents=[], extensionRequest=null,evidence=[];
+    let job=null, assignment=null, provider=null, team=[], scheduled=null, scheduleChange=null, invoice=null, serviceEvents=[], extensionRequest=null,evidence=[];
     if(req.job_id){
       const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,service_name,status,work_address,estimated_duration_minutes,actual_arrived_at,actual_started_at,actual_completed_at,approved_extension_minutes,created_at,updated_at,completed_at,cancelled_at&id=eq.${encodeURIComponent(req.job_id)}&limit=1`);
       job=jobs?.[0]||null;
       if(job){
         const assignments=await lib.sbJson(`/rest/v1/job_assignments?select=id,provider_id,sequence_no,is_primary,scheduled_start,scheduled_end,status,assigned_at,responded_at,updated_at&job_id=eq.${encodeURIComponent(job.id)}&status=in.(PENDING,CONFIRMED,COMPLETED,CANCELLED,DECLINED)&order=sequence_no.asc,assigned_at.asc`);
+        scheduled=customerSchedule(assignments||[],job.status);
         // Customer privacy rule (STEP 15.8): a Pleaser is never exposed in public tracking
         // until that individual assignment has been confirmed. PENDING/DECLINED/CANCELLED
-        // assignments remain visible only inside Administration/Provider portals.
+        // identities remain visible only inside Administration/Provider portals.
         const publicAssignments=(assignments||[]).filter(a=>['CONFIRMED','COMPLETED'].includes(String(a.status||'').toUpperCase()));
         const providerIds=[...new Set(publicAssignments.map(a=>a.provider_id).filter(Boolean))];
         let providerRows=[];if(providerIds.length){providerRows=await lib.sbJson(`/rest/v1/providers?select=id,display_name,public_title,status,profile_image_path,profile_image_url,updated_at&id=in.(${providerIds.map(encodeURIComponent).join(',')})`);}const pmap=new Map((providerRows||[]).map(x=>[x.id,x]));
@@ -119,10 +121,11 @@ exports.handler=async event=>{
     return lib.json(200,{
       request:{reference:req.reference,first_name:req.first_name,service_name:req.service_name,status:req.status,preferred_date:req.preferred_date,preferred_start_time:req.preferred_start_time,scheduling_flexibility:req.scheduling_flexibility,created_at:req.created_at},
       public_status:{code,label},
+      scheduled_schedule:scheduled,
       job:job?{reference:job.reference,status:job.status,service_name:job.service_name,work_address:job.work_address,estimated_duration_minutes:job.estimated_duration_minutes,actual_arrived_at:iso(job.actual_arrived_at),actual_started_at:iso(job.actual_started_at),actual_completed_at:iso(job.actual_completed_at),approved_extension_minutes:job.approved_extension_minutes||0,completed_at:iso(job.completed_at)}:null,
       assignment:assignment?{id:assignment.id,status:assignment.live_status||assignment.status,scheduled_start:assignment.scheduled_start,scheduled_end:assignment.scheduled_end,provider_name:assignment.provider_name||null,provider_title:assignment.provider_title||null,provider_photo_url:assignment.provider_photo_url||null}:null,
       team:team.map(a=>({id:a.id,status:a.live_status||a.status,sequence_no:a.sequence_no,is_primary:a.is_primary,scheduled_start:a.scheduled_start,scheduled_end:a.scheduled_end,provider_name:a.provider_name,provider_title:a.provider_title,provider_photo_url:a.provider_photo_url})),
-      service_days:[...(job?[{reference:job.reference,status:job.status,hours:Number(job.estimated_duration_minutes||0)/60,assignments:team.length?team.map(a=>({start:a.scheduled_start,end:a.scheduled_end,status:a.status,provider_name:a.provider_name})):assignment?[{start:assignment.scheduled_start,end:assignment.scheduled_end,status:assignment.status,provider_name:assignment.provider_name}]:[]}]:[]),...extraDays].sort((a,b)=>String(a.assignments[0]?.start||'').localeCompare(String(b.assignments[0]?.start||''))),
+      service_days:[...(job?[{reference:job.reference,status:job.status,hours:Number(job.estimated_duration_minutes||0)/60,assignments:scheduled?scheduled.windows.map(w=>({...w,status:scheduled.status})):[]}]:[]),...extraDays].sort((a,b)=>String(a.assignments[0]?.start||'').localeCompare(String(b.assignments[0]?.start||''))),
       schedule_change:scheduleChange?{status:scheduleChange.status,proposed_start:scheduleChange.proposed_start,proposed_end:scheduleChange.proposed_end}:null,
       extension_request:extensionRequest,
       evidence:evidence.map(x=>({assignment_id:x.assignment_id,provider_id:x.provider_id,provider_name:x.provider_name,type:x.evidence_type,url:x.url,created_at:x.created_at})),
