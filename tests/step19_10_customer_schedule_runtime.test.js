@@ -29,6 +29,7 @@ const base={request:{reference:'REQ',service_name:'Moving',preferred_date:'2026-
 test('customer page prioritizes assigned schedule even with no confirmed Provider and never shows 2 PM as scheduled',async()=>{
  const html=await render({...base,scheduled_schedule:customerSchedule([pending],'PENDING_PROVIDER')});assert.match(html,/Scheduled by PLEASE/);assert.match(html,/Oct 10, 2026/);assert.match(html,/9:00/);assert.match(html,/12:00/);assert.doesNotMatch(html,/Preferred time|2:00 PM|Requested Schedule/);
  const unscheduled=await render(base);assert.match(unscheduled,/coordinating a new service schedule/);assert.doesNotMatch(unscheduled,/2:00 PM/);
+ const cancelled=await render({...base,job:{reference:'JOB',status:'CANCELLED'},scheduled_schedule:null,assignment:{scheduled_start:start,scheduled_end:end}});assert.match(cancelled,/service has been cancelled/);assert.doesNotMatch(cancelled,/Confirmed Service Schedule/);
  const original=await render({...base,job:null});assert.match(original,/Requested Schedule/);assert.match(original,/2:00 PM/);assert.match(original,/not a confirmed booking/);
 });
 test('tracking-link email includes saved schedule and preview generation sends no email',async()=>{
