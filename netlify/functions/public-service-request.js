@@ -34,7 +34,7 @@ function trackingEmailHtml({firstName,reference,serviceName,preferredDate,prefer
           <div style="font-size:12px;color:#59758f;text-transform:uppercase;letter-spacing:1px">Request reference</div>
           <div style="font-size:21px;font-weight:700;color:#0b5fa8;margin-top:5px">${escapeHtml(reference)}</div>
           <div style="margin-top:14px"><strong>Service:</strong> ${escapeHtml(serviceName)}</div>
-          <div style="margin-top:7px"><strong>Preferred schedule:</strong> ${escapeHtml(friendlyDate(preferredDate))} · ${escapeHtml(friendlyTime(preferredTime))}</div>
+          <div style="margin-top:7px"><strong>Requested preference (not booked):</strong> ${escapeHtml(friendlyDate(preferredDate))} · ${escapeHtml(friendlyTime(preferredTime))}</div>
         </td></tr></table>
         <p style="margin:26px 0"><a href="${escapeHtml(trackingUrl)}" style="background:#0b5fa8;color:#fff;text-decoration:none;padding:14px 20px;border-radius:8px;font-weight:700;display:inline-block">TRACK YOUR REQUEST →</a></p>
         <p>You can also return to <strong>Track Request</strong> on the PLEASE website at any time and recover access using your Request Reference and the same email address used when submitting the request.</p>
@@ -45,7 +45,7 @@ function trackingEmailHtml({firstName,reference,serviceName,preferredDate,prefer
   </td></tr></table></body></html>`;
 }
 function trackingEmailText({firstName,reference,serviceName,preferredDate,preferredTime,trackingUrl}){
-  return `Hi ${firstName},\n\nWe received your PLEASE service request.\n\nRequest Reference: ${reference}\nService: ${serviceName}\nPreferred schedule: ${friendlyDate(preferredDate)} · ${friendlyTime(preferredTime)}\n\nTrack your request:\n${trackingUrl}\n\nYou can also return to Track Request on the PLEASE website and recover access using your Request Reference and the same email address used when submitting the request.\n\nThis is a service request, not an automatic booking. No provider or time is reserved until PLEASE confirms your service.\n\nPLEASE Services\n587-836-2866\ninfo@pleaseservice.ca`;
+  return `Hi ${firstName},\n\nWe received your PLEASE service request.\n\nRequest Reference: ${reference}\nService: ${serviceName}\nRequested preference (not booked): ${friendlyDate(preferredDate)} · ${friendlyTime(preferredTime)}\n\nTrack your request:\n${trackingUrl}\n\nYou can also return to Track Request on the PLEASE website and recover access using your Request Reference and the same email address used when submitting the request.\n\nThis is a service request, not an automatic booking. No provider or time is reserved until PLEASE confirms your service.\n\nPLEASE Services\n587-836-2866\ninfo@pleaseservice.ca`;
 }
 
 exports.handler=async event=>{
