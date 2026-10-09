@@ -1,0 +1,11 @@
+/* Keep the month viewport inside its panel while its seven columns scroll. */
+.master-calendar-grid.month-mode {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
