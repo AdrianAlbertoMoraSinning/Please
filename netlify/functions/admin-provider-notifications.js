@@ -6,14 +6,22 @@ exports.handler = async event => {
     const admin = await lib.requireAdmin(event);
     if (event.httpMethod === 'GET') {
       if (!process.env.RESEND_API_KEY) return lib.json(503,{error:'Email delivery is not configured.'});
-      const r = await fetch('https://api.resend.com/emails?limit=100',{headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`},signal:AbortSignal.timeout(6000)});
+      const after=String(event.queryStringParameters?.after||'');
+      if(after&&!/^[0-9a-f-]{36}$/i.test(after))return lib.json(400,{error:'Invalid email cursor.'});
+      const r = await fetch('https://api.resend.com/emails?limit=100'+(after?'&after='+encodeURIComponent(after):''),{headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`},signal:AbortSignal.timeout(6000)});
       const d = await r.json();
       if (!r.ok) return lib.json(502,{error:r.status===403?'The email key can send messages but cannot read delivery records. Delivery could not be verified.':'Email delivery records are currently unavailable.'});
       const providers = await lib.sbJson('/rest/v1/providers?select=primary_email');
       const accounts = await lib.sbJson('/rest/v1/provider_portal_users?select=email');
       const known = new Set(notify.normalizeEmails([...providers.map(p=>p.primary_email),...accounts.map(p=>p.email)]));
       const emails = (d.data||[]).filter(e=>(e.to||[]).some(a=>known.has(a.toLowerCase()))).map(e=>({id:e.id,to:e.to,subject:e.subject,created_at:e.created_at,last_event:e.last_event}));
-      return lib.json(200,{emails,has_more:!!d.has_more});
+      const suppressed=notify.normalizeEmails(emails.filter(e=>e.last_event==='suppressed').flatMap(e=>e.to));
+      const suppressions=[];
+      // Bound diagnostic requests to avoid exhausting the delivery service rate limit.
+      for(const email of suppressed.slice(0,3)){
+        try{const response=await fetch('https://api.resend.com/suppressions/'+encodeURIComponent(email),{headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`},signal:AbortSignal.timeout(2000)});if(response.ok){const x=await response.json();suppressions.push({email:x.email,origin:x.origin,created_at:x.created_at});}}catch{}
+      }
+      return lib.json(200,{emails,suppressions,has_more:!!d.has_more,next_cursor:d.has_more?d.data?.at(-1)?.id||null:null});
     }
     if (!lib.sameOrigin(event)) return lib.json(403,{error:'Invalid request origin'});
     const b = JSON.parse(event.body||'{}');
