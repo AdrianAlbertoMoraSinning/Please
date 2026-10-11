@@ -3,6 +3,17 @@ const assert=require('node:assert/strict');
 const lib=require('../netlify/functions/_admin-lib');
 const notify=require('../netlify/functions/_notify-lib');
 const endpoint=require('../netlify/functions/admin-provider-notifications');
+test('restoration refuses complaints and addresses outside approved contacts before changing delivery',async()=>{
+  const old={requireAdmin:lib.requireAdmin,sameOrigin:lib.sameOrigin,sbJson:lib.sbJson},oldFetch=global.fetch,oldAdmins=notify.adminEmails;
+  try{
+    lib.requireAdmin=async()=>({user:{id:'admin'}});lib.sameOrigin=()=>true;
+    lib.sbJson=async()=>[{id:'id',primary_email:'approved@example.com'}];notify.adminEmails=async()=>[];
+    global.fetch=async(url,opts)=>{assert.notEqual(opts.method,'DELETE');return {ok:true,json:async()=>({origin:'complaint'})};};
+    const event=email=>({httpMethod:'POST',body:JSON.stringify({action:'RESTORE_BOUNCED_EMAIL',provider_id:'11111111-1111-1111-1111-111111111111',email})});
+    assert.equal((await endpoint.handler(event('approved@example.com'))).statusCode,409);
+    assert.equal((await endpoint.handler(event('other@example.com'))).statusCode,403);
+  }finally{Object.assign(lib,old);global.fetch=oldFetch;notify.adminEmails=oldAdmins;}
+});
 test('delivery checks paginate, filter known recipients and expose suppression origin',async()=>{
   const old={requireAdmin:lib.requireAdmin,sbJson:lib.sbJson},oldFetch=global.fetch,oldKey=process.env.RESEND_API_KEY;
   try{
