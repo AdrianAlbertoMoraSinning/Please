@@ -39,7 +39,8 @@ async function providerEmails(providerId){
       adminLib.sbJson(`/rest/v1/provider_portal_users?select=email&provider_id=eq.${q}&active=eq.true`).catch(()=>[]),
       adminLib.sbJson(`/rest/v1/providers?select=primary_email&id=eq.${q}&limit=1`).catch(()=>[])
     ]);
-    return normalizeEmails([...(users||[]).map(x=>x.email),providers?.[0]?.primary_email]);
+    const preferred=normalizeEmails(providers?.[0]?.primary_email);
+    return preferred.length?preferred:normalizeEmails((users||[]).map(x=>x.email));
   }catch(e){console.warn('notify:provider-emails',e?.message||e);return[];}
 }
 async function assignmentContext(assignmentId){
