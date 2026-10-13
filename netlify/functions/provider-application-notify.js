@@ -1,4 +1,5 @@
 const security = require('./_security-lib');
+const notify = require('./_notify-lib');
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
 function json(statusCode, payload, extraHeaders = {}) {
@@ -164,16 +165,16 @@ exports.handler = async function(event) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const emailFrom = process.env.PLEASE_EMAIL_FROM;
   const replyTo = process.env.PLEASE_EMAIL_REPLY_TO || 'info@pleaseservice.ca';
-  const notifyEmail = process.env.PLEASE_APPLICATION_NOTIFY_EMAIL || 'info@pleaseservice.ca';
+  const notifyEmails = await notify.adminEmails();
   const adminBaseUrl = clean(process.env.PLEASE_ADMIN_APPLICATION_BASE_URL || '', 500).replace(/\/$/, '');
 
   if (!supabaseUrl || !supabaseSecret) return json(503, { error: 'Application notification service is missing Supabase configuration.' });
   if (!resendApiKey || !emailFrom) {
     return json(503, { error: 'Email delivery is not configured yet.', code: 'EMAIL_NOT_CONFIGURED' });
   }
-  if (!isPleaseEmail(emailFrom) || !isPleaseEmail(replyTo) || !isPleaseEmail(notifyEmail)) {
+  if (!isPleaseEmail(emailFrom) || !isPleaseEmail(replyTo)) {
     return json(503, {
-      error: 'Email delivery blocked because PLEASE email settings do not use the pleaseservice.ca domain.',
+      error: 'Email delivery blocked because PLEASE sender or reply-to settings do not use the pleaseservice.ca domain.',
       code: 'EMAIL_DOMAIN_MISMATCH'
     });
   }
@@ -221,7 +222,7 @@ exports.handler = async function(event) {
 
   const internalPayload = {
     from: emailFrom,
-    to: [notifyEmail],
+    to: notifyEmails,
     subject: `New Professional Application — ${app.reference}`,
     html: internalHtml(app, documentCount, viewUrl),
     text: internalText(app, documentCount, viewUrl),

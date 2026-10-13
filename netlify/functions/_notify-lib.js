@@ -18,7 +18,9 @@ function baseUrl(){return clean(process.env.PLEASE_PUBLIC_SITE_URL||'https://ple
 function replyTo(){return clean(process.env.PLEASE_EMAIL_REPLY_TO||'info@pleaseservice.ca',250);}
 function fromAddress(){return clean(process.env.PLEASE_EMAIL_FROM||'',300);}
 function configured(){return Boolean(process.env.RESEND_API_KEY&&fromAddress());}
-function adminFallback(){return normalizeEmails(process.env.PLEASE_ADMIN_NOTIFY_EMAIL||process.env.PLEASE_APPLICATION_NOTIFY_EMAIL||'info@pleaseservice.ca');}
+// Operational notices belong to the administration inbox, independently of
+// commercial reply-to addresses, legacy environment settings and login emails.
+function adminFallback(){return ['please.serviceinfo@gmail.com'];}
 
 async function roleEmails(role){
   try{
@@ -26,7 +28,7 @@ async function roleEmails(role){
     return normalizeEmails((rows||[]).map(x=>x.email));
   }catch(e){console.warn(`notify:role-emails:${role}`,e?.message||e);return[];}
 }
-async function adminEmails(){return normalizeEmails([...adminFallback(),...(await roleEmails('PLEASE_ADMIN'))]);}
+async function adminEmails(){return adminFallback();}
 async function developerEmails(){
   const env=normalizeEmails(process.env.PLEASE_DEVELOPER_NOTIFY_EMAIL||'');
   return normalizeEmails([...env,...(await roleEmails('DEVELOPER_ADMIN')),...adminFallback()]);
