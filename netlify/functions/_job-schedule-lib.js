@@ -82,7 +82,7 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
     newEnd=newEnd||targets[0].scheduled_end;
     if(!validQuarterIso(newStart)||!validQuarterIso(newEnd))throw Object.assign(new Error('Service date and time must use 15-minute increments.'),{status:400});
     duration=durationMinutes(newStart,newEnd);
-    if(duration<15||duration>4320||duration%15!==0)throw Object.assign(new Error('Service duration must be 15 minutes to 72 hours in 15-minute increments.'),{status:400});
+    if(duration<15||duration>44640||duration%15!==0)throw Object.assign(new Error('Service duration must be 15 minutes to 31 days in 15-minute increments.'),{status:400});
     const targetIds=targets.map(x=>x.id).map(encodeURIComponent).join(',');
     const events=targetIds?await lib.sbJson(`/rest/v1/job_service_events?select=assignment_id,event_type&assignment_id=in.(${targetIds})&event_type=in.(STARTED,COMPLETED)`).catch(()=>[]):[];
     for(const t of targets){
@@ -94,12 +94,13 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
     await conflictsFor(targets,newStart,newEnd);
   }else{
     if(!duration){duration=Number(job.estimated_duration_minutes)||60;}
-    if(duration<15||duration>4320||duration%15!==0)throw Object.assign(new Error('Estimated duration must use 15-minute increments.'),{status:400});
+    if(duration<15||duration>44640||duration%15!==0)throw Object.assign(new Error('Estimated duration must use 15-minute increments.'),{status:400});
   }
 
   const billing=await lib.sbJson(`/rest/v1/job_billing_items?select=id,job_id,assignment_id,provider_id,quantity,unit,customer_unit_rate,customer_line_total,provider_unit_rate,provider_line_total,gross_profit,unit_rate,line_total&job_id=eq.${encodeURIComponent(jobId)}`).catch(()=>[]);
   const targetIds=new Set(targets.map(x=>x.id)),targetProviders=new Set(targets.map(x=>x.provider_id));
   const hourly=(billing||[]).filter(x=>syncHourlyBilling&&isHourly(x.unit)&&(targetIds.has(x.assignment_id)||(!x.assignment_id&&targetProviders.has(x.provider_id))));
+  if(duration>1440&&hourly.length)throw Object.assign(new Error('A multi-day service period cannot automatically become hourly charges for overnight time. Use Flat Rate / Quantity or turn off hourly synchronization and enter agreed work hours.'),{status:400});
   const overrideMap=new Map();
   for(const raw of Array.isArray(billingOverrides)?billingOverrides:[]){
     const id=String(raw?.id||'');if(!validUuid(id))throw Object.assign(new Error('Invalid billing item.'),{status:400});
@@ -107,6 +108,14 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
     const o={};if(Object.prototype.hasOwnProperty.call(raw,'unit'))o.unit=raw.unit;if(Object.prototype.hasOwnProperty.call(raw,'quantity'))o.quantity=raw.quantity;if(Object.prototype.hasOwnProperty.call(raw,'customer_unit_rate'))o.customer_unit_rate=raw.customer_unit_rate;if(Object.prototype.hasOwnProperty.call(raw,'provider_unit_rate'))o.provider_unit_rate=raw.provider_unit_rate;billingPatch(row,row.quantity,o);overrideMap.set(id,o);
   }
   const billingToUpdate=[...(billing||[]).filter(x=>hourly.some(h=>h.id===x.id)||overrideMap.has(x.id))];
+  const financialChanges=billingToUpdate.some(row=>{
+    const proposed=billingPatch(row,hourly.some(h=>h.id===row.id)?money(duration/60):row.quantity,overrideMap.get(row.id)||{});
+    return proposed.unit!==row.unit||proposed.quantity!==money(row.quantity)||proposed.customer_unit_rate!==money(row.customer_unit_rate??row.unit_rate)||proposed.provider_unit_rate!==(row.provider_unit_rate==null?null:money(row.provider_unit_rate));
+  });
+  if(financialChanges){
+    const issued=await lib.sbJson(`/rest/v1/invoices?select=id&job_id=eq.${encodeURIComponent(jobId)}&status=not.in.(DRAFT,VOID)&limit=1`);
+    if(issued?.length)throw Object.assign(new Error('This service already has an issued invoice. Its agreed billing is locked; review the invoice before changing charges.'),{status:409});
+  }
   const snapshots={assignments:targets.map(x=>({...x})),billing:billingToUpdate.map(x=>({...x})),job:{...job},request:null};
   let sourceRequest=null;
   if(syncSourceRequest&&job.source_service_request_id){
@@ -136,7 +145,7 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
     await lib.sbJson(`/rest/v1/jobs?id=eq.${encodeURIComponent(jobId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(jobPatch)});
 
     if(sourceRequest&&targets.length){
-      const p=edmontonParts(newStart);const requestPatch={preferred_date:p.date,preferred_start_time:p.time,estimated_hours:money(duration/60),updated_at:now};
+      const p=edmontonParts(newStart);const requestPatch={preferred_date:p.date,preferred_start_time:p.time,...(duration<=4320?{estimated_hours:money(duration/60)}:{}),updated_at:now};
       if(workDescription!==undefined)requestPatch.work_description=String(workDescription||'').trim().slice(0,4000);
       await lib.sbJson(`/rest/v1/service_requests?id=eq.${encodeURIComponent(sourceRequest.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(requestPatch)});
     }

@@ -84,13 +84,13 @@ exports.handler=async event=>{
         const jobs=await lib.sbJson(`/rest/v1/jobs?select=id,reference,customer_id,service_name,work_address,work_description,estimated_duration_minutes,billing_type,customer_rate,billable_quantity,billing_unit,quoted_subtotal,status,customers(id,first_name,last_name,email,phone)&id=eq.${encodeURIComponent(body.job_id)}&limit=1`);
         job=Array.isArray(jobs)?jobs[0]:null;
         if(!job) return lib.json(404,{error:'Job not found'});
-        if(job.status!=='COMPLETED') return lib.json(409,{error:'Only completed jobs can be invoiced.'});
+        if(!['PENDING_PROVIDER','CONFIRMED','SCHEDULED','IN_PROGRESS','NEEDS_ASSIGNMENT','COMPLETED'].includes(job.status)) return lib.json(409,{error:'This Job cannot be invoiced in its current status.'});
         const existing=await lib.sbJson(`/rest/v1/invoices?select=id,invoice_number,status&job_id=eq.${encodeURIComponent(job.id)}&status=neq.VOID&limit=1`);
         if(existing?.length) return lib.json(409,{error:`Job is already invoiced as ${existing[0].invoice_number}.`});
       }
       const c=job?.customers||{};
       const name=job?`${c.first_name||''} ${c.last_name||''}`.trim():String(body.client_name||'').trim();
-      const payload={invoice_number:invoiceNo(),job_id:job?.id||null,customer_id:job?.customer_id||null,client_name:name||null,client_email:job?c.email||null:body.client_email||null,client_phone:job?c.phone||null:body.client_phone||null,invoice_date:new Date().toISOString().slice(0,10),due_date:new Date().toISOString().slice(0,10),gst_rate:5,status:'DRAFT',payment_status:'UNPAID',currency:'CAD',note:null};
+      const payload={invoice_number:invoiceNo(),job_id:job?.id||null,customer_id:job?.customer_id||null,client_name:name||null,client_email:job?c.email||null:body.client_email||null,client_phone:job?c.phone||null:body.client_phone||null,invoice_date:new Date().toISOString().slice(0,10),due_date:new Date().toISOString().slice(0,10),gst_rate:5,status:'DRAFT',payment_status:'UNPAID',currency:'CAD',note:job&&job.status!=='COMPLETED'?'Advance invoice for service '+job.reference+'. Payment does not mark the service completed.':null};
       const created=await lib.sbJson('/rest/v1/invoices',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});
       const inv=created?.[0];
       if(!inv) throw new Error('Invoice was not created.');
