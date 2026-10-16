@@ -32,6 +32,8 @@ $branch$;
 begin
   select pg_get_functiondef('public.provider_is_available_for_window(uuid,timestamp with time zone,timestamp with time zone)'::regprocedure)
     into definition;
+  -- Dashboard-installed functions may retain Windows line endings.
+  definition := replace(definition, chr(13), '');
   if position('PLEASE_MULTI_DAY_V1' in definition) > 0 then return; end if;
   if position(original_branch in definition) = 0 then
     raise exception 'Availability function changed: review its live definition before applying this patch.';
