@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=15.8"><link rel="stylesheet" href="css/hero-carousel.css?v=15.21.0">
+  <link rel="stylesheet" href="css/style.css?v=15.8"><link rel="stylesheet" href="css/hero-carousel.css?v=15.22.0">
 </head>
 <body>
   <div class="topbar"><div class="container topbar-inner"><span>✉ <a href="mailto:info@pleaseservice.ca">info@pleaseservice.ca</a></span><span>Calgary &amp; Surrounding Areas · 📞 <a href="tel:+15878362866">587-836-2866</a></span></div></div>
@@ -30,6 +30,10 @@
 
   <main>
     <section class="hero client-hero" id="home">
+          <section class="service-carousel hero-service-carousel" data-service-carousel aria-label="PLEASE services slideshow" aria-roledescription="carousel">
+            <img src="images/services/moving.jpg" alt="PLEASE professionals loading a moving truck" fetchpriority="high" width="1600" height="1200">
+            <div class="service-carousel-bar"><strong data-caption>Moving help</strong><div class="service-carousel-controls"><button type="button" data-prev aria-label="Previous service">←</button><span data-position>1 / 11</span><button type="button" data-next aria-label="Next service">→</button><button type="button" data-pause aria-label="Pause or play slideshow">Pause</button></div></div>
+          </section>
       <div class="container hero-grid client-hero-grid">
         <div class="hero-copy-panel">
           <p class="eyebrow">ANY SERVICE IN ONE PLACE!</p>
@@ -40,10 +44,7 @@
         </div>
 
         <aside class="hero-card client-quote-card">
-          <section class="service-carousel" data-service-carousel aria-label="PLEASE services slideshow" aria-roledescription="carousel">
-            <img src="images/services/moving.jpg" alt="PLEASE professionals loading a moving truck" fetchpriority="high" width="1600" height="1200">
-            <div class="service-carousel-bar"><strong data-caption>Moving help</strong><div class="service-carousel-controls"><button type="button" data-prev aria-label="Previous service">←</button><span data-position>1 / 11</span><button type="button" data-next aria-label="Next service">→</button><button type="button" data-pause aria-label="Pause or play slideshow">Pause</button></div></div>
-          </section>
+
           <form class="quick-form" id="quote-form" name="please-quote" method="POST" data-netlify="true" netlify-honeypot="bot-field" action="/thank-you.html">
             <input type="hidden" name="form-name" value="please-quote">
             <p class="hidden-field"><label>Don’t fill this out: <input name="bot-field"></label></p>
@@ -195,6 +196,6 @@
     <div class="container legal"><span>© 2026 PLEASE Services. All rights reserved.</span><span>Privacy Policy · Terms of Use</span></div>
   <div class="container"><div class="please-social-links" data-please-social hidden></div></div></footer>
   <div class="mobile-bar"><a href="tel:+15878362866">Call</a><a href="sms:+15878362866">SMS</a><a href="payment.html">Pay</a></div>
-  <script src="js/app.js"></script><script src="js/hero-carousel.js?v=15.21.0"></script>
+  <script src="js/app.js"></script><script src="js/hero-carousel.js?v=15.22.0"></script>
 <script src="js/social-links.js"></script></body>
 </html>
