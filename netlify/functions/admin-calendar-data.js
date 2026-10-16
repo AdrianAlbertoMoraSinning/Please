@@ -33,7 +33,7 @@ exports.handler=async event=>{
       optional('services',()=>activeServices(),warnings),
       optional('availability',()=>lib.sbJson('/rest/v1/provider_availability?select=id,provider_id,weekday,start_time,end_time,active&active=eq.true&order=provider_id.asc,weekday.asc,start_time.asc'),warnings),
       optional('availability-exceptions',()=>lib.sbJson(`/rest/v1/provider_availability_exceptions?select=id,provider_id,exception_date,start_time,end_time,exception_type,reason&exception_date=gte.${fromEnc}&exception_date=lte.${toEnc}&order=exception_date.asc,start_time.asc`),warnings),
-      optional('assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=${ASSIGN_SELECT}&scheduled_start=gte.${startEnc}&scheduled_start=lt.${endEnc}&status=in.(${assignmentStatuses})&order=scheduled_start.asc`),warnings),
+      optional('assignments',()=>lib.sbJson(`/rest/v1/job_assignments?select=${ASSIGN_SELECT}&scheduled_end=gt.${startEnc}&scheduled_start=lt.${endEnc}&status=in.(${assignmentStatuses})&order=scheduled_start.asc`),warnings),
       optional('needs-assignment',()=>lib.sbJson('/rest/v1/jobs?select=id,reference,service_id,service_name,work_address,work_description,estimated_duration_minutes,status,customer_id,source_service_request_id,created_at,customers(first_name,last_name,phone,email)&status=eq.NEEDS_ASSIGNMENT&order=created_at.asc'),warnings),
       optional('provider-rates',()=>activeProviderRates(),warnings),
       optional('schedule-changes',()=>lib.sbJson('/rest/v1/assignment_schedule_change_requests?select=id,assignment_id,job_id,provider_id,current_start,current_end,proposed_start,proposed_end,provider_reason,status,admin_note,created_at,updated_at&status=eq.PENDING&order=created_at.asc'),warnings)

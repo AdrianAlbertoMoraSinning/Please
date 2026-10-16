@@ -1,6 +1,7 @@
 const lib=require('./_admin-lib');
 const notify=require('./_notify-lib');
 const {billingTerms}=require('./_billing-mode-lib');
+const period=require('../../js/service-period');
 const money=n=>Math.round((Number(n)||0)*100)/100;
 async function notifyAssignment(assignmentId,kind='NEW',messageOverride=''){
   try{
@@ -419,6 +420,7 @@ exports.handler=async event=>{
       const additionalDay=await additionalDayFromPayload(payload);
       if(!Array.isArray(payload.assignments)||!payload.assignments.length)return lib.json(400,{error:'Add at least one provider assignment.'});
       const seen=new Set();
+      for(const a of payload.assignments){if(!validQuarterHourIso(a.scheduled_start)||!validQuarterHourIso(a.scheduled_end))return lib.json(400,{error:'Provider schedules must use valid dates and 15-minute increments.'});const start=period.parts(a.scheduled_start),end=period.parts(a.scheduled_end),mins=period.duration(start.date,start.time,end.date,end.time);if(!mins||mins>44640)return lib.json(400,{error:'Service period must be 15 minutes to 31 days.'});if(start.date!==end.date&&(a.billing_items||[]).some(x=>x.unit==='hour'))return lib.json(400,{error:'Multi-day service periods require Flat Rate or Quantity billing.'});}
       for(let i=0;i<payload.assignments.length;i++){const pid=String(payload.assignments[i]?.provider_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(pid))return lib.json(400,{error:`Select Provider ${i+1}.`});if(seen.has(pid))return lib.json(400,{error:'The same Provider cannot be added twice to one Job.'});seen.add(pid);}
       const validations=await Promise.all(payload.assignments.map(a=>validateBillingItems(String(a.provider_id||'').trim(),a.billing_items,Boolean(payload.allow_nonpositive_margin))));
       const rateChanges=[];validations.forEach((validated,i)=>{payload.assignments[i].billing_items=validated.rows;rateChanges.push(...validated.rateChanges);});
