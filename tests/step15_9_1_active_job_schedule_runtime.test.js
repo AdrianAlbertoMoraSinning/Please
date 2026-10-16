@@ -33,6 +33,7 @@ const fakeLib={
   if(url.startsWith('/rest/v1/jobs?id=eq.')&&method==='PATCH')return null;
   if(url.startsWith('/rest/v1/service_requests?id=eq.')&&method==='PATCH')return null;
   if(['/rest/v1/assignment_status_history','/rest/v1/job_status_history','/rest/v1/service_request_status_history'].includes(url))return null;
+  if(url.startsWith('/rest/v1/invoices?')&&method==='GET')return [];
   throw new Error(`Unexpected ${method} ${url}`);
  }
 };
