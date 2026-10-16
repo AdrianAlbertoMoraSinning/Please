@@ -107,6 +107,14 @@ async function updateActiveJob({actorId,jobId,assignmentId=null,applyToTeam=true
     const o={};if(Object.prototype.hasOwnProperty.call(raw,'unit'))o.unit=raw.unit;if(Object.prototype.hasOwnProperty.call(raw,'quantity'))o.quantity=raw.quantity;if(Object.prototype.hasOwnProperty.call(raw,'customer_unit_rate'))o.customer_unit_rate=raw.customer_unit_rate;if(Object.prototype.hasOwnProperty.call(raw,'provider_unit_rate'))o.provider_unit_rate=raw.provider_unit_rate;billingPatch(row,row.quantity,o);overrideMap.set(id,o);
   }
   const billingToUpdate=[...(billing||[]).filter(x=>hourly.some(h=>h.id===x.id)||overrideMap.has(x.id))];
+  const financialChanges=billingToUpdate.some(row=>{
+    const proposed=billingPatch(row,hourly.some(h=>h.id===row.id)?money(duration/60):row.quantity,overrideMap.get(row.id)||{});
+    return proposed.unit!==row.unit||proposed.quantity!==money(row.quantity)||proposed.customer_unit_rate!==money(row.customer_unit_rate??row.unit_rate)||proposed.provider_unit_rate!==(row.provider_unit_rate==null?null:money(row.provider_unit_rate));
+  });
+  if(financialChanges){
+    const issued=await lib.sbJson(`/rest/v1/invoices?select=id&job_id=eq.${encodeURIComponent(jobId)}&status=not.in.(DRAFT,VOID)&limit=1`);
+    if(issued?.length)throw Object.assign(new Error('This service already has an issued invoice. Its agreed billing is locked; review the invoice before changing charges.'),{status:409});
+  }
   const snapshots={assignments:targets.map(x=>({...x})),billing:billingToUpdate.map(x=>({...x})),job:{...job},request:null};
   let sourceRequest=null;
   if(syncSourceRequest&&job.source_service_request_id){
